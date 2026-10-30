@@ -1,10 +1,23 @@
 'use strict';
 
 /**
- * Identidade visual da VANTUS.
- * Cores inspiradas no Discord Dark Mode com destaques em laranja, rosa e roxo.
+ * Paleta da identidade visual da VANTUS (referência dos painéis).
+ * Superfícies pretas/cinza-escuro com destaque em vermelho.
  */
+const PALETTE = {
+  INK: 0x090a0b, // fundo da página/mensagem
+  BLACK: 0x000000, // corpo do container do painel
+  SURFACE: 0x1a1b1d, // cards internos e botões
+  BORDER: 0x252629, // bordas e divisórias
+  TEXT: 0xe6e6e6, // texto principal
+  MUTED: 0xacaeb1, // texto secundário
+  RED: 0xff2200, // destaque da marca
+  RED_DEEP: 0xd31e03, // vermelho profundo (realce/hover)
+};
+
 const COLORS = {
+  /** Destaque principal dos painéis (barra lateral, embeds e títulos). */
+  ACCENT: PALETTE.RED,
   ORANGE: 0xff7a18,
   PINK: 0xff2d95,
   PURPLE: 0x8b5cf6,
@@ -97,6 +110,7 @@ const RATING_META = {
 };
 
 module.exports = {
+  PALETTE,
   COLORS,
   BRAND,
   EMOJI,

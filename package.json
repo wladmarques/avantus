@@ -15,7 +15,9 @@
     "lint": "node scripts/check-syntax.js",
     "check:tracked": "node scripts/check-tracked.js",
     "package": "node scripts/package.js",
-    "preview:panel": "node scripts/preview-panel.js"
+    "preview:panel": "node scripts/preview-panel.js",
+    "preview:staff": "node scripts/preview-staff.js",
+    "preview": "npm run preview:panel && npm run preview:staff"
   },
   "keywords": [
     "discord",

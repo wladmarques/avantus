@@ -6,19 +6,18 @@
 <title>VANTUS • Painel de atendimento</title>
 <style>
   :root {
-    --page: #0a0a0c;
-    --panel-outer: #0e0e11;
-    --panel-inner: #141519;
-    --card: #1c1e24;
-    --card-2: #191b20;
-    --line: #26282f;
-    --text: #f5f6f7;
-    --muted: #9aa1ab;
-    --dim: #6f757e;
+    --page: #090a0b;
+    --panel-outer: #000000;
+    --panel-inner: #0b0c0d;
+    --card: #1a1b1d;
+    --card-2: #141517;
+    --line: #252629;
+    --text: #e6e6e6;
+    --muted: #acaeb1;
+    --dim: #7c8085;
+    --accent: #ff2200;
+    --accent-deep: #d31e03;
     --green: #3ba55d;
-    --green-soft: #57d68a;
-    --green-btn: #14361f;
-    --orange: #ff7a18;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--page); }
@@ -30,14 +29,20 @@
   }
   .wrap { max-width: 660px; margin: 0 auto; }
 
+  .links { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .links a {
+    color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 600;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px;
+  }
+  .links a.active { color: var(--text); border-color: var(--accent); }
   .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .toolbar button {
-    background: #17181c; color: var(--muted); border: 1px solid var(--line);
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
     border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600;
     cursor: pointer; transition: .15s ease;
   }
   .toolbar button:hover { color: var(--text); }
-  .toolbar button.active { background: #23252c; color: var(--text); border-color: #343740; }
+  .toolbar button.active { background: #23252c; color: var(--text); border-color: var(--accent); }
 
   /* Mensagem do Discord */
   .message { display: block; }
@@ -51,7 +56,7 @@
     margin-top: 9px;
     background: var(--panel-outer);
     border: 1px solid var(--line);
-    border-left: 4px solid var(--orange);
+    border-left: 4px solid var(--accent);
     border-radius: 12px;
     padding: 18px 18px 16px;
     box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
@@ -62,6 +67,7 @@
     margin: 0; font-size: 25px; line-height: 1.15; font-weight: 800;
     letter-spacing: .2px; text-transform: uppercase;
   }
+  .head h1 .icon { color: var(--accent); }
   .head h1 .icon { font-weight: 400; margin-right: 8px; }
   .head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
@@ -69,7 +75,7 @@
   .panel {
     margin-top: 16px;
     background: var(--panel-inner);
-    border: 1px solid #1f2127;
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: 12px;
   }
@@ -84,7 +90,7 @@
     background: var(--green);
     box-shadow: 0 0 0 3px rgba(59, 165, 93, .14);
   }
-  .dot.off { background: #e05a5a; box-shadow: 0 0 0 3px rgba(224, 90, 90, .14); }
+  .dot.off { background: var(--accent); box-shadow: 0 0 0 3px rgba(255, 34, 0, .16); }
   .dot.wait { background: #e0b23a; box-shadow: 0 0 0 3px rgba(224, 178, 58, .14); }
   .status-text { min-width: 0; }
   .status-label {
@@ -101,13 +107,13 @@
   }
   .card {
     background: var(--card);
-    border: 1px solid #22242b;
+    border: 1px solid var(--line);
     border-radius: 8px;
     padding: 11px 13px 13px;
   }
   .card-bar {
     width: 26px; height: 3px; border-radius: 2px;
-    background: var(--green); margin-bottom: 10px;
+    background: var(--accent); margin-bottom: 10px;
   }
   .card-label {
     font-size: 10px; font-weight: 700; letter-spacing: .06em;
@@ -125,7 +131,7 @@
   }
   .schedule-label {
     font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
-    text-transform: uppercase; color: var(--green-soft); white-space: nowrap;
+    text-transform: uppercase; color: var(--accent); white-space: nowrap;
   }
   .schedule-values { text-align: right; font-size: 11.5px; color: var(--muted); line-height: 1.55; white-space: nowrap; }
 
@@ -139,16 +145,16 @@
   .footer-text { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.55; max-width: 46ch; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
-    background: var(--green-btn); color: var(--green-soft);
-    border: 1px solid #1d4a2b; border-radius: 8px;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
     padding: 10px 16px; font-size: 13px; font-weight: 700;
     cursor: default; white-space: nowrap; flex: 0 0 auto;
   }
   .hints { margin-top: 12px; font-size: 10.5px; color: var(--dim); }
-  .hints code { background: #17181c; border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
+  .hints code { background: var(--card-2); border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
 
   .note {
-    margin-top: 22px; padding-top: 14px; border-top: 1px solid #1c1e23;
+    margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line);
     color: var(--dim); font-size: 11.5px; line-height: 1.6;
   }
 
@@ -164,6 +170,10 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="links">
+    <a href="panel.html" class="active">Painel público</a>
+    <a href="staff.html">Painel da equipe</a>
+  </div>
   <div class="toolbar" id="toolbar"></div>
 
   <div class="message">

@@ -107,7 +107,7 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
   ];
 
   const embed = {
-    color: COLORS.PURPLE,
+    color: COLORS.ACCENT,
     title: '🛡️ PAINEL DA EQUIPE | VANTUS',
     description: desc,
     fields,

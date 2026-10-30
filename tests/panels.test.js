@@ -41,7 +41,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
 
   const container = message.payload.components[0];
   assert.equal(container.type, 17, 'container único');
-  assert.equal(container.accent_color, 0xff7a18, 'barra de destaque laranja');
+  assert.equal(container.accent_color, 0xff2200, 'barra de destaque na cor da marca (#ff2200)');
 
   // cabeçalho compacto e sem avatar/thumbnail (remoção pedida na revisão visual)
   const header = container.components[0];
@@ -54,7 +54,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   );
   assert.ok(footerSection, 'seção com botão como accessory');
   assert.equal(footerSection.accessory.custom_id, 'pub:join');
-  assert.equal(footerSection.accessory.style, 3, 'botão verde (sucesso)');
+  assert.equal(footerSection.accessory.style, 2, 'botão na superfície neutra da paleta (Secondary)');
 
   // indicadores em uma linha compacta, sem emojis e sem etiquetas de código
   const stats = container.components.find(

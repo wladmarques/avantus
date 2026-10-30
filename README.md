@@ -26,10 +26,11 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 ## Recursos implementados
 
 **Fila e atendimento**
-- Painel público em **Components V2**: card escuro com barra laranja, cabeçalho compacto, bloco de
-  status (disponível/indisponível), indicadores linha, faixa de horário e botão **Entrar na fila**
-  à direita — layout clássico em embed por configuração (`panel_style`). Prévia fiel do layout em
-  `npm run preview:panel`.
+- Painel público em **Components V2**: card escuro com barra vermelha `#ff2200` (paleta da marca),
+  cabeçalho compacto, bloco de status (disponível/indisponível), indicadores em linha, faixa de
+  horário e botão **Entrar na fila** à direita — layout clássico em embed por configuração
+  (`panel_style`). Painel da equipe no mesmo esquema de cores. Prévias locais em
+  `npm run preview` (público + staff).
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
 - Fila sincronizada com a voz **nos dois sentidos**: entrar na fila move para o canal de espera e
   entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
@@ -170,12 +171,12 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 
 ```bash
 npm start                 # inicia o bot
-npm test                  # roda os 52 testes
+npm test                  # roda os 76 testes
 npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
 npm run package           # gera o .zip de deploy para a SquareCloud
-npm run preview:panel     # gera preview/panel.html com o layout real do painel
+npm run preview           # gera preview/panel.html e preview/staff.html (layout e cores reais)
 ```
 
 O pacote gerado (`entrega/vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`,

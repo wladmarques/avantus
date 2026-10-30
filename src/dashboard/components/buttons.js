@@ -70,27 +70,29 @@ const IDs = {
 function publicPanelComponents() {
   return [
     actionRow([
-      button(IDs.PUBLIC_JOIN, 'ENTRAR NA FILA', { style: STYLES.SUCCESS, emoji: '🎫' }),
-      button(IDs.PUBLIC_LEAVE, 'SAIR DA FILA', { style: STYLES.DANGER, emoji: '❌' }),
+      button(IDs.PUBLIC_JOIN, 'ENTRAR NA FILA', { style: STYLES.SECONDARY, emoji: '🎫' }),
+      button(IDs.PUBLIC_LEAVE, 'SAIR DA FILA', { style: STYLES.SECONDARY, emoji: '❌' }),
       button(IDs.PUBLIC_STATUS, 'MINHA POSIÇÃO', { style: STYLES.SECONDARY, emoji: '📊' }),
     ]),
   ];
 }
 
 function staffPanelComponents({ hasQueue = false, hasServing = false, hasHold = false } = {}) {
+  // Paleta da referência: todos os botões na mesma superfície escura neutra,
+  // diferenciados pelo ícone (o Discord não permite cor personalizada nos botões).
   return [
     actionRow([
-      button(IDs.STAFF_CALL_NEXT, 'CHAMAR PRÓXIMO', { style: STYLES.SUCCESS, emoji: '📞', disabled: !hasQueue }),
-      button(IDs.STAFF_CALL_SPECIFIC, 'CHAMAR ESPECÍFICO', { style: STYLES.PRIMARY, emoji: '👤', disabled: !hasQueue }),
+      button(IDs.STAFF_CALL_NEXT, 'CHAMAR PRÓXIMO', { style: STYLES.SECONDARY, emoji: '📞', disabled: !hasQueue }),
+      button(IDs.STAFF_CALL_SPECIFIC, 'CHAMAR ESPECÍFICO', { style: STYLES.SECONDARY, emoji: '👤', disabled: !hasQueue }),
       button(IDs.STAFF_SKIP, 'PULAR JOGADOR', { style: STYLES.SECONDARY, emoji: '⏭️', disabled: !hasQueue }),
     ]),
     actionRow([
       button(IDs.STAFF_RETURN, 'DEVOLVER À FILA', { style: STYLES.SECONDARY, emoji: '🔄', disabled: !hasServing }),
-      button(IDs.STAFF_FINISH, 'FINALIZAR', { style: STYLES.SUCCESS, emoji: '✅', disabled: !hasServing }),
-      button(IDs.STAFF_REMOVE, 'REMOVER DA FILA', { style: STYLES.DANGER, emoji: '🚫', disabled: !hasQueue && !hasServing }),
+      button(IDs.STAFF_FINISH, 'FINALIZAR', { style: STYLES.SECONDARY, emoji: '✅', disabled: !hasServing }),
+      button(IDs.STAFF_REMOVE, 'REMOVER DA FILA', { style: STYLES.SECONDARY, emoji: '🚫', disabled: !hasQueue && !hasServing }),
     ]),
     actionRow([
-      button(IDs.STAFF_MY_STATUS, 'MEU STATUS', { style: STYLES.PRIMARY, emoji: '🟢' }),
+      button(IDs.STAFF_MY_STATUS, 'MEU STATUS', { style: STYLES.SECONDARY, emoji: '🟢' }),
       button(IDs.STAFF_REACTIVATE, 'REATIVAR PENDENTE', { style: STYLES.SECONDARY, emoji: '▶️', disabled: !hasHold }),
       button(IDs.STAFF_REFRESH, 'ATUALIZAR PAINEL', { style: STYLES.SECONDARY, emoji: '🔄' }),
     ]),

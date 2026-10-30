@@ -183,7 +183,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
           ['**🎧 Fila por canal de voz**', `-# ${waitChannel}Você será movido automaticamente quando houver staff disponível. ${exitNote}`].join('\n'),
         ),
       ],
-      accessory: button('pub:join', 'Entrar na Fila', 3, '🎟️'),
+      accessory: button('pub:join', 'Entrar na Fila', 2, '🎟️'),
     },
     text('-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'),
   ];
@@ -192,7 +192,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     format: 'v2',
     payload: {
       flags: COMPONENTS_V2_FLAG,
-      components: [card(open ? COLORS.ORANGE : COLORS.MUTED, components)],
+      components: [card(open ? COLORS.ACCENT : COLORS.MUTED, components)],
     },
   };
 }
@@ -217,7 +217,7 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
   ];
 
   const embed = {
-    color: open ? COLORS.ORANGE : COLORS.MUTED,
+    color: open ? COLORS.ACCENT : COLORS.MUTED,
     title: titleWithIcon(settings.message_panel_title),
     description: [
       settings.message_panel_description,

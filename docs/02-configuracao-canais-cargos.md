@@ -125,26 +125,56 @@ equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
 | `stats_ranking_min_sample` | `3` | Mínimo de atendimentos para o ranking |
 | `hidden_channels` | `false` | Modo discreto (sem menções em canais) |
 
+## Paleta de cores da identidade
+
+Todos os painéis e botões usam a mesma paleta (fonte única: `src/config/theme.js` → `PALETTE`):
+
+| Token | Hex | Uso |
+| --- | --- | --- |
+| `INK` | `#090a0b` | fundo da área da mensagem |
+| `BLACK` | `#000000` | corpo do card do painel |
+| `SURFACE` | `#1a1b1d` | cards internos, faixa de horário e botões |
+| `BORDER` | `#252629` | bordas e divisórias |
+| `TEXT` | `#e6e6e6` | texto principal |
+| `MUTED` | `#acaeb1` | texto secundário |
+| `RED` / `COLORS.ACCENT` | `#ff2200` | barra de destaque, realces e ícones |
+| `RED_DEEP` | `#d31e03` | realce/hover |
+
+> O Discord não permite escolher a cor de um botão: todos usam o estilo **Secondary**
+> (superfície cinza-escura), como na referência. O vermelho da marca aparece na barra do card
+> (Components V2) e na barra do embed, além dos ícones e títulos.
+
 ## Estilo do painel público
 
 O painel público usa **Components V2** (`panel_style=modern`) num único card escuro com:
 
-- barra de destaque **laranja** à esquerda (identidade VANTUS);
+- barra de destaque **vermelha `#ff2200`** à esquerda (identidade VANTUS);
 - cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS** + descrição curta (sem avatar);
 - bloco de status com indicador circular e manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL**;
 - indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO • ESPERA MÉDIA**, sem emojis;
 - faixa **HORÁRIO DE ATENDIMENTO** com as janelas agrupadas por dia;
-- divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita;
+- divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita
+  (superfície escura neutra da paleta, ícone 🎟️);
 - os comandos `/sair` e `/posicao` aparecem como dica discreta (sem botões extras).
 
 > **Limitação da API do Discord:** containers não podem ser aninhados nem organizados em colunas.
 > A referência visual completa (painel interno + 4 cards lado a lado) está disponível em
 > `npm run preview:panel`; no Discord o bot publica a versão compacta equivalente, com os mesmos dados.
 
+Prévias locais (abrem no navegador, com os dois painéis):
+
+```bash
+npm run preview          # gera preview/panel.html e preview/staff.html
+npm run preview:panel    # apenas o painel público
+npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
+```
+
 - Ao trocar o estilo, o bot **apaga a mensagem antiga e publica a nova** (não ficam dois painéis).
 - Se a API do Discord recusar Components V2, o bot publica automaticamente o layout clássico e
   registra um aviso no log.
-- O painel da staff continua em embed (é um painel denso, de leitura interna).
+- O painel da staff continua em embed (é um painel denso, de leitura interna), com a barra de
+  destaque em `#ff2200` e os mesmos botões na superfície escura da paleta — prévia em
+  `npm run preview:staff`.
 
 ## Mensagens editáveis
 

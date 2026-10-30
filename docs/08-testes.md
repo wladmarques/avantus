@@ -19,7 +19,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/attendance.test.js` | chamada + movimentação, presença, finalização + avaliação, avaliação única, devolução à fila, políticas de pulo, motivo obrigatório, não compareceu, staff saiu, limpeza de fila |
 | `tests/voice.test.js` | presença por evento de voz, desconexão com tolerância, staff conectado/desconectado, staff que não retorna, jogador sai da espera |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |
-| `tests/panels.test.js` | painel V2 (container único, barra laranja, sem avatar, indicadores sem emojis, botão único), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
+| `tests/panels.test.js` | painel V2 (container único, barra `#ff2200`, sem avatar, indicadores sem emojis, botão único neutro), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |
 | `tests/schedule.test.js` | janelas normais, fechamento, virada de madrugada, dia sem janela, fuso de São Paulo, períodos |
 | `tests/cooldown.test.js` | bloqueio de 10 min ao desistir, DM com tempo restante, expulsão do canal de espera, expiração, staff não gera bloqueio, configuração 0/3 min, `/fila liberar` |
