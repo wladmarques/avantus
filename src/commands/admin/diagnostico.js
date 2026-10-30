@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, GatewayIntentBits } = require('discord.js');
 const { respond, ephemeral } = require('../../handlers/respond');
 const { card } = require('../../dashboard/embeds/cards');
 const { COLORS } = require('../../config/theme');
@@ -47,6 +47,54 @@ module.exports = {
         if (channel?.type === 2) ok += 1;
       }
       push(ok === settings.attendance_channel_ids.length, 'Canais de atendimento', `${ok}/${settings.attendance_channel_ids.length} válidos`);
+    }
+
+    // ---- fila por voz (entrada automática ao entrar no canal de espera) ----
+    const currentGuildId = interaction.guildId;
+    if (settings.guild_id && settings.guild_id !== currentGuildId) {
+      push(
+        false,
+        'Servidor do evento de voz',
+        `guild_id configurado (${settings.guild_id}) é diferente deste servidor — a fila por voz é ignorada`,
+      );
+    }
+
+    const voiceIntent = discord?.options?.intents;
+    const hasVoiceIntent = Boolean(voiceIntent?.has?.(GatewayIntentBits.GuildVoiceStates));
+    push(hasVoiceIntent, 'Evento de voz (GuildVoiceStates)', hasVoiceIntent ? 'ativo' : 'AUSENTE — ative no código/portal');
+
+    const autoJoin = settings.auto_queue_on_voice_join;
+    push(
+      autoJoin === true,
+      'Entrada automática pelo canal de espera',
+      autoJoin === true
+        ? 'ligada'
+        : 'DESLIGADA — use `/config definir` para ligar (sem isso, só o botão Entrar na Fila funciona)',
+    );
+
+    push(
+      settings.leave_queue_on_wait_exit === true,
+      'Saída automática ao sair do canal de espera',
+      settings.leave_queue_on_wait_exit === true ? 'ligada' : 'desligada',
+    );
+
+    const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
+    push(
+      true,
+      'Bloqueio de reentrada',
+      cooldownMinutes > 0 ? `${cooldownMinutes} min após desistir antes de ser chamado` : 'desligado',
+    );
+
+    const holdCount = services.repositories.attendance.countByStatusSync(guildId, 'hold');
+    push(
+      holdCount === 0,
+      'Registros pendentes (hold)',
+      holdCount === 0 ? 'nenhum' : `${holdCount} jogador(es) — eles não entram na fila automaticamente`,
+    );
+
+    const blocked = services.repositories.cooldowns.listActiveSync(guildId);
+    if (blocked.length > 0) {
+      push(false, 'Jogadores em bloqueio', `${blocked.length} aguardando liberar`);
     }
 
     push(settings.staff_role_ids.length > 0, 'Cargos de staff', `${settings.staff_role_ids.length} configurado(s)`);

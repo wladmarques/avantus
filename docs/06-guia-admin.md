@@ -118,6 +118,16 @@ motivo de encerramento e a linha do tempo de eventos (auditoria).
 **Resultados possíveis:** ATENDIMENTO CONCLUÍDO, JOGADOR DESISTIU, JOGADOR DESCONECTOU,
 STAFF DESCONECTOU, ATENDIMENTO CANCELADO, JOGADOR REMOVIDO, JOGADOR NÃO COMPARECEU.
 
+## Jogador entrou no canal de espera e não entrou na fila
+
+1. Rode `/diagnostico` e confira o bloco de **fila por voz** (canal de espera, entrada automática,
+   registros pendentes, bloqueios ativos e permissões).
+2. Veja o log com escopo `voice`/`attendance`: cada tentativa registra `[voz] …` com o motivo.
+3. Causas comuns: canal de espera recriado sem atualizar `wait_channel_id`, jogador com bloqueio de
+   reentrada, cargo de staff no jogador, fila cheia (`max_queue_size`) ou central fechada no horário.
+4. O jogador sempre recebe uma DM quando a entrada automática falha — pedir o print ajuda a
+   identificar a causa na hora.
+
 ## Configurações
 
 ```

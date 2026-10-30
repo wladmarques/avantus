@@ -54,6 +54,7 @@ class AttendanceEngine {
     this.cooldowns = cooldowns;
     this.timers = new Map();
     this.positionCooldowns = new Map();
+    this.warnedMissingWaitChannel = false;
   }
 
   /* ==================================================================== */
@@ -994,14 +995,29 @@ class AttendanceEngine {
     }
 
     // 1) Entrou no canal de espera sem estar na fila → entra automaticamente
-    if (
-      !isStaff &&
-      !active &&
-      channelId &&
-      waitChannelId &&
-      channelId === waitChannelId &&
-      this.settings.get('auto_queue_on_voice_join')
-    ) {
+    const joinedWaitChannel = Boolean(channelId) && Boolean(waitChannelId) && channelId === waitChannelId;
+
+    if (channelId && !waitChannelId) {
+      // Sem o canal configurado ninguém entra na fila pela voz: avisa uma vez no log.
+      this._warnMissingWaitChannel();
+    }
+
+    if (!isStaff && !active && channelId && !joinedWaitChannel) {
+      logger.debug(
+        `[voz] ${displayName ?? userId} entrou no canal ${channelId}; ` +
+          `canal de espera configurado: ${waitChannelId ?? 'NENHUM'} — sem entrada automática.`,
+      );
+    }
+
+    if (!isStaff && !active && joinedWaitChannel) {
+      if (!this.settings.get('auto_queue_on_voice_join')) {
+        logger.info(
+          `[voz] ${displayName ?? userId} entrou no canal de espera, mas ` +
+            '`auto_queue_on_voice_join` está desligado — não entrou na fila.',
+        );
+        return { skipped: 'entrada automática desativada' };
+      }
+
       try {
         const created = await this.joinQueue({
           guildId,
@@ -1031,9 +1047,36 @@ class AttendanceEngine {
               nextOpen: this.schedule.isOpen(guildId).nextOpen,
             }),
           );
-          return null;
+          return { skipped: 'central fechada' };
         }
-        throw error;
+        if (error.code === ERRORS.EM_COOLDOWN) {
+          await this._effect('remover do canal de espera', () =>
+            this.gateway.disconnectFromVoice(guildId, userId),
+          );
+          await this._effect('avisar bloqueio', () =>
+            this.notifications.cooldownBlocked({
+              guildId,
+              userId,
+              remainingSeconds: error.meta?.remainingSeconds ?? 0,
+              minutes: this.cooldowns?.minutes ?? 0,
+            }),
+          );
+          logger.info(
+            `[voz] ${displayName ?? userId} entrou no canal de espera durante o bloqueio de reentrada — removido do canal.`,
+          );
+          return { skipped: 'bloqueio de reentrada', remainingSeconds: error.meta?.remainingSeconds ?? 0 };
+        }
+
+        // Qualquer outra falha precisa chegar ao jogador (antes: silêncio total).
+        logger.warn(`[voz] falha ao entrar na fila automaticamente (${userId}): ${error.message}`);
+        await this._effect('avisar falha de entrada', () =>
+          this.notifications.voiceJoinFailed({
+            guildId,
+            userId,
+            reason: error.userMessage || error.message,
+          }),
+        );
+        return { skipped: 'erro', code: error.code ?? null };
       }
     }
 
@@ -1486,6 +1529,16 @@ class AttendanceEngine {
       );
       // primeiro aviso já registra a posição atual
     }
+  }
+
+  /** Avisa (uma única vez por execução) que o canal de espera não está configurado. */
+  _warnMissingWaitChannel() {
+    if (this.warnedMissingWaitChannel) return;
+    this.warnedMissingWaitChannel = true;
+    logger.warn(
+      'wait_channel_id não configurado: ninguém entra na fila automaticamente pelo canal de voz. ' +
+        'Rode /setup ou defina o canal com /config.',
+    );
   }
 
   async _effect(label, fn) {

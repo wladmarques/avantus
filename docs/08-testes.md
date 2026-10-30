@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 76 testes (node:test), sem token e sem internet
+npm test             # 85 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -18,6 +18,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/queue.test.js` | entrada, protocolo/posição, duplicidade, central fechada, desistência, saída do servidor, chamada sem voz, **duas chamadas simultâneas**, staff ocupado, fila vazia |
 | `tests/attendance.test.js` | chamada + movimentação, presença, finalização + avaliação, avaliação única, devolução à fila, políticas de pulo, motivo obrigatório, não compareceu, staff saiu, limpeza de fila |
 | `tests/voice.test.js` | presença por evento de voz, desconexão com tolerância, staff conectado/desconectado, staff que não retorna, jogador sai da espera |
+| `tests/voiceAutoJoin.test.js` | fluxo real do evento `voiceStateUpdate` (entra na fila ao entrar no canal de espera), servidor divergente, entrada automática desligada, canal de espera ausente, outro canal de voz, fila cheia com aviso ao jogador, bloqueio de reentrada, membro fora do cache |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |
 | `tests/panels.test.js` | painel V2 (container único, barra `#ff2200`, sem avatar, indicadores sem emojis, botão único neutro), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |

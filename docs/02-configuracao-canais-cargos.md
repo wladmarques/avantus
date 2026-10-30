@@ -77,6 +77,26 @@ Regras:
 > clicar em **Entrar na fila** sem estar em nenhum canal, ele recebe a instrução no privado para
 > entrar em **AGUARDANDO ATENDIMENTO** (e entra na fila assim que entrar no canal).
 
+### O jogador entrou no canal de espera e não entrou na fila
+
+A entrada automática só acontece quando **todas** as condições abaixo são verdadeiras. O bot
+registra o motivo no log (`[voz] …`) e o `/diagnostico` mostra o estado de cada uma:
+
+| Condição | Como conferir / corrigir |
+| --- | --- |
+| `wait_channel_id` aponta para o canal **AGUARDANDO ATENDIMENTO** | `/diagnostico` → *Canal de espera*; refaça com `/setup` se o canal foi recriado |
+| O jogador entrou **nesse** canal (não em outro de voz) | log `[voz] … entrou no canal X; canal de espera configurado: Y` |
+| `auto_queue_on_voice_join` está ligado | `/diagnostico` → *Entrada automática pelo canal de espera*; `/config definir chave:auto_queue_on_voice_join valor:true` |
+| A central está **aberta** no horário configurado | o jogador recebe DM de central fechada |
+| O jogador **não** está bloqueado por reentrada | `/fila ver` lista os bloqueados; `/fila liberar jogador:@x` |
+| O jogador **não** tem registro pendente (`hold`) nem atendimento em andamento | `/diagnostico` → *Registros pendentes (hold)* |
+| O jogador **não** é da equipe (cargo de staff/admin) | staff e administradores nunca entram na fila automaticamente |
+| `guild_id` é o mesmo servidor do evento | `/diagnostico` avisa quando diverge |
+| O bot tem a permissão **Mover membros** e o intent de voz ativo | `/diagnostico` → *Permissões do bot* / *Evento de voz* |
+
+> Qualquer outra falha (fila cheia, erro inesperado) agora gera **mensagem privada** ao jogador —
+> antes ele ficava no canal sem saber o que aconteceu.
+
 ### Bloqueio de reentrada (anti-abandono)
 
 Quem entra na fila (pelo painel **ou** pelo canal de voz) e sai **antes de ser chamado** fica

@@ -203,6 +203,25 @@ class NotificationService {
     );
   }
 
+  /** Aviso ao jogador quando a entrada automática pela voz não deu certo. */
+  voiceJoinFailed({ guildId, userId, reason }) {
+    const embed = card({
+      title: '⚠️ Não foi possível entrar na fila',
+      description: [
+        'Você entrou no canal de espera, mas **não consegui te colocar na fila**.',
+        '',
+        reason ? `**Motivo:** ${reason}` : null,
+        '',
+        'Tente novamente pelo botão **Entrar na Fila** no painel ou use `/entrar`.',
+        'Se o problema continuar, avise a equipe.',
+      ]
+        .filter((line) => line !== null)
+        .join('\n'),
+      color: COLORS.WARNING,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
   /** Aviso no canal de espera / painel público (texto curto, sem spam). */
   async announce(guildId, channelId, content) {
     if (!channelId) return;
