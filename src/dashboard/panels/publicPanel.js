@@ -128,6 +128,9 @@ function buildPublicPanelV2({ settings, state, schedule, iconUrl = null, now = n
   const waitChannel = settings.wait_channel_id
     ? `Entre em <#${settings.wait_channel_id}> para aguardar atendimento. `
     : 'Entre no canal de voz de espera. ';
+  const exitNote = settings.leave_queue_on_wait_exit === false
+    ? 'Sair do canal não remove você da fila.'
+    : 'Sair da espera remove você da fila.';
 
   const footer = {
     type: 9,
@@ -135,7 +138,7 @@ function buildPublicPanelV2({ settings, state, schedule, iconUrl = null, now = n
       text(
         [
           '**🎙️ Fila por canal de voz**',
-          `-# ${waitChannel}Você será movido automaticamente quando um staff estiver disponível.`,
+          `-# ${waitChannel}Você será movido automaticamente quando um staff estiver disponível. ${exitNote}`,
         ].join('\n'),
       ),
     ],

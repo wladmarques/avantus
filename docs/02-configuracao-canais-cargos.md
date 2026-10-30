@@ -59,10 +59,30 @@ Regras:
 - `central_manual` (`auto` | `open` | `closed`) sobrepõe a agenda. Use `/central abrir|fechar` ou
   `/config definir chave:central_manual valor:auto` para voltar ao automático.
 
+## Fila e canal de voz (sincronizados nos dois sentidos)
+
+| Ação do jogador | O que o bot faz |
+| --- | --- |
+| Clica em **Entrar na fila** (painel/comando) | registra o protocolo e **move para o canal de espera** |
+| **Entra no canal de espera** | **entra na fila automaticamente** (gera protocolo e envia DM) |
+| Sai do canal de espera | **sai da fila** (desistência), salvo se `leave_queue_on_wait_exit=false` |
+| É chamado por um staff | vai para o canal de atendimento e a presença é confirmada |
+
+```bash
+/config definir chave:auto_queue_on_voice_join valor:false   # exige o clique no painel
+/config definir chave:leave_queue_on_wait_exit valor:false   # sair do canal não remove da fila
+```
+
+> O bot nunca move alguém para um canal sem a pessoa estar conectada em voz: se o jogador
+> clicar em **Entrar na fila** sem estar em nenhum canal, ele recebe a instrução no privado para
+> entrar em **AGUARDANDO ATENDIMENTO** (e entra na fila assim que entrar no canal).
+
 ## Comportamento da fila e do atendimento
 
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
+| `auto_queue_on_voice_join` | `true` | Entrar no canal de espera coloca o jogador na fila automaticamente |
+| `leave_queue_on_wait_exit` | `true` | Sair do canal de espera remove o jogador da fila |
 | `max_queue_size` | `0` | Limite de jogadores na fila (0 = ilimitado) |
 | `max_wait_minutes` | `0` | Remove quem esperar mais que isso (0 = sem limite) |
 | `skip_policy` | `end` | `end` = pulado vai ao final; `hold` = fica pendente |

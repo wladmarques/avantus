@@ -40,13 +40,17 @@ module.exports = {
         });
       }
 
-      await services.attendance.handlePlayerVoiceUpdate({
-        guildId,
-        userId,
-        channelId,
-        oldChannelId,
-        attendanceChannelIds: attendanceChannels,
-      });
+      if (!staffMember) {
+        await services.attendance.handlePlayerVoiceUpdate({
+          guildId,
+          userId,
+          channelId,
+          oldChannelId,
+          attendanceChannelIds: attendanceChannels,
+          isStaff: false,
+          displayName: member.displayName || member.user?.username,
+        });
+      }
     } catch (error) {
       logger.error('Falha ao processar mudança de voz', error);
     }

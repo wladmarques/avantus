@@ -30,7 +30,8 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
   linha e botão **Entrar na fila** à direita do texto — layout clássico em embed disponível por
   configuração (`panel_style`). Prévia local com `npm run preview:panel`.
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
-- Movimentação automática para o canal de voz de espera e para o canal do staff.
+- Fila sincronizada com a voz **nos dois sentidos**: entrar na fila move para o canal de espera e
+  entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
 - Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).
 - Bloqueio de atendimento duplicado por jogador e por staff (com liberação configurável).
 - Perda de presença, desconexão de voz e saída do servidor tratadas automaticamente.

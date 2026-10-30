@@ -2,11 +2,20 @@
 
 ## Como pedir atendimento
 
+Existem dois caminhos — os dois funcionam:
+
+**Opção A — pelo painel**
 1. Vá até o canal **#central-atendimento**.
 2. Clique em **🎫 ENTRAR NA FILA**.
-3. Entre no canal de voz **🔊 AGUARDANDO ATENDIMENTO** (se ainda não estiver nele).
-4. Aguarde: quando um staff te chamar, você recebe uma mensagem privada e é movido automaticamente
-   para o canal de atendimento.
+3. Você é colocado na fila e **movido automaticamente** para **🔊 AGUARDANDO ATENDIMENTO**.
+   (Se você não estiver em nenhum canal de voz, entre nele — não é preciso clicar de novo.)
+
+**Opção B — só entrando no canal de voz**
+1. Entre direto no canal **🔊 AGUARDANDO ATENDIMENTO**.
+2. O bot **te coloca na fila automaticamente**: você recebe o protocolo e a posição no privado.
+
+Em qualquer caso: quando um staff te chamar, você recebe uma mensagem privada e é movido
+automaticamente para o canal de atendimento.
 
 ## O que aparece na mensagem privada
 
@@ -31,6 +40,8 @@ Você também é avisado quando sua posição melhora — sem spam: os avisos re
 ## Desistindo
 
 - Clique em **❌ SAIR DA FILA** no painel ou use `/sair`.
+- **Sair do canal de espera também remove você da fila** (configurável pela administração) —
+  evita posições "fantasma" de quem saiu.
 - Seu protocolo é encerrado como **JOGADOR DESISTIU** e o acesso ao canal de espera é removido.
 - Se você sair do servidor, o bot remove você da fila automaticamente.
 
@@ -60,6 +71,6 @@ continuam normalmente. Confira os horários no painel ou em `/ajuda`.
 
 ## Boas práticas
 
-- Permança no canal de espera — sair da voz não remove você da fila, mas atrasa o atendimento.
+- Fique no canal de espera até ser chamado — sair dele encerra sua posição.
 - Não abra protocolo sem necessidade real; cada entrada fica registrada no histórico.
 - Mantenha as mensagens privadas abertas para receber as notificações.

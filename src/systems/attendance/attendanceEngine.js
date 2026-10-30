@@ -89,7 +89,7 @@ class AttendanceEngine {
   /* Entrada e saída da fila                                              */
   /* ==================================================================== */
 
-  async joinQueue({ guildId, userId, displayName, source = 'painel' }) {
+  async joinQueue({ guildId, userId, displayName = null, source = 'painel' }) {
     const open = this.schedule.isOpen(guildId);
     if (!open.open) {
       throw new AppError(
@@ -918,9 +918,110 @@ class AttendanceEngine {
   }
 
   /** Atualização de voz de um jogador. */
-  async handlePlayerVoiceUpdate({ guildId, userId, channelId, attendanceChannelIds }) {
+  /**
+   * Sincroniza fila e canais de voz.
+   *
+   * - Entrou no canal de espera → entra na fila automaticamente.
+   * - Saiu do canal de espera → sai da fila (configurável).
+   * - Entrou no canal de atendimento → presença confirmada.
+   * - Saiu do canal de atendimento → tolerância e encerramento.
+   */
+  async handlePlayerVoiceUpdate({
+    guildId,
+    userId,
+    channelId,
+    oldChannelId = null,
+    attendanceChannelIds = [],
+    isStaff = false,
+    displayName = null,
+  }) {
+    const waitChannelId = this.settings.get('wait_channel_id');
     const active = this.repos.attendance.findActiveByUserSync(guildId, userId);
+
+    // 1) Entrou no canal de espera sem estar na fila → entra automaticamente
+    if (
+      !isStaff &&
+      !active &&
+      channelId &&
+      waitChannelId &&
+      channelId === waitChannelId &&
+      this.settings.get('auto_queue_on_voice_join')
+    ) {
+      try {
+        const created = await this.joinQueue({
+          guildId,
+          userId,
+          displayName,
+          source: 'canal de voz de espera',
+        });
+        await this.audit.log({
+          guildId,
+          type: 'QUEUE_JOIN_VOICE',
+          actorId: userId,
+          targetId: userId,
+          protocol: created.protocol,
+          message: `**${created.attendance.username}** entrou na fila automaticamente ao entrar no canal de espera (posição ${created.position}º).`,
+          color: COLORS.ORANGE,
+        });
+        return { autoJoined: true, position: created.position };
+      } catch (error) {
+        // Já na fila / em atendimento: nada a fazer.
+        if (error.code === ERRORS.JA_NA_FILA || error.code === ERRORS.JA_EM_ATENDIMENTO) return null;
+        if (error.code === ERRORS.CENTRAL_FECHADA) {
+          await this._effect('avisar central fechada', () =>
+            this.notifications.centralClosed({
+              guildId,
+              userId,
+              schedule: this.schedule.getSchedule(guildId),
+              nextOpen: this.schedule.isOpen(guildId).nextOpen,
+            }),
+          );
+          return null;
+        }
+        throw error;
+      }
+    }
+
     if (!active) return null;
+
+    // 2) Fora da fila de espera enquanto aguardava → desistência
+    if (active.status === ATTENDANCE_STATUS.WAITING) {
+      const wasWaitingInVoice = oldChannelId && oldChannelId === waitChannelId;
+      const leftWaitChannel = wasWaitingInVoice && channelId !== waitChannelId;
+
+      if (leftWaitChannel && this.settings.get('leave_queue_on_wait_exit')) {
+        const closed = await this.leaveQueue({
+          guildId,
+          userId,
+          actorId: userId,
+          reason: 'Saiu do canal de espera',
+          outcome: OUTCOMES.DESISTIU,
+        });
+        await this.audit.log({
+          guildId,
+          type: 'QUEUE_LEFT_WAIT_VOICE',
+          actorId: userId,
+          targetId: userId,
+          protocol: closed.protocol,
+          message: `**${closed.username}** saiu do canal de espera e foi removido da fila automaticamente.`,
+          color: COLORS.MUTED,
+        });
+        return { leftQueue: true };
+      }
+
+      if (leftWaitChannel) {
+        await this.audit.log({
+          guildId,
+          type: 'PLAYER_LEFT_WAIT_VOICE',
+          actorId: userId,
+          targetId: userId,
+          protocol: active.protocol,
+          message: `**${active.username}** saiu do canal de espera (permanece na fila).`,
+          color: COLORS.MUTED,
+        });
+      }
+      return null;
+    }
 
     if (active.status === ATTENDANCE_STATUS.SERVING) {
       const isAttendanceChannel = channelId && attendanceChannelIds.includes(channelId);
@@ -934,18 +1035,6 @@ class AttendanceEngine {
       return null;
     }
 
-    if (active.status === ATTENDANCE_STATUS.WAITING && !channelId) {
-      // segue na fila, mas avisamos uma única vez
-      await this.audit.log({
-        guildId,
-        type: 'PLAYER_LEFT_WAIT_VOICE',
-        actorId: userId,
-        targetId: userId,
-        protocol: active.protocol,
-        message: `**${active.username}** saiu do canal de espera (permanece na fila).`,
-        color: COLORS.MUTED,
-      });
-    }
     return null;
   }
 
