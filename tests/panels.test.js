@@ -2,34 +2,104 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTestEnv, addMember } = require('./helpers');
+const { createTestEnv, addMember, panelText, panelButtonIds, panelCards } = require('./helpers');
 
-test('painel público exibe indicadores e atualiza ao entrar alguém na fila', async (t) => {
+test('painel público moderno (Components V2) expõe indicadores e é atualizado na fila', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
   addMember(env.gateway, '900000000000003001');
+  env.gateway.iconUrl = 'https://cdn.discordapp.com/icons/1/abc.png';
 
   const channelId = env.services.settings.get('public_channel_id');
-  await env.services.panels.publish(env.guildId, 'public', channelId);
-  const message = env.gateway.channelMessages.at(-1);
-  const embed = message.payload.embeds[0];
-  const fields = embed.fields.map((field) => field.name).join(' | ');
+  const published = await env.services.panels.publish(env.guildId, 'public', channelId);
+  assert.equal(published.format, 'v2');
 
-  assert.match(embed.title, /ATENDIMENTO \| VANTUS/);
-  assert.match(fields, /STATUS DA CENTRAL/);
-  assert.match(fields, /NA FILA/);
-  assert.match(fields, /STAFFS DISPONÍVEIS/);
-  assert.match(fields, /EM ATENDIMENTO/);
-  assert.match(fields, /ESPERA MÉDIA/);
-  assert.match(fields, /HORÁRIO/);
-  assert.ok(message.payload.components.length > 0, 'painel tem botões');
+  const message = env.gateway.channelMessages.at(-1);
+  assert.equal(message.payload.flags, 32768, 'usa MessageFlags.IsComponentsV2');
+  assert.equal(message.payload.embeds, undefined, 'V2 não mistura embeds');
+  assert.ok(panelCards(message.payload).length >= 6, 'cards da central');
+
+  const text = panelText(message.payload);
+  assert.match(text, /ATENDIMENTO \| VANTUS/);
+  assert.match(text, /STATUS DA CENTRAL/);
+  assert.match(text, /FILA ABERTA/);
+  assert.match(text, /NA FILA/);
+  assert.match(text, /STAFFS DISPONÍVEIS/);
+  assert.match(text, /EM ATENDIMENTO/);
+  assert.match(text, /ESPERA MÉDIA/);
+  assert.match(text, /HORÁRIO DE ATENDIMENTO/);
+  assert.match(text, /Seg–Sex/);
+  assert.match(text, /12:00 às 02:00/);
+  assert.match(text, /Sáb–Dom/);
+  assert.match(text, /12:00 às 00:00/);
+  assert.match(text, /Fila por canal de voz/);
+
+  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:leave', 'pub:status']);
+
+  // thumbnail com o ícone do servidor no cabeçalho
+  const section = message.payload.components[0].components[0];
+  assert.equal(section.type, 9);
+  assert.equal(section.accessory.type, 11);
+  assert.equal(section.accessory.media.url, env.gateway.iconUrl);
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000003001', displayName: 'Teste' });
   await env.services.panels.refresh(env.guildId);
 
   const updated = env.gateway.channelMessages.find((item) => item.id === message.id);
-  const queueField = updated.payload.embeds[0].fields.find((field) => field.name.includes('NA FILA'));
-  assert.match(queueField.value, /\*\*1\*\*/);
+  assert.match(panelText(updated.payload), /NA FILA\*\*\n## 1/);
+});
+
+test('estilo clássico continua disponível em embed', async (t) => {
+  const env = await createTestEnv({ settings: { panel_style: 'classic' } });
+  t.after(env.cleanup);
+
+  const published = await env.services.panels.publish(env.guildId, 'public', env.services.settings.get('public_channel_id'));
+  assert.equal(published.format, 'embed');
+
+  const message = env.gateway.channelMessages.at(-1);
+  assert.ok(message.payload.embeds?.length, 'payload em embed');
+  assert.match(panelText(message.payload), /ATENDIMENTO \| VANTUS/);
+  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:leave', 'pub:status']);
+});
+
+test('trocar o estilo recria a mensagem sem duplicar o painel', async (t) => {
+  const env = await createTestEnv({ settings: { panel_style: 'classic' } });
+  t.after(env.cleanup);
+  const channelId = env.services.settings.get('public_channel_id');
+
+  const first = await env.services.panels.publish(env.guildId, 'public', channelId);
+  assert.equal(first.format, 'embed');
+
+  await env.services.settings.set('panel_style', 'modern');
+  const second = await env.services.panels.publish(env.guildId, 'public', channelId);
+
+  assert.equal(second.format, 'v2');
+  assert.equal(env.gateway.deletedMessages.length, 1, 'mensagem antiga removida');
+  const publicMessages = env.gateway.channelMessages.filter((item) => item.channelId === channelId);
+  assert.equal(publicMessages.length, 2, 'uma antiga (apagada) + uma nova');
+});
+
+test('fallback: se o Discord recusar Components V2, publica o painel clássico', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+  const channelId = env.services.settings.get('public_channel_id');
+
+  const original = env.gateway.sendChannelMessage.bind(env.gateway);
+  let attempts = 0;
+  env.gateway.sendChannelMessage = async (guildId, channel, payload) => {
+    attempts += 1;
+    if (payload.flags === 32768) {
+      const error = new Error('Invalid Form Body (components)');
+      error.code = 50035;
+      throw error;
+    }
+    return original(guildId, channel, payload);
+  };
+
+  const result = await env.services.panels.publish(env.guildId, 'public', channelId);
+  assert.equal(result.format, 'embed');
+  assert.equal(attempts, 2);
+  assert.ok(env.gateway.channelMessages.at(-1).payload.embeds?.length);
 });
 
 test('painel da staff lista a fila com protocolo, entrada e espera', async (t) => {
@@ -71,6 +141,8 @@ test('painel indica central fechada fora do horário', async (t) => {
   await env.services.central.close({ guildId: env.guildId, actorId: '1', actorTag: 'Admin' });
 
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
-  assert.match(JSON.stringify(payload), /FECHADA/);
-  assert.match(JSON.stringify(payload), /Central fechada/);
+  const text = panelText(payload);
+  assert.match(text, /CENTRAL FECHADA/);
+  assert.match(text, /HORÁRIO DE ATENDIMENTO/);
+  assert.match(text, /📕|🔴/);
 });

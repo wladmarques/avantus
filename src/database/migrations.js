@@ -139,6 +139,15 @@ const migrations = [
       `);
     },
   },
+  {
+    version: 3,
+    name: 'formato_dos_paineis',
+    up(db) {
+      // Guarda o layout publicado ('v2' = Components V2, 'embed' = clássico)
+      // para o bot saber quando precisa recriar a mensagem após trocar o estilo.
+      db.exec('ALTER TABLE panels ADD COLUMN format TEXT;');
+    },
+  },
 ];
 
 /**

@@ -224,6 +224,17 @@ class DiscordGateway {
     ).size;
   }
 
+  /** Ícone do servidor (usado como thumbnail do painel). */
+  guildIconUrl(guildId) {
+    const guild = this.client.guilds.cache.get(guildId);
+    if (!guild?.iconURL) return null;
+    try {
+      return guild.iconURL({ size: 256, extension: 'png' });
+    } catch {
+      return null;
+    }
+  }
+
   async fetchChannel(guildId, channelId) {
     return this._guild(guildId).channels.fetch(channelId).catch(() => null);
   }
@@ -289,6 +300,10 @@ class MemoryGateway {
   async sendDirectMessage(guildId, userId, payload) {
     this.dms.push({ userId, payload });
     return { ok: true, id: `dm-${this.dms.length}` };
+  }
+
+  guildIconUrl() {
+    return this.iconUrl ?? null;
   }
 
   async sendChannelMessage(guildId, channelId, payload) {

@@ -89,3 +89,50 @@ module.exports = {
   WAIT_CHANNEL,
   ATT_CHANNEL,
 };
+
+/* ------------------------------------------------------------------ */
+/* Utilitários para inspecionar payloads de painel (Components V2)     */
+/* ------------------------------------------------------------------ */
+
+/** Percorre recursivamente todos os componentes de um payload. */
+function flattenComponents(payload, acc = []) {
+  const walk = (component) => {
+    if (!component || typeof component !== 'object') return;
+    acc.push(component);
+    if (Array.isArray(component.components)) component.components.forEach(walk);
+  };
+  (payload?.components ?? []).forEach(walk);
+  return acc;
+}
+
+/** Todo o texto visível (embeds + text displays) de um payload. */
+function panelText(payload) {
+  const parts = [];
+  for (const embed of payload?.embeds ?? []) {
+    if (embed.title) parts.push(embed.title);
+    if (embed.description) parts.push(embed.description);
+    for (const field of embed.fields ?? []) parts.push(`${field.name}: ${field.value}`);
+    if (embed.footer?.text) parts.push(embed.footer.text);
+  }
+  for (const component of flattenComponents(payload)) {
+    if (component.type === 10 && component.content) parts.push(component.content);
+  }
+  return parts.join('\n');
+}
+
+/** IDs dos botões de um payload (embeds ou Components V2). */
+function panelButtonIds(payload) {
+  return flattenComponents(payload)
+    .filter((component) => component.type === 2)
+    .map((component) => component.custom_id);
+}
+
+/** Containers (cards) de um payload V2. */
+function panelCards(payload) {
+  return flattenComponents(payload).filter((component) => component.type === 17);
+}
+
+module.exports.flattenComponents = flattenComponents;
+module.exports.panelText = panelText;
+module.exports.panelButtonIds = panelButtonIds;
+module.exports.panelCards = panelCards;

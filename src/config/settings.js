@@ -183,6 +183,13 @@ const SETTINGS = {
     group: 'Avaliações',
     validate: asBool,
   },
+  panel_style: {
+    default: 'modern',
+    type: 'string',
+    label: 'Estilo do painel público (modern/classic)',
+    group: 'Painéis',
+    validate: (v) => ['modern', 'classic'].includes(v),
+  },
   panel_refresh_seconds: {
     default: 30,
     type: 'number',

@@ -13,15 +13,16 @@ class PanelRepository {
     return this.db.get('SELECT * FROM panels WHERE guild_id = ? AND key = ?', [guildId, key]);
   }
 
-  saveSync(guildId, key, { channelId, messageId }) {
+  saveSync(guildId, key, { channelId, messageId, format = null }) {
     this.db.run(
-      `INSERT INTO panels (key, guild_id, channel_id, message_id, updated_at)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO panels (key, guild_id, channel_id, message_id, format, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(key, guild_id) DO UPDATE SET
          channel_id = excluded.channel_id,
          message_id = excluded.message_id,
+         format = excluded.format,
          updated_at = excluded.updated_at`,
-      [key, guildId, channelId, messageId, Date.now()],
+      [key, guildId, channelId, messageId, format, Date.now()],
     );
     return this.getSync(guildId, key);
   }

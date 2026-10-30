@@ -3,8 +3,8 @@
 /**
  * Reexporta os construtores de painel para uso nos comandos administrativos.
  */
-const { buildPublicPanel } = require('../../dashboard/panels/publicPanel');
+const { buildPublicPanel, buildPublicPanelV2, buildPublicPanelClassic } = require('../../dashboard/panels/publicPanel');
 const { buildStaffPanel } = require('../../dashboard/panels/staffPanel');
 const { PANEL_KEYS } = require('./panelService');
 
-module.exports = { buildPublicPanel, buildStaffPanel, PANEL_KEYS };
+module.exports = { buildPublicPanel, buildPublicPanelV2, buildPublicPanelClassic, buildStaffPanel, PANEL_KEYS };

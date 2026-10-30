@@ -80,10 +80,26 @@ Regras:
 | `notifications_position_change` | `true` | Avisa o jogador quando a posição melhora |
 | `position_notify_cooldown_minutes` | `10` | Intervalo mínimo entre avisos |
 | `evaluations_enabled` | `true` | Envia avaliação no privado após encerrar |
+| `panel_style` | `modern` | Layout do painel público: `modern` (Components V2) ou `classic` (embed) |
 | `panel_refresh_seconds` | `30` | Atualização automática dos painéis |
 | `average_wait_window_minutes` | `120` | Janela usada no cálculo da espera média |
 | `stats_ranking_min_sample` | `3` | Mínimo de atendimentos para o ranking |
 | `hidden_channels` | `false` | Modo discreto (sem menções em canais) |
+
+## Estilo do painel público
+
+O painel público usa **Components V2** (`panel_style=modern`): cards com barra de destaque,
+separadores, número grande em cada indicador, ícone do servidor no cabeçalho e botões dentro do card.
+
+```bash
+/config definir chave:panel_style valor:classic   # volta para o layout em embed
+/painel publicar painel:Público                    # recria a mensagem no novo estilo
+```
+
+- Ao trocar o estilo, o bot **apaga a mensagem antiga e publica a nova** (não ficam dois painéis).
+- Se a API do Discord recusar Components V2, o bot publica automaticamente o layout clássico e
+  registra um aviso no log.
+- O painel da staff continua em embed (é um painel denso, de leitura interna).
 
 ## Mensagens editáveis
 

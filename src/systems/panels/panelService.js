@@ -32,53 +32,92 @@ class PanelService {
     const todayWindow = this.schedule.todayWindow(guildId);
 
     if (key === PANEL_KEYS.PUBLIC) {
-      return {
-        state,
-        payload: buildPublicPanel({
-          settings: {
-            ...this.settings.getAll(),
-            estimateWaitSeconds: state.waiting.length
-              ? this.engine.estimateWaitSeconds(state)
-              : 0,
-          },
-          state,
-          schedule: { ...openInfo, todayWindow },
-        }),
+      const settings = {
+        ...this.settings.getAll(),
+        estimateWaitSeconds: state.waiting.length ? this.engine.estimateWaitSeconds(state) : 0,
       };
+      const built = buildPublicPanel({
+        style: this.settings.get('panel_style'),
+        settings,
+        state,
+        schedule: {
+          ...openInfo,
+          todayWindow,
+          schedule: this.schedule.getSchedule(guildId),
+        },
+        iconUrl: this.gateway.guildIconUrl ? this.gateway.guildIconUrl(guildId) : null,
+      });
+      return { state, payload: built.payload, format: built.format };
     }
 
     const overview = this.statistics.todayOverview(guildId);
     return {
       state,
       payload: buildStaffPanel({ state, overview, schedule: openInfo, todayWindow }),
+      format: 'embed',
     };
   }
 
   /** Publica (ou atualiza) um painel no canal informado. */
   async publish(guildId, key, channelId) {
     const existing = this.repo.getSync(guildId, key);
-    const { payload } = this.buildPayload(guildId, key);
+    let built = this.buildPayload(guildId, key);
 
     if (existing?.message_id) {
-      try {
-        await this.gateway.editMessage(guildId, existing.channel_id, existing.message_id, payload);
-        return { ...existing, mode: 'edited' };
-      } catch (error) {
-        // 10008 = Unknown Message, 10003 = Unknown Channel: a mensagem não existe mais.
-        const gone = error?.code === 10008 || error?.code === 10003;
-        if (!gone) {
-          logger.warn(`Falha ao editar o painel ${key}: ${error.message}`);
-          throw error;
+      const previousFormat = existing.format ?? 'embed';
+      if (previousFormat === built.format) {
+        try {
+          await this.gateway.editMessage(guildId, existing.channel_id, existing.message_id, built.payload);
+          return { ...existing, mode: 'edited' };
+        } catch (error) {
+          // 10008 = Unknown Message, 10003 = Unknown Channel: a mensagem não existe mais.
+          const gone = error?.code === 10008 || error?.code === 10003;
+          if (!gone) {
+            logger.warn(`Falha ao editar o painel ${key}: ${error.message}`);
+            throw error;
+          }
+          logger.warn(`Mensagem do painel ${key} não existe mais. Publicando uma nova.`);
         }
-        logger.warn(`Mensagem do painel ${key} não existe mais. Publicando uma nova.`);
+      } else {
+        // Estilo mudou (embed <-> Components V2): a mensagem antiga é removida
+        // para não ficarem dois painéis no canal.
+        logger.info(`Layout do painel ${key} mudou (${previousFormat} → ${built.format}). Recriando.`);
+        await this.gateway
+          .deleteMessage(guildId, existing.channel_id, existing.message_id)
+          .catch(() => null);
       }
     }
 
-    const message = await this.gateway.sendChannelMessage(guildId, channelId, payload);
+    let message;
+    try {
+      message = await this.gateway.sendChannelMessage(guildId, channelId, built.payload);
+    } catch (error) {
+      // Fallback: se o Discord recusar Components V2, publica o layout clássico.
+      if (built.format === 'v2') {
+        logger.warn(`Components V2 recusado (${error.message}). Publicando painel clássico.`);
+        built = { ...built, ...buildPublicPanel({
+          style: 'classic',
+          settings: { ...this.settings.getAll(), estimateWaitSeconds: 0 },
+          state: this.engine.getState(guildId),
+          schedule: {
+            ...this.schedule.isOpen(guildId),
+            todayWindow: this.schedule.todayWindow(guildId),
+          },
+        }) };
+        message = await this.gateway.sendChannelMessage(guildId, channelId, built.payload);
+      } else {
+        throw error;
+      }
+    }
+
     const saved = await this.db.transaction(async () =>
-      this.repo.saveSync(guildId, key, { channelId, messageId: message.id }),
+      this.repo.saveSync(guildId, key, {
+        channelId,
+        messageId: message.id,
+        format: built.format,
+      }),
     );
-    return { ...saved, mode: 'created' };
+    return { ...saved, mode: 'created', format: built.format };
   }
 
   /** Reenvia o painel do zero (usado quando a mensagem foi apagada à mão). */
@@ -125,7 +164,12 @@ class PanelService {
       const existing = this.repo.getSync(guildId, key);
       if (!existing?.message_id) continue;
       try {
-        const { payload } = this.buildPayload(guildId, key);
+        const { payload, format } = this.buildPayload(guildId, key);
+        if ((existing.format ?? 'embed') !== format) {
+          // O layout configurado mudou: republica na próxima atualização.
+          await this.publish(guildId, key, existing.channel_id);
+          continue;
+        }
         await this.gateway.editMessage(guildId, existing.channel_id, existing.message_id, payload);
       } catch (error) {
         logger.warn(`Falha ao atualizar painel ${key}: ${error.message}`);

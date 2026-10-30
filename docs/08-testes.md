@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 52 testes (node:test), sem token e sem internet
+npm test             # 56 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -19,7 +19,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/attendance.test.js` | chamada + movimentação, presença, finalização + avaliação, avaliação única, devolução à fila, políticas de pulo, motivo obrigatório, não compareceu, staff saiu, limpeza de fila |
 | `tests/voice.test.js` | presença por evento de voz, desconexão com tolerância, staff conectado/desconectado, staff que não retorna, jogador sai da espera |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |
-| `tests/panels.test.js` | indicadores do painel público, lista do painel staff, reconstrução, estado fechado |
+| `tests/panels.test.js` | painel V2 (indicadores, cards, thumbnail, botões), layout clássico, troca de estilo sem duplicar, fallback quando a API recusa V2, lista do painel staff, reconstrução, estado fechado |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |
 | `tests/schedule.test.js` | janelas normais, fechamento, virada de madrugada, dia sem janela, fuso de São Paulo, períodos |
 | `tests/permissions.test.js` | cargos, Administrator, dono do servidor, mensagens de erro |
@@ -28,8 +28,8 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 Resultado esperado:
 
 ```
-# tests 52
-# pass 52
+# tests 56
+# pass 56
 # fail 0
 ```
 

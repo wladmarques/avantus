@@ -26,7 +26,9 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 ## Recursos implementados
 
 **Fila e atendimento**
-- Painel público com botões **Entrar na fila**, **Sair da fila** e **Minha posição**.
+- Painel público em **Components V2** (cards com barra de destaque, separadores e indicadores em
+  número grande), com botões **Entrar na fila**, **Sair da fila** e **Minha posição**
+  — layout clássico em embed disponível por configuração (`panel_style`).
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
 - Movimentação automática para o canal de voz de espera e para o canal do staff.
 - Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).

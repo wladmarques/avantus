@@ -44,6 +44,13 @@ Fuso: `America/Sao_Paulo`. Janelas com fechamento menor que a abertura cruzam a 
 | `/painel atualizar` | para forçar a atualização imediata |
 | `/painel reconstruir` | quando a mensagem foi apagada à mão |
 
+Estilo do painel público: `modern` (Components V2, padrão) ou `classic` (embed).
+
+```
+/config definir chave:panel_style valor:classic
+/painel publicar painel:Público
+```
+
 Os painéis são **mensagens persistentes**: o bot guarda canal + ID da mensagem no banco e sempre
 edita a mesma mensagem. Reiniciar o bot não duplica nada.
 

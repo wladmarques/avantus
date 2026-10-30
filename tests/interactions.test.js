@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTestEnv, addMember, addStaffInVoice } = require('./helpers');
+const { createTestEnv, addMember, addStaffInVoice, panelButtonIds } = require('./helpers');
 const { handleInteraction } = require('../src/interactions/router');
 
 const STAFF_ROLE = '500000000000000001';
@@ -171,6 +171,5 @@ test('painéis publicados usam IDs persistentes reconhecidos pelo router', async
   const env = await createTestEnv();
   t.after(env.cleanup);
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
-  const ids = payload.components.flatMap((row) => row.components.map((component) => component.custom_id));
-  assert.deepEqual(ids, ['pub:join', 'pub:leave', 'pub:status']);
+  assert.deepEqual(panelButtonIds(payload), ['pub:join', 'pub:leave', 'pub:status']);
 });
