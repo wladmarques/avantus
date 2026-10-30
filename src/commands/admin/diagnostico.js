@@ -13,7 +13,8 @@ module.exports = {
 
   async execute({ interaction, services, client }) {
     const guildId = interaction.guildId;
-    const guild = client.guilds.cache.get(guildId);
+    const discord = client ?? interaction.client;
+    const guild = discord?.guilds?.cache?.get(guildId);
     const settings = services.settings.getAll();
     const checks = [];
 

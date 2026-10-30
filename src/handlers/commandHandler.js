@@ -30,8 +30,13 @@ function loadCommands(rootDir = path.join(__dirname, '..', 'commands')) {
   return commands;
 }
 
-/** Executa um slash command com validação de permissão e erro global. */
-async function executeCommand(interaction, { services }) {
+/**
+ * Executa um slash command com validação de permissão e erro global.
+ * O contexto completo (client, services, env, runtime) é repassado ao comando —
+ * comandos que precisam do client (ex.: /setup, /diagnostico) falham sem isso.
+ */
+async function executeCommand(interaction, context) {
+  const { services } = context;
   const command = interaction.client.commands.get(interaction.commandName);
   if (!command) return;
 
@@ -45,7 +50,7 @@ async function executeCommand(interaction, { services }) {
     // Comandos administrativos e de staff podem demorar: adiamos a resposta.
     if (command.category !== 'player') await defer(interaction, { ephemeral: true });
 
-    await command.execute({ interaction, services, member });
+    await command.execute({ ...context, interaction, member });
   } catch (error) {
     logger.error(`Erro no comando /${interaction.commandName}`, error);
     if (interaction.deferred || interaction.replied) {

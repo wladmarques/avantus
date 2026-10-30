@@ -19,10 +19,11 @@ module.exports = {
     ),
   async execute({ interaction, services, client }) {
     const guildId = interaction.guildId;
+    const discord = client ?? interaction.client;
     await deferSafe(interaction);
 
     try {
-      const guild = client.guilds.cache.get(guildId);
+      const guild = discord?.guilds?.cache?.get(guildId);
       if (!guild) throw new Error('Servidor não encontrado.');
 
       const gateway = services.gateway;
@@ -73,6 +74,19 @@ module.exports = {
       ]) {
         const result = await services.panels.publish(guildId, key, channel.id);
         published.push(`${key === 'public' ? '📋 Painel público' : '🛡️ Painel da staff'} em <#${channel.id}> (${result.mode})`);
+      }
+
+      const warnings = [];
+      if ((services.settings.get('staff_role_ids') || []).length === 0) {
+        warnings.push(
+          '⚠️ Nenhum **cargo de staff** configurado — o painel da equipe ficará restrito a administradores.',
+        );
+      }
+      if ((services.settings.get('admin_role_ids') || []).length === 0) {
+        warnings.push('⚠️ Nenhum **cargo administrativo** configurado.');
+      }
+      if (warnings.length > 0) {
+        created.push('', ...warnings);
       }
 
       await services.audit.log({

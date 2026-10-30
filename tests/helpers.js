@@ -90,6 +90,72 @@ module.exports = {
   ATT_CHANNEL,
 };
 
+/** Interação de slash command simulada (para testar /comandos). */
+function makeCommandInteraction({
+  commandName,
+  userId = '910000000000009001',
+  guildId = GUILD,
+  roles = [],
+  options = {},
+  client = null,
+} = {}) {
+  const interaction = {
+    commandName,
+    guildId,
+    user: { id: userId, username: 'admin' },
+    member: {
+      id: userId,
+      displayName: 'Admin Teste',
+      roles: { cache: new Map(roles.map((role) => [role, { id: role }])) },
+      permissions: { has: () => true },
+    },
+    deferred: false,
+    replied: false,
+    responses: [],
+    async deferReply() {
+      this.deferred = true;
+    },
+    async reply(payload) {
+      this.replied = true;
+      this.responses.push(payload);
+      return payload;
+    },
+    async editReply(payload) {
+      this.responses.push(payload);
+      return payload;
+    },
+    async followUp(payload) {
+      this.responses.push(payload);
+      return payload;
+    },
+    options: {
+      getSubcommand: () => options.subcommand,
+      getString: (name) => options[name] ?? null,
+      getInteger: (name) => options[name] ?? null,
+      getBoolean: (name) => options[name] ?? null,
+      getUser: (name) => options[name] ?? null,
+      getFocused: () => ({ name: '', value: '' }),
+    },
+    isChatInputCommand() {
+      return true;
+    },
+    isAutocomplete() {
+      return false;
+    },
+    isButton() {
+      return false;
+    },
+    isStringSelectMenu() {
+      return false;
+    },
+    isModalSubmit() {
+      return false;
+    },
+  };
+  interaction.client = client ?? { commands: new Map() };
+  return interaction;
+}
+
 /* ------------------------------------------------------------------ */
 /* Utilitários para inspecionar payloads de painel (Components V2)     */
 /* ------------------------------------------------------------------ */
@@ -134,6 +200,7 @@ function panelCards(payload) {
   return flattenComponents(payload).filter((component) => component.type === 17);
 }
 
+module.exports.makeCommandInteraction = makeCommandInteraction;
 module.exports.flattenComponents = flattenComponents;
 module.exports.panelText = panelText;
 module.exports.panelButtonIds = panelButtonIds;

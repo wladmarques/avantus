@@ -306,6 +306,26 @@ class MemoryGateway {
     return this.iconUrl ?? null;
   }
 
+  /* Estrutura do servidor (simulada) */
+  async ensureCategory(guildId, name) {
+    this.channelSeq = (this.channelSeq ?? 0) + 1;
+    return { id: `cat-${this.channelSeq}`, name, type: 4 };
+  }
+
+  async ensureVoiceChannel(guildId, name) {
+    this.channelSeq = (this.channelSeq ?? 0) + 1;
+    return { id: `voice-${this.channelSeq}`, name, type: 2 };
+  }
+
+  async ensureTextChannel(guildId, name) {
+    this.channelSeq = (this.channelSeq ?? 0) + 1;
+    return { id: `text-${this.channelSeq}`, name, type: 0 };
+  }
+
+  async fetchChannel(guildId, channelId) {
+    return this.channels?.get(channelId) ?? null;
+  }
+
   async sendChannelMessage(guildId, channelId, payload) {
     this.messageSeq += 1;
     const message = { id: `msg-${this.messageSeq}`, channelId, payload };
