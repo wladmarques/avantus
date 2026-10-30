@@ -67,10 +67,10 @@ const IDs = {
   EVAL_PREFIX: 'eval',
 };
 
-function publicPanelComponents() {
+function publicPanelComponents({ joinDisabled = false } = {}) {
   return [
     actionRow([
-      button(IDs.PUBLIC_JOIN, 'ENTRAR NA FILA', { style: STYLES.SECONDARY, emoji: '🎫' }),
+      button(IDs.PUBLIC_JOIN, 'ENTRAR NA FILA', { style: STYLES.SECONDARY, emoji: '🎫', disabled: joinDisabled }),
       button(IDs.PUBLIC_LEAVE, 'SAIR DA FILA', { style: STYLES.SECONDARY, emoji: '❌' }),
       button(IDs.PUBLIC_STATUS, 'MINHA POSIÇÃO', { style: STYLES.SECONDARY, emoji: '📊' }),
     ]),

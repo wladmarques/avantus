@@ -118,6 +118,17 @@ motivo de encerramento e a linha do tempo de eventos (auditoria).
 **Resultados possíveis:** ATENDIMENTO CONCLUÍDO, JOGADOR DESISTIU, JOGADOR DESCONECTOU,
 STAFF DESCONECTOU, ATENDIMENTO CANCELADO, JOGADOR REMOVIDO, JOGADOR NÃO COMPARECEU.
 
+## Fila fechada para novas entradas
+
+A entrada na fila exige **central aberta** e **pelo menos um staff DISPONÍVEL**. Se o botão
+*Entrar na Fila* estiver desabilitado:
+
+1. confira se a central está aberta (`/central ver`, `/horario ver`);
+2. veja o status da equipe com `/staff status` — quem estiver **INDISPONÍVEL**, **AUSENTE** ou
+   **EM ATENDIMENTO** não conta como disponível;
+3. coloque alguém como **Disponível** (o botão é reabilitado na hora);
+4. `/diagnostico` mostra a linha **Entrada na fila liberada** com o motivo do bloqueio.
+
 ## Jogador entrou no canal de espera e não entrou na fila
 
 1. Rode `/diagnostico` e confira o bloco de **fila por voz** (canal de espera, entrada automática,

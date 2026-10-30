@@ -11,13 +11,14 @@ const { MemoryGateway } = require('../src/services/discordGateway');
 const GUILD = '100000000000000001';
 const WAIT_CHANNEL = '200000000000000001';
 const ATT_CHANNEL = 'att-1';
+const DEFAULT_STAFF = '900000000000000900';
 
 let counter = 0;
 
 /**
  * Monta um ambiente completo (banco em arquivo temporário + gateway em memória).
  */
-async function createTestEnv({ members = {}, voice = {}, settings = {}, filePath } = {}) {
+async function createTestEnv({ members = {}, voice = {}, settings = {}, filePath, staff = true } = {}) {
   counter += 1;
   const dbFile = filePath || path.join(os.tmpdir(), `vantus-test-${process.pid}-${counter}.sqlite`);
   const db = await openDatabase({ filePath: dbFile });
@@ -43,6 +44,19 @@ async function createTestEnv({ members = {}, voice = {}, settings = {}, filePath
   };
 
   await services.settings.setMany(defaults);
+
+  // Equipe: por padrão o ambiente já tem 1 staff DISPONÍVEL (central operante),
+  // porque só é possível entrar na fila com staff em serviço.
+  // Use `createTestEnv({ staff: false })` para simular ninguém disponível.
+  if (staff !== false) {
+    await services.staff.setStatus({
+      guildId: GUILD,
+      userId: DEFAULT_STAFF,
+      status: 'DISPONIVEL',
+      updatedBy: 'sistema',
+      manual: false,
+    });
+  }
 
   return {
     db,
@@ -88,6 +102,7 @@ module.exports = {
   GUILD,
   WAIT_CHANNEL,
   ATT_CHANNEL,
+  DEFAULT_STAFF,
 };
 
 /** Interação de slash command simulada (para testar /comandos). */

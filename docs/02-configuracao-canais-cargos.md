@@ -63,7 +63,7 @@ Regras:
 
 | Ação do jogador | O que o bot faz |
 | --- | --- |
-| Clica em **Entrar na fila** (painel/comando) | registra o protocolo e **move para o canal de espera** |
+| Clica em **Entrar na fila** (painel/comando) | registra o protocolo e **move para o canal de espera** (só com staff disponível e central aberta) |
 | **Entra no canal de espera** | **entra na fila automaticamente** (gera protocolo e envia DM) |
 | Sai do canal de espera | **sai da fila na hora** (desistência) e recebe **bloqueio de 10 min** |
 | É chamado por um staff | vai para o canal de atendimento e a presença é confirmada |
@@ -75,6 +75,24 @@ Regras:
 > O bot nunca move alguém para um canal sem a pessoa estar conectada em voz: se o jogador
 > clicar em **Entrar na fila** sem estar em nenhum canal, ele recebe a instrução no privado para
 > entrar em **AGUARDANDO ATENDIMENTO** (e entra na fila assim que entrar no canal).
+
+### Quando a entrada na fila é liberada
+
+Só é possível entrar na fila quando **as duas condições** são verdadeiras:
+
+1. a central está **dentro do horário** de atendimento (ou aberta manualmente com `/central abrir`);
+2. existe **pelo menos um staff com status DISPONÍVEL**.
+
+Enquanto faltar uma delas:
+
+- o botão **Entrar na Fila** do painel fica **desabilitado** (e o rodapé mostra o motivo:
+  *sem staff em serviço* ou *central fechada • reabre …*);
+- `/entrar`, o clique no botão e a entrada pelo canal de voz são recusados com mensagem explicando
+  o motivo;
+- quem já está na fila **continua** nela — a regra vale apenas para novas entradas.
+
+O staff fica disponível com `/staff status` → **Disponível** ou entrando em um canal de atendimento,
+e o painel é atualizado na hora (o botão volta a funcionar na mesma hora).
 
 ### Saída do canal de espera (regra fixa)
 

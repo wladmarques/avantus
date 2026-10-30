@@ -40,6 +40,9 @@ Você também é avisado quando sua posição melhora — sem spam: os avisos re
 ## Desistindo
 
 - Clique em **❌ SAIR DA FILA** no painel ou use `/sair`.
+- **O botão Entrar na Fila fica desabilitado quando a central está fechada ou quando nenhum staff
+  está em serviço.** Nesse caso não é possível entrar na fila (nem pelo botão, nem por `/entrar`,
+  nem entrando no canal de voz) — tente novamente mais tarde.
 - **Sair do canal de espera remove você da fila na hora** — inclusive se você for movido para
   outro canal ou cair a conexão.
 - ⏳ **Ao desistir antes de ser chamado, você fica 10 minutos sem poder voltar** (nem pelo painel,

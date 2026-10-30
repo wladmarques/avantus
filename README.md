@@ -34,6 +34,8 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
 - Fila sincronizada com a voz **nos dois sentidos**: entrar na fila move para o canal de espera e
   entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
+- **Entrada controlada**: o botão *Entrar na Fila* fica desabilitado fora do horário de atendimento
+  ou quando nenhum staff está disponível — nenhum caminho (botão, `/entrar` ou voz) fura a regra.
 - **Bloqueio de reentrada**: quem desiste antes de ser chamado fica 10 minutos sem voltar
   (configurável em `rejoin_cooldown_minutes`, liberável com `/fila liberar`).
 - Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).
@@ -171,7 +173,7 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 
 ```bash
 npm start                 # inicia o bot
-npm test                  # roda os 88 testes
+npm test                  # roda os 96 testes
 npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente

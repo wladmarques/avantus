@@ -26,11 +26,12 @@ const COMPONENTS_V2_FLAG = 32768;
 const text = (content) => ({ type: 10, content });
 const separator = (spacing = 1, divider = true) => ({ type: 14, divider, spacing });
 const card = (accentColor, components) => ({ type: 17, accent_color: accentColor, components });
-const button = (customId, label, style, emoji) => ({
+const button = (customId, label, style, emoji, disabled = false) => ({
   type: 2,
   style,
   custom_id: customId,
   label,
+  disabled,
   ...(emoji ? { emoji: { name: emoji } } : {}),
 });
 
@@ -128,6 +129,13 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   const available = state.staffCounts.DISPONIVEL ?? 0;
   const estimate = settings.estimateWaitSeconds ?? 0;
   const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
+  // Entrar na fila só é possível com a central aberta E com staff disponível.
+  const canJoin = Boolean(open) && available > 0;
+  const unavailableNote = !open
+    ? schedule.nextOpen
+      ? `central fechada • reabre ${schedule.nextOpen}`
+      : 'central fechada'
+    : 'sem staff em serviço';
 
   const description = String(settings.message_panel_description || '')
     .split('\n')
@@ -179,9 +187,13 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
           ['**🎧 Fila por canal de voz**', `-# ${waitChannel}Você será movido automaticamente quando houver staff disponível. ${exitNote}`].join('\n'),
         ),
       ],
-      accessory: button('pub:join', 'Entrar na Fila', 2, '🎟️'),
+      accessory: button('pub:join', 'Entrar na Fila', 2, '🎟️', !canJoin),
     },
-    text('-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'),
+    text(
+      canJoin
+        ? '-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'
+        : `-# ⛔ Entrada na fila indisponível: ${unavailableNote}.`,
+    ),
   ];
 
   return {
@@ -226,7 +238,11 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
     timestamp: now.toISOString(),
   };
 
-  return { format: 'embed', payload: { embeds: [embed], components: publicPanelComponents() } };
+  const canJoin = Boolean(open) && available > 0;
+  return {
+    format: 'embed',
+    payload: { embeds: [embed], components: publicPanelComponents({ joinDisabled: !canJoin }) },
+  };
 }
 
 /**

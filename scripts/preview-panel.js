@@ -57,6 +57,13 @@ function buildModel(scenario) {
   const available = state.staffCounts.DISPONIVEL ?? 0;
   const status = statusInfo({ open: schedule.open, availableStaff: available, nextOpen: schedule.nextOpen });
   const scheduleEntries = describeScheduleCompact(schedule.schedule);
+  // Mesma regra do painel real: só entra na fila com a central aberta e staff disponível.
+  const canJoin = Boolean(schedule.open) && available > 0;
+  const unavailableNote = !schedule.open
+    ? schedule.nextOpen
+      ? `central fechada • reabre ${schedule.nextOpen}`
+      : 'central fechada'
+    : 'sem staff em serviço';
 
   return {
     title: settings.message_panel_title,
@@ -81,6 +88,8 @@ function buildModel(scenario) {
       (Number(settings.rejoin_cooldown_minutes) > 0
         ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
         : 'Sair da espera remove você da fila.'),
+    canJoin,
+    unavailableNote,
     hints: 'Use /sair para desistir da fila e /posicao para ver a sua posição.',
   };
 }
@@ -254,6 +263,7 @@ const html = `<!doctype html>
     padding: 10px 16px; font-size: 13px; font-weight: 700;
     cursor: default; white-space: nowrap; flex: 0 0 auto;
   }
+  .btn.disabled { opacity: .45; cursor: not-allowed; }
   .hints { margin-top: 12px; font-size: 10.5px; color: var(--dim); }
   .hints code { background: var(--card-2); border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
 
@@ -317,7 +327,7 @@ const html = `<!doctype html>
             <div class="footer-title"><span>🎧</span><span id="footerTitle"></span></div>
             <p class="footer-text" id="footerText"></p>
           </div>
-          <button class="btn" type="button"><span>🎟️</span><span>Entrar na Fila</span></button>
+          <button class="btn" type="button" id="joinBtn"><span>🎟️</span><span>Entrar na Fila</span></button>
         </div>
 
         <div class="hints" id="hints"></div>
@@ -367,8 +377,13 @@ function render(key) {
   document.getElementById('schedule').innerHTML = model.schedule.map(esc).join('<br>');
   document.getElementById('footerTitle').textContent = model.footerTitle;
   document.getElementById('footerText').textContent = model.footerText;
-  document.getElementById('hints').innerHTML =
-    'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.';
+  const joinBtn = document.getElementById('joinBtn');
+  joinBtn.disabled = !model.canJoin;
+  joinBtn.classList.toggle('disabled', !model.canJoin);
+
+  document.getElementById('hints').innerHTML = model.canJoin
+    ? 'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.'
+    : '⛔ Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
 
   document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.classList.toggle('active', button.dataset.scenario === key);

@@ -63,6 +63,17 @@ module.exports = {
     const hasVoiceIntent = Boolean(voiceIntent?.has?.(GatewayIntentBits.GuildVoiceStates));
     push(hasVoiceIntent, 'Evento de voz (GuildVoiceStates)', hasVoiceIntent ? 'ativo' : 'AUSENTE — ative no código/portal');
 
+    const availability = services.engine.availability(guildId);
+    push(
+      availability.available,
+      'Entrada na fila liberada',
+      availability.available
+        ? `${availability.availableStaff} staff(s) disponível(is)`
+        : availability.reason === 'sem_staff'
+          ? 'bloqueada: nenhum staff disponível (botão do painel desabilitado)'
+          : 'bloqueada: fora do horário de atendimento (botão do painel desabilitado)',
+    );
+
     const autoJoin = settings.auto_queue_on_voice_join;
     push(
       autoJoin === true,

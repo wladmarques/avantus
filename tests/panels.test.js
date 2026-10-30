@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const { createTestEnv, addMember, panelText, panelButtonIds, panelCards } = require('./helpers');
 
 test('painel público moderno (Components V2) expõe indicadores e é atualizado na fila', async (t) => {
-  const env = await createTestEnv();
+  // Sem staff disponível: central visível, entrada na fila bloqueada.
+  const env = await createTestEnv({ staff: false });
   t.after(env.cleanup);
   addMember(env.gateway, '900000000000003001');
   env.gateway.iconUrl = 'https://cdn.discordapp.com/icons/1/abc.png';
@@ -55,6 +56,12 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.ok(footerSection, 'seção com botão como accessory');
   assert.equal(footerSection.accessory.custom_id, 'pub:join');
   assert.equal(footerSection.accessory.style, 2, 'botão na superfície neutra da paleta (Secondary)');
+  assert.equal(
+    footerSection.accessory.disabled,
+    true,
+    'sem staff em serviço o botão Entrar na Fila fica desabilitado',
+  );
+  assert.match(text, /Entrada na fila indisponível: sem staff em serviço/);
 
   // indicadores em uma linha compacta, sem emojis e sem etiquetas de código
   const stats = container.components.find(
@@ -66,6 +73,22 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.ok(!stats.content.includes('`'), 'sem etiquetas de código');
   assert.ok(!/[🎫🛡️📞⏳]/u.test(stats.content), 'sem emojis nos indicadores');
 
+  // Com staff em serviço a entrada é liberada e o painel volta a atualizar normalmente.
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: '910000000000003901',
+    status: 'DISPONIVEL',
+    updatedBy: 'sistema',
+    manual: false,
+  });
+  await env.services.panels.refresh(env.guildId);
+
+  const reopened = env.gateway.channelMessages.find((item) => item.id === message.id);
+  const reopenedSection = reopened.payload.components[0].components.find(
+    (component) => component.type === 9 && component.accessory?.type === 2,
+  );
+  assert.equal(reopenedSection.accessory.disabled, false, 'com staff o botão volta a funcionar');
+
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000003001', displayName: 'Teste' });
   await env.services.panels.refresh(env.guildId);
 
@@ -74,7 +97,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
 });
 
 test('status muda para ATENDIMENTO DISPONÍVEL quando há staff livre', async (t) => {
-  const env = await createTestEnv();
+  const env = await createTestEnv({ staff: false });
   t.after(env.cleanup);
 
   await env.services.staff.setStatus({

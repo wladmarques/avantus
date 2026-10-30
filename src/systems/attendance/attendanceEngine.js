@@ -102,16 +102,46 @@ class AttendanceEngine {
   /* Entrada e saída da fila                                              */
   /* ==================================================================== */
 
+  /**
+   * A central pode receber novos jogadores agora?
+   *
+   * Só é possível entrar na fila quando **a central está dentro do horário** e
+   * **existe ao menos um staff DISPONÍVEL**. É essa mesma checagem que
+   * habilita/desabilita o botão "Entrar na Fila" do painel.
+   *
+   * @returns {{available: boolean, reason: 'fechada'|'sem_staff'|null, availableStaff: number, nextOpen: string|null}}
+   */
+  availability(guildId) {
+    const open = this.schedule.isOpen(guildId);
+    const availableStaff = this.repos.staff.countByStatusSync(guildId, STAFF_STATUS.DISPONIVEL);
+
+    if (!open.open) {
+      return { available: false, reason: 'fechada', availableStaff, nextOpen: open.nextOpen ?? null };
+    }
+    if (availableStaff <= 0) {
+      return { available: false, reason: 'sem_staff', availableStaff, nextOpen: null };
+    }
+    return { available: true, reason: null, availableStaff, nextOpen: null };
+  }
+
   async joinQueue({ guildId, userId, displayName = null, source = 'painel' }) {
     // Quem saiu da fila antes de ser chamado precisa aguardar o bloqueio.
     this.cooldowns?.assertAllowed(guildId, userId);
 
-    const open = this.schedule.isOpen(guildId);
-    if (!open.open) {
+    const availability = this.availability(guildId);
+    if (!availability.available) {
+      if (availability.reason === 'sem_staff') {
+        throw new AppError(
+          ERRORS.SEM_STAFF,
+          'Nenhum staff está em serviço agora, então a fila está fechada para novas entradas. ' +
+            'Assim que alguém da equipe ficar disponível, o botão **Entrar na Fila** é liberado.',
+          { availableStaff: 0 },
+        );
+      }
       throw new AppError(
         ERRORS.CENTRAL_FECHADA,
         'A central de atendimento está fechada no momento. Confira os horários de funcionamento no painel.',
-        { schedule: this.schedule.getSchedule(guildId), nextOpen: open.nextOpen },
+        { schedule: this.schedule.getSchedule(guildId), nextOpen: availability.nextOpen },
       );
     }
 
