@@ -159,7 +159,7 @@ const html = `<!doctype html>
   .bot-tag { background: #5865f2; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
   .timestamp { color: var(--dim); font-size: 11.5px; font-weight: 400; }
 
-  /* Container principal: fundo quase preto + barra laranja */
+  /* Container principal: fundo preto + barra na cor da marca (#ff2200) */
   .container {
     margin-top: 9px;
     background: var(--panel-outer);
@@ -175,8 +175,7 @@ const html = `<!doctype html>
     margin: 0; font-size: 25px; line-height: 1.15; font-weight: 800;
     letter-spacing: .2px; text-transform: uppercase;
   }
-  .head h1 .icon { color: var(--accent); }
-  .head h1 .icon { font-weight: 400; margin-right: 8px; }
+  .head h1 .icon { color: var(--accent); font-weight: 400; margin-right: 8px; }
   .head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
   /* Painel de status (interno) */
