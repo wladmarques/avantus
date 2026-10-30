@@ -15,6 +15,7 @@ let failed = 0;
 
 function walk(entry) {
   const full = path.join(root, entry);
+  if (!fs.existsSync(full)) return; // pacote de deploy pode não incluir tests/
   const stat = fs.statSync(full);
   if (stat.isDirectory()) {
     for (const child of fs.readdirSync(full)) {
