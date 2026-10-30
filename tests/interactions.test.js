@@ -171,5 +171,5 @@ test('painéis publicados usam IDs persistentes reconhecidos pelo router', async
   const env = await createTestEnv();
   t.after(env.cleanup);
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
-  assert.deepEqual(panelButtonIds(payload), ['pub:join', 'pub:leave', 'pub:status']);
+  assert.deepEqual(panelButtonIds(payload), ['pub:join', 'pub:status', 'pub:leave']);
 });

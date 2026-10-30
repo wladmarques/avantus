@@ -17,12 +17,12 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   const message = env.gateway.channelMessages.at(-1);
   assert.equal(message.payload.flags, 32768, 'usa MessageFlags.IsComponentsV2');
   assert.equal(message.payload.embeds, undefined, 'V2 não mistura embeds');
-  assert.ok(panelCards(message.payload).length >= 6, 'cards da central');
+  assert.equal(panelCards(message.payload).length, 1, 'um único card, como na referência');
 
   const text = panelText(message.payload);
   assert.match(text, /ATENDIMENTO \| VANTUS/);
   assert.match(text, /STATUS DA CENTRAL/);
-  assert.match(text, /FILA ABERTA/);
+  assert.match(text, /AGUARDANDO STAFF/, 'sem staff: aguardando disponibilidade');
   assert.match(text, /NA FILA/);
   assert.match(text, /STAFFS DISPONÍVEIS/);
   assert.match(text, /EM ATENDIMENTO/);
@@ -33,20 +33,57 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.match(text, /Sáb–Dom/);
   assert.match(text, /12:00 às 00:00/);
   assert.match(text, /Fila por canal de voz/);
+  assert.match(text, /Você será movido automaticamente/);
 
-  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:leave', 'pub:status']);
+  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:status', 'pub:leave']);  // layout clássico mantém a action row original
 
-  // thumbnail com o ícone do servidor no cabeçalho
-  const section = message.payload.components[0].components[0];
-  assert.equal(section.type, 9);
-  assert.equal(section.accessory.type, 11);
-  assert.equal(section.accessory.media.url, env.gateway.iconUrl);
+  // cabeçalho: seção com o ícone do servidor como thumbnail
+  const container = message.payload.components[0];
+  assert.equal(container.type, 17, 'container único');
+  const header = container.components[0];
+  assert.equal(header.type, 9);
+  assert.equal(header.accessory.type, 11);
+  assert.equal(header.accessory.media.url, env.gateway.iconUrl);
+
+  // rodapé: texto à esquerda e botão principal à direita
+  const footerSection = container.components.find(
+    (component) => component.type === 9 && component.accessory?.type === 2,
+  );
+  assert.ok(footerSection, 'seção com botão como accessory');
+  assert.equal(footerSection.accessory.custom_id, 'pub:join');
+  assert.equal(footerSection.accessory.style, 3, 'botão verde (sucesso)');
+
+  // indicadores em linha (chips), não em cards empilhados
+  const chips = container.components.find(
+    (component) => component.type === 10 && component.content.includes('`🎫 NA FILA`'),
+  );
+  assert.ok(chips, 'linha de indicadores');
+  assert.match(chips.content, /`🛡️ STAFFS DISPONÍVEIS`/);
+  assert.match(chips.content, /`⏳ ESPERA MÉDIA`/);
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000003001', displayName: 'Teste' });
   await env.services.panels.refresh(env.guildId);
 
   const updated = env.gateway.channelMessages.find((item) => item.id === message.id);
-  assert.match(panelText(updated.payload), /NA FILA\*\*\n## 1/);
+  assert.match(panelText(updated.payload), /🎫 NA FILA` \*\*1\*\*/);
+});
+
+test('status muda para ATENDIMENTO DISPONÍVEL quando há staff livre', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: '910000000000003900',
+    status: 'DISPONIVEL',
+    updatedBy: 'sistema',
+    manual: false,
+  });
+
+  const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
+  const text = panelText(payload);
+  assert.match(text, /ATENDIMENTO DISPONÍVEL/);
+  assert.match(text, /1 staff\(s\) disponível\(is\)/);
 });
 
 test('estilo clássico continua disponível em embed', async (t) => {

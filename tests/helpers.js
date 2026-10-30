@@ -100,6 +100,8 @@ function flattenComponents(payload, acc = []) {
     if (!component || typeof component !== 'object') return;
     acc.push(component);
     if (Array.isArray(component.components)) component.components.forEach(walk);
+    // Section pode ter uma thumbnail ou um botão como accessory
+    if (component.accessory) walk(component.accessory);
   };
   (payload?.components ?? []).forEach(walk);
   return acc;

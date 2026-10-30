@@ -88,8 +88,11 @@ Regras:
 
 ## Estilo do painel público
 
-O painel público usa **Components V2** (`panel_style=modern`): cards com barra de destaque,
-separadores, número grande em cada indicador, ícone do servidor no cabeçalho e botões dentro do card.
+O painel público usa **Components V2** (`panel_style=modern`): **um único card compacto** com
+cabeçalho (título + subtítulo + ícone do servidor), bloco de status, indicadores em linha,
+horário de atendimento e uma faixa final com o texto explicativo à esquerda e o botão
+**Entrar na Fila** à direita. Botões secundários (*Minha posição* e *Sair da fila*) ficam na linha
+abaixo do texto.
 
 ```bash
 /config definir chave:panel_style valor:classic   # volta para o layout em embed
