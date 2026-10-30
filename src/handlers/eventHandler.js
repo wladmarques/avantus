@@ -5,7 +5,7 @@ const path = require('node:path');
 const { createLogger } = require('../utils/logger');
 
 const logger = createLogger('events');
-const GROUPS = ['client', 'guild', 'voice', 'members'];
+const GROUPS = ['client', 'voice', 'members'];
 
 /**
  * Carrega os listeners de src/events/<grupo>/*.js.

@@ -1,10 +1,37 @@
+# Dependências
 node_modules/
+
+# Segredos e configuração local
 .env
-data/
+.env.local
+.env.*.local
+!.env.example
+
+# Banco de dados e artefatos de execução
+/data/*
+!/data/.gitkeep
 *.sqlite
 *.sqlite.bak
 *.sqlite.tmp
-logs/
-.DS_Store
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs (apenas a pasta na raiz — preserve src/systems/logs/)
+/logs/
+*.log
+
+# Cobertura de testes e temporários
 coverage/
+.tmp/
+*.tmp
+
+# Snapshots manuais do banco
 snapshots/
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
