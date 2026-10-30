@@ -3,7 +3,7 @@
 /**
  * Gera o pacote de deploy para a SquareCloud:
  *   npm run package
- * Resultado: ../vantus-atendimento-squarecloud.zip (fora do repositório).
+ * Resultado: entrega/vantus-atendimento-squarecloud.zip
  *
  * Exclui node_modules, .git, .github, tests, data, .env e arquivos SQLite.
  * O squarecloud.app fica na raiz do zip, como a SquareCloud exige.
@@ -13,8 +13,9 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const outFile = path.join(root, '..', 'vantus-atendimento-squarecloud.zip');
+const outFile = path.join(root, 'entrega', 'vantus-atendimento-squarecloud.zip');
 const exclude = new Set([
+  'entrega',
   'node_modules',
   '.git',
   '.github',
@@ -44,6 +45,7 @@ function main() {
     process.exit(1);
   }
 
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.rmSync(outFile, { force: true });
   try {
     execFileSync('zip', ['-q', outFile, ...files], { cwd: root, stdio: 'inherit' });

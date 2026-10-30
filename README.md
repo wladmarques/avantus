@@ -171,8 +171,9 @@ npm run deploy:commands   # registra os slash commands manualmente
 npm run package           # gera o .zip de deploy para a SquareCloud
 ```
 
-O pacote gerado (`../vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`, `data`,
-`.env` ou arquivos SQLite, com o `squarecloud.app` na raiz.
+O pacote gerado (`entrega/vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`,
+`data`, `.env` ou arquivos SQLite, com o `squarecloud.app` na raiz. Uma versão pronta para download
+fica em [`entrega/`](entrega/).
 
 ## Licença
 
