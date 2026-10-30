@@ -30,7 +30,18 @@ const ALLOWED_TRANSITIONS = {
 };
 
 class AttendanceEngine {
-  constructor({ db, repositories, settings, gateway, staffService, notifications, audit, panels, schedule }) {
+  constructor({
+    db,
+    repositories,
+    settings,
+    gateway,
+    staffService,
+    notifications,
+    audit,
+    panels,
+    schedule,
+    cooldowns = null,
+  }) {
     this.db = db;
     this.repos = repositories;
     this.settings = settings;
@@ -40,6 +51,7 @@ class AttendanceEngine {
     this.audit = audit;
     this.panels = panels;
     this.schedule = schedule;
+    this.cooldowns = cooldowns;
     this.timers = new Map();
     this.positionCooldowns = new Map();
   }
@@ -90,6 +102,9 @@ class AttendanceEngine {
   /* ==================================================================== */
 
   async joinQueue({ guildId, userId, displayName = null, source = 'painel' }) {
+    // Quem saiu da fila antes de ser chamado precisa aguardar o bloqueio.
+    this.cooldowns?.assertAllowed(guildId, userId);
+
     const open = this.schedule.isOpen(guildId);
     if (!open.open) {
       throw new AppError(
@@ -204,6 +219,17 @@ class AttendanceEngine {
     });
 
     this._clearTimer(closed.id);
+
+    // Desistiu antes de ser chamado? Aplica o bloqueio de reentrada.
+    let cooldown = null;
+    if (outcome === OUTCOMES.DESISTIU && closed.started_at === null) {
+      cooldown = await this.cooldowns?.apply({
+        guildId,
+        userId,
+        reason: reason || 'Saiu da fila antes de ser chamado',
+      });
+    }
+
     await this._effect('remover acesso de voz', () =>
       this.gateway.revokeVoiceAccess(guildId, closed.voice_channel_id, userId),
     );
@@ -218,6 +244,7 @@ class AttendanceEngine {
           userId,
           protocol: closed.protocol,
           reason: reason || (outcome === OUTCOMES.DESISTIU ? 'Você desistiu do atendimento.' : null),
+          cooldownMinutes: cooldown?.minutes ?? 0,
         }),
       );
     }
@@ -938,6 +965,34 @@ class AttendanceEngine {
     const waitChannelId = this.settings.get('wait_channel_id');
     const active = this.repos.attendance.findActiveByUserSync(guildId, userId);
 
+    // 0) Tentou voltar ao canal de espera durante o bloqueio → remove do canal
+    if (!isStaff && !active && channelId && waitChannelId && channelId === waitChannelId) {
+      const cooldown = this.cooldowns?.check(guildId, userId);
+      if (cooldown?.active) {
+        await this._effect('remover do canal de espera', () =>
+          this.gateway.disconnectFromVoice(guildId, userId),
+        );
+        await this._effect('avisar bloqueio', () =>
+          this.notifications.cooldownBlocked({
+            guildId,
+            userId,
+            remainingSeconds: cooldown.remainingSeconds,
+            minutes: this.cooldowns.minutes,
+          }),
+        );
+        await this.audit.log({
+          guildId,
+          type: 'COOLDOWN_BLOCKED',
+          actorId: userId,
+          targetId: userId,
+          message: `⏳ **${displayName ?? `<@${userId}>`}** tentou voltar ao canal de espera durante o bloqueio (${this.cooldowns.message(cooldown)}).`,
+          color: COLORS.MUTED,
+          metadata: { remainingSeconds: cooldown.remainingSeconds },
+        });
+        return { cooldownBlocked: true, remainingSeconds: cooldown.remainingSeconds };
+      }
+    }
+
     // 1) Entrou no canal de espera sem estar na fila → entra automaticamente
     if (
       !isStaff &&
@@ -994,7 +1049,7 @@ class AttendanceEngine {
           guildId,
           userId,
           actorId: userId,
-          reason: 'Saiu do canal de espera',
+          reason: 'Saiu do canal de espera antes de ser chamado',
           outcome: OUTCOMES.DESISTIU,
         });
         await this.audit.log({

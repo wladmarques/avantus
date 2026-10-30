@@ -65,7 +65,7 @@ Regras:
 | --- | --- |
 | Clica em **Entrar na fila** (painel/comando) | registra o protocolo e **move para o canal de espera** |
 | **Entra no canal de espera** | **entra na fila automaticamente** (gera protocolo e envia DM) |
-| Sai do canal de espera | **sai da fila** (desistência), salvo se `leave_queue_on_wait_exit=false` |
+| Sai do canal de espera | **sai da fila** (desistência) e recebe **bloqueio de 10 min**, salvo se `leave_queue_on_wait_exit=false` |
 | É chamado por um staff | vai para o canal de atendimento e a presença é confirmada |
 
 ```bash
@@ -77,12 +77,31 @@ Regras:
 > clicar em **Entrar na fila** sem estar em nenhum canal, ele recebe a instrução no privado para
 > entrar em **AGUARDANDO ATENDIMENTO** (e entra na fila assim que entrar no canal).
 
+### Bloqueio de reentrada (anti-abandono)
+
+Quem entra na fila (pelo painel **ou** pelo canal de voz) e sai **antes de ser chamado** fica
+bloqueado por `rejoin_cooldown_minutes` (padrão **10 minutos**):
+
+- **clicar em Entrar na fila** → resposta efêmera com o tempo restante;
+- **entrar no canal de espera** → o bot remove do canal e avisa no privado;
+- **`/posicao`** → mostra o tempo restante;
+- **`/fila ver`** → lista os jogadores bloqueados e quando liberam.
+
+O bloqueio **não** é aplicado quando: houve atendimento (staff chamou), a remoção foi feita pela
+equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
+
+```bash
+/config definir chave:rejoin_cooldown_minutes valor:5   # 5 minutos
+/fila liberar jogador:@fulano                          # libera na hora
+```
+
 ## Comportamento da fila e do atendimento
 
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
 | `auto_queue_on_voice_join` | `true` | Entrar no canal de espera coloca o jogador na fila automaticamente |
 | `leave_queue_on_wait_exit` | `true` | Sair do canal de espera remove o jogador da fila |
+| `rejoin_cooldown_minutes` | `10` | Bloqueio para voltar à fila depois de desistir antes de ser chamado (0 = desativado) |
 | `max_queue_size` | `0` | Limite de jogadores na fila (0 = ilimitado) |
 | `max_wait_minutes` | `0` | Remove quem esperar mais que isso (0 = sem limite) |
 | `skip_policy` | `end` | `end` = pulado vai ao final; `hold` = fica pendente |

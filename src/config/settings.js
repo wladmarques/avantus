@@ -106,6 +106,13 @@ const SETTINGS = {
     group: 'Funcionamento',
     validate: (v) => ['keep', 'clear'].includes(v),
   },
+  rejoin_cooldown_minutes: {
+    default: 10,
+    type: 'number',
+    label: 'Bloqueio para voltar à fila após desistir (min, 0 = desativado)',
+    group: 'Fila',
+    validate: asInt(0, 1440),
+  },
   max_queue_size: {
     default: 0,
     type: 'number',

@@ -148,6 +148,25 @@ const migrations = [
       db.exec('ALTER TABLE panels ADD COLUMN format TEXT;');
     },
   },
+  {
+    version: 4,
+    name: 'cooldown_de_reentrada',
+    up(db) {
+      // Quem sai da fila antes de ser chamado fica bloqueado por um tempo.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cooldowns (
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          until INTEGER NOT NULL,
+          reason TEXT,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (guild_id, user_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_cooldowns_until ON cooldowns(guild_id, until);
+      `);
+    },
+  },
 ];
 
 /**

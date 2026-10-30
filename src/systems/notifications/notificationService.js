@@ -101,20 +101,48 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
-  removed({ guildId, userId, protocol, reason }) {
+  removed({ guildId, userId, protocol, reason, cooldownMinutes = 0 }) {
     const embed = card({
       title: '🚫 Você saiu da fila',
       description: [
         `**Protocolo:** \`#${String(protocol).padStart(4, '0')}\``,
         reason ? `**Motivo:** ${reason}` : null,
         '',
-        'Você pode entrar novamente na fila quando precisar.',
+        cooldownMinutes > 0
+          ? `⏳ Você poderá entrar na fila novamente em **${cooldownMinutes} minutos**.`
+          : 'Você pode entrar novamente na fila quando precisar.',
       ]
         .filter(Boolean)
         .join('\n'),
       color: COLORS.DANGER,
     });
     return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
+  cooldownBlocked({ guildId, userId, remainingSeconds, minutes }) {
+    const embed = card({
+      title: '⏳ Aguarde para entrar novamente',
+      description: [
+        'Você saiu da fila antes de ser chamado.',
+        '',
+        `**Tempo restante:** ${this.formatRemaining(remainingSeconds)}`,
+        minutes ? `**Bloqueio configurado:** ${minutes} minutos` : null,
+        '',
+        'Entre no canal de espera ou clique em **Entrar na fila** quando o tempo acabar.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      color: COLORS.WARNING,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
+  formatRemaining(seconds) {
+    const total = Math.max(0, Math.ceil(seconds));
+    const minutes = Math.floor(total / 60);
+    const rest = total % 60;
+    if (minutes === 0) return `${rest}s`;
+    return rest === 0 ? `${minutes}min` : `${minutes}min ${String(rest).padStart(2, '0')}s`;
   }
 
   noShow({ guildId, userId, protocol }) {

@@ -12,6 +12,26 @@ module.exports = {
     .setDescription('Mostra sua posição atual na fila de atendimento'),
   async execute({ interaction, services }) {
     const info = services.queue.positionOf(interaction.guildId, interaction.user.id);
+    const cooldown = services.cooldowns.check(interaction.guildId, interaction.user.id);
+
+    if (info.status === 'none' && cooldown.active) {
+      return respond(
+        interaction,
+        ephemeral({
+          embeds: [
+            card({
+              title: '⏳ Aguarde para entrar novamente',
+              description: [
+                'Você saiu da fila antes de ser chamado.',
+                '',
+                `**Tempo restante:** ${services.cooldowns.message(cooldown).replace('⏳ ', '')}`,
+              ].join('\n'),
+              color: COLORS.WARNING,
+            }),
+          ],
+        }),
+      );
+    }
 
     if (info.status === 'none') {
       return respond(

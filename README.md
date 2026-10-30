@@ -32,6 +32,8 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
 - Fila sincronizada com a voz **nos dois sentidos**: entrar na fila move para o canal de espera e
   entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
+- **Bloqueio de reentrada**: quem desiste antes de ser chamado fica 10 minutos sem voltar
+  (configurável em `rejoin_cooldown_minutes`, liberável com `/fila liberar`).
 - Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).
 - Bloqueio de atendimento duplicado por jogador e por staff (com liberação configurável).
 - Perda de presença, desconexão de voz e saída do servidor tratadas automaticamente.
@@ -154,7 +156,7 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 | Admin | `/config ver\|definir` | Edita qualquer configuração |
 | Admin | `/horario ver\|definir\|fechar_dia\|modelo` | Agenda de funcionamento |
 | Admin | `/staff lista\|status` | Disponibilidade da equipe |
-| Admin | `/fila ver\|pular\|remover\|reativar\|limpar` | Administra a fila |
+| Admin | `/fila ver\|pular\|remover\|reativar\|liberar\|limpar` | Administra a fila |
 | Admin | `/estatisticas [periodo]` | Relatórios e ranking |
 | Admin | `/avaliacoes [periodo]` | Avaliações recebidas |
 | Admin | `/historico protocolo\|jogador\|ultimos` | Histórico completo |

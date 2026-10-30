@@ -59,6 +59,11 @@ module.exports = {
     // Expirados por tempo máximo de espera
     const expireTimer = setInterval(() => {
       services.queue.expire(guildId).catch((error) => logger.warn(`Expiração: ${error.message}`));
+      try {
+        services.repositories.cooldowns.purgeExpiredSync();
+      } catch (error) {
+        logger.warn(`Limpeza de bloqueios: ${error.message}`);
+      }
     }, 60 * 1000);
     expireTimer.unref?.();
     runtime.expireTimer = expireTimer;

@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 56 testes (node:test), sem token e sem internet
+npm test             # 76 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -22,14 +22,16 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/panels.test.js` | painel V2 (indicadores, cards, thumbnail, botões), layout clássico, troca de estilo sem duplicar, fallback quando a API recusa V2, lista do painel staff, reconstrução, estado fechado |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |
 | `tests/schedule.test.js` | janelas normais, fechamento, virada de madrugada, dia sem janela, fuso de São Paulo, períodos |
+| `tests/cooldown.test.js` | bloqueio de 10 min ao desistir, DM com tempo restante, expulsão do canal de espera, expiração, staff não gera bloqueio, configuração 0/3 min, `/fila liberar` |
+| `tests/commands.test.js` | contexto do comando (`client`/`env`/`runtime`), `/setup` e `/diagnostico` ponta a ponta |
 | `tests/permissions.test.js` | cargos, Administrator, dono do servidor, mensagens de erro |
 | `tests/interactions.test.js` | botão entrar, bloqueio de permissão, chamar próximo, menu de seleção, modal de remoção, avaliação |
 
 Resultado esperado:
 
 ```
-# tests 56
-# pass 56
+# tests 76
+# pass 76
 # fail 0
 ```
 
