@@ -204,13 +204,6 @@ const SETTINGS = {
     group: 'Relatórios',
     validate: asInt(1, 100),
   },
-  hidden_channels: {
-    default: false,
-    type: 'boolean',
-    label: 'Modo discreto (sem menções em canais)',
-    group: 'Notificações',
-    validate: asBool,
-  },
   message_panel_title: {
     default: '🎧 ATENDIMENTO | VANTUS',
     type: 'string',

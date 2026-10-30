@@ -48,10 +48,6 @@ class StatisticsService {
       byDayMap.set(key, (byDayMap.get(key) || 0) + 1);
     }
 
-    const staffRows = this.repos.attendance.listFinishedByPeriodSync(guildId, range.from, range.to, {
-      limit: 20000,
-    });
-
     return {
       range,
       total: rows.length,
@@ -72,7 +68,7 @@ class StatisticsService {
       byDay: [...byDayMap.entries()]
         .map(([date, total]) => ({ date, total }))
         .sort((a, b) => a.date.localeCompare(b.date)),
-      ranking: this.ranking(guildId, range, rows, evaluations, staffRows),
+      ranking: this.ranking(guildId, range, rows, evaluations),
       ratingDistribution: evaluations.reduce((acc, row) => {
         acc[row.rating] = (acc[row.rating] || 0) + 1;
         return acc;
@@ -80,11 +76,11 @@ class StatisticsService {
     };
   }
 
-  ranking(guildId, range, rows, evaluations, staffRows = rows) {
+  ranking(guildId, range, rows, evaluations) {
     const minSample = this.settings.get('stats_ranking_min_sample') || 3;
     const staffMap = new Map();
 
-    for (const row of staffRows) {
+    for (const row of rows) {
       if (!row.staff_id) continue;
       const entry = staffMap.get(row.staff_id) ?? {
         staffId: row.staff_id,

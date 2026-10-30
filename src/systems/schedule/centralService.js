@@ -56,6 +56,21 @@ class CentralService {
       });
     }
 
+    if (!shouldClear) {
+      // A fila é mantida: avisamos quem está esperando e segue aberto o status.
+      const state = this.engine.getState(guildId);
+      for (const entry of state.waiting) {
+        await this.notifications
+          .centralClosed({
+            guildId,
+            userId: entry.user_id,
+            schedule: this.settings.get('schedule'),
+            nextOpen: this.status(guildId).nextOpen,
+          })
+          .catch(() => null);
+      }
+    }
+
     await this.audit.log({
       guildId,
       type: 'CENTRAL_CLOSE',

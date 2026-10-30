@@ -19,7 +19,7 @@ function buildPublicPanel({ settings, state, schedule, now = new Date() }) {
     { name: '🛡️ STAFFS DISPONÍVEIS', value: `**${state.staffCounts.DISPONIVEL}** em serviço`, inline: true },
     { name: '📞 EM ATENDIMENTO', value: `**${state.serving.length}** ativo(s)`, inline: true },
     { name: '⏳ ESPERA MÉDIA', value: `**${formatDuration(estimate)}**`, inline: true },
-    { name: '⏰ HORÁRIO DE HOJE', value: `**${today.text}**`, inline: true },
+    { name: '⏰ HORÁRIO DE ATENDIMENTO', value: `**${today.text}**`, inline: true },
   ];
 
   const embed = {
@@ -34,7 +34,6 @@ function buildPublicPanel({ settings, state, schedule, now = new Date() }) {
       .filter(Boolean)
       .join('\n'),
     fields,
-    thumbnail: { url: 'https://cdn.discordapp.com/embed/avatars/0.png' },
     footer: {
       text: `${BRAND.footer} • Atualizado ${formatTime(now)} • Atualização automática`,
     },
