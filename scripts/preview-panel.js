@@ -54,6 +54,8 @@ const baseSettings = {
   message_panel_title: '🎧 ATENDIMENTO | VANTUS',
   message_panel_description: 'Use a ação abaixo para entrar na fila e aguarde as atualizações.',
   wait_channel_id: '000000000000000000',
+  leave_queue_on_wait_exit: true,
+  rejoin_cooldown_minutes: 10,
 };
 
 const payloads = Object.fromEntries(
