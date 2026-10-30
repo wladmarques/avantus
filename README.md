@@ -171,6 +171,7 @@ npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
 npm run package           # gera o .zip de deploy para a SquareCloud
+npm run preview:panel     # gera preview/panel.html com o layout real do painel
 ```
 
 O pacote gerado (`entrega/vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`,

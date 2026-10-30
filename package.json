@@ -14,7 +14,8 @@
     "test": "node --test tests/*.test.js",
     "lint": "node scripts/check-syntax.js",
     "check:tracked": "node scripts/check-tracked.js",
-    "package": "node scripts/package.js"
+    "package": "node scripts/package.js",
+    "preview:panel": "node scripts/preview-panel.js"
   },
   "keywords": [
     "discord",

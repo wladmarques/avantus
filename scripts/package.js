@@ -16,6 +16,7 @@ const root = path.join(__dirname, '..');
 const outFile = path.join(root, 'entrega', 'vantus-atendimento-squarecloud.zip');
 const exclude = new Set([
   'entrega',
+  'preview',
   'node_modules',
   '.git',
   '.github',
