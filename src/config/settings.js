@@ -134,13 +134,6 @@ const SETTINGS = {
     group: 'Fila',
     validate: asBool,
   },
-  leave_queue_on_wait_exit: {
-    default: true,
-    type: 'boolean',
-    label: 'Sair da fila ao sair do canal de espera',
-    group: 'Fila',
-    validate: asBool,
-  },
   skip_policy: {
     default: 'end',
     type: 'string',

@@ -139,14 +139,10 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     ? `Entre em <#${settings.wait_channel_id}> para aguardar atendimento. `
     : 'Entre no canal de voz de espera. ';
   const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
-  let exitNote;
-  if (settings.leave_queue_on_wait_exit === false) {
-    exitNote = 'Sair do canal não remove você da fila.';
-  } else if (cooldownMinutes > 0) {
-    exitNote = `Sair da espera remove você da fila e bloqueia a reentrada por ${cooldownMinutes} min.`;
-  } else {
-    exitNote = 'Sair da espera remove você da fila.';
-  }
+  const exitNote =
+    cooldownMinutes > 0
+      ? `Sair da espera remove você da fila e bloqueia a reentrada por ${cooldownMinutes} min.`
+      : 'Sair da espera remove você da fila.';
 
   const scheduleLines = describeScheduleCompact(schedule.schedule)
     .slice(0, 3)

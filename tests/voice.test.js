@@ -195,13 +195,13 @@ test('sair do canal de espera remove o jogador da fila (padrão)', async (t) => 
   assert.match(record.note ?? '', /canal de espera/i);
 });
 
-test('com leave_queue_on_wait_exit=false o jogador permanece na fila', async (t) => {
-  const env = await createTestEnv({ settings: { leave_queue_on_wait_exit: false } });
+test('sair do canal de espera tira o jogador da fila mesmo sem configuração extra', async (t) => {
+  const env = await createTestEnv();
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
   await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Espera' });
 
-  await env.services.attendance.handlePlayerVoiceUpdate({
+  const result = await env.services.attendance.handlePlayerVoiceUpdate({
     guildId: env.guildId,
     userId: PLAYER,
     oldChannelId: env.waitChannelId,
@@ -209,9 +209,30 @@ test('com leave_queue_on_wait_exit=false o jogador permanece na fila', async (t)
     attendanceChannelIds: [env.attChannelId],
   });
 
-  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 1);
+  assert.equal(result.leftQueue, true);
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
+
   const events = env.services.audit.recent(env.guildId);
-  assert.ok(events.some((event) => event.type === 'PLAYER_LEFT_WAIT_VOICE'));
+  assert.ok(events.some((event) => event.type === 'QUEUE_LEFT_WAIT_VOICE'));
+  assert.ok(!events.some((event) => event.type === 'PLAYER_LEFT_WAIT_VOICE'));
+});
+
+test('jogador movido do canal de espera para outro canal também sai da fila', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+  await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Espera' });
+
+  const result = await env.services.attendance.handlePlayerVoiceUpdate({
+    guildId: env.guildId,
+    userId: PLAYER,
+    oldChannelId: env.waitChannelId,
+    channelId: '299999999999999999',
+    attendanceChannelIds: [env.attChannelId],
+  });
+
+  assert.equal(result.leftQueue, true);
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
 });
 
 test('com auto_queue_on_voice_join=false entrar no canal não entra na fila', async (t) => {

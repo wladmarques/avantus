@@ -72,11 +72,7 @@ module.exports = {
         : 'DESLIGADA — use `/config definir` para ligar (sem isso, só o botão Entrar na Fila funciona)',
     );
 
-    push(
-      settings.leave_queue_on_wait_exit === true,
-      'Saída automática ao sair do canal de espera',
-      settings.leave_queue_on_wait_exit === true ? 'ligada' : 'desligada',
-    );
+    push(true, 'Saída automática ao sair do canal de espera', 'sempre ativa (sai da fila na hora)');
 
     const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
     push(

@@ -171,7 +171,7 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 
 ```bash
 npm start                 # inicia o bot
-npm test                  # roda os 85 testes
+npm test                  # roda os 88 testes
 npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente

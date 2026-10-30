@@ -40,7 +40,8 @@ Você também é avisado quando sua posição melhora — sem spam: os avisos re
 ## Desistindo
 
 - Clique em **❌ SAIR DA FILA** no painel ou use `/sair`.
-- **Sair do canal de espera também remove você da fila.**
+- **Sair do canal de espera remove você da fila na hora** — inclusive se você for movido para
+  outro canal ou cair a conexão.
 - ⏳ **Ao desistir antes de ser chamado, você fica 10 minutos sem poder voltar** (nem pelo painel,
   nem entrando no canal de espera). O bot informa o tempo restante — inclusive em `/posicao`.
   A administração pode reduzir/desativar esse bloqueio ou liberar você na hora.

@@ -181,3 +181,30 @@ test('membro que não está mais no servidor é ignorado sem erro', async (t) =>
 
   assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
 });
+
+test('sair do canal de espera (evento) remove o jogador da fila na hora', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+
+  await dispatch(env, { from: null, to: env.waitChannelId });
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 1);
+
+  await dispatch(env, { from: env.waitChannelId, to: null });
+
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0, 'saiu da fila ao sair do canal');
+  const record = env.services.repositories.attendance.listByUserSync(env.guildId, PLAYER)[0];
+  assert.equal(record.status, 'finished');
+  assert.equal(record.outcome, 'JOGADOR_DESISTIU');
+  assert.equal(env.services.cooldowns.check(env.guildId, PLAYER).active, true, 'bloqueio de reentrada aplicado');
+});
+
+test('sair do canal de espera sem estar na fila não gera erro', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+
+  await dispatch(env, { from: env.waitChannelId, to: null });
+
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
+});

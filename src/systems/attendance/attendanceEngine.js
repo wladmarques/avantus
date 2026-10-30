@@ -1084,41 +1084,35 @@ class AttendanceEngine {
 
     // 2) Fora da fila de espera enquanto aguardava → desistência
     if (active.status === ATTENDANCE_STATUS.WAITING) {
-      const wasWaitingInVoice = oldChannelId && oldChannelId === waitChannelId;
+      const wasWaitingInVoice = Boolean(oldChannelId) && oldChannelId === waitChannelId;
       const leftWaitChannel = wasWaitingInVoice && channelId !== waitChannelId;
 
-      if (leftWaitChannel && this.settings.get('leave_queue_on_wait_exit')) {
-        const closed = await this.leaveQueue({
-          guildId,
-          userId,
-          actorId: userId,
-          reason: 'Saiu do canal de espera antes de ser chamado',
-          outcome: OUTCOMES.DESISTIU,
-        });
-        await this.audit.log({
-          guildId,
-          type: 'QUEUE_LEFT_WAIT_VOICE',
-          actorId: userId,
-          targetId: userId,
-          protocol: closed.protocol,
-          message: `**${closed.username}** saiu do canal de espera e foi removido da fila automaticamente.`,
-          color: COLORS.MUTED,
-        });
-        return { leftQueue: true };
-      }
+      if (!leftWaitChannel) return null;
 
-      if (leftWaitChannel) {
-        await this.audit.log({
-          guildId,
-          type: 'PLAYER_LEFT_WAIT_VOICE',
-          actorId: userId,
-          targetId: userId,
-          protocol: active.protocol,
-          message: `**${active.username}** saiu do canal de espera (permanece na fila).`,
-          color: COLORS.MUTED,
-        });
-      }
-      return null;
+      // Regra fixa (sem configuração): sair do canal de espera tira o jogador da
+      // fila na hora — incluindo quando ele é desconectado ou movido para outro
+      // canal. A saída também alimenta o bloqueio de reentrada.
+      const closed = await this.leaveQueue({
+        guildId,
+        userId,
+        actorId: userId,
+        reason: 'Saiu do canal de espera antes de ser chamado',
+        outcome: OUTCOMES.DESISTIU,
+      });
+
+      const cooldown = this.cooldowns ? this.cooldowns.check(guildId, userId) : null;
+      await this.audit.log({
+        guildId,
+        type: 'QUEUE_LEFT_WAIT_VOICE',
+        actorId: userId,
+        targetId: userId,
+        protocol: closed.protocol,
+        message:
+          `**${closed.username}** saiu do canal de espera e foi removido da fila automaticamente` +
+          (cooldown?.active ? ` (reentrada bloqueada por ${this.formatSeconds(cooldown.remainingSeconds)}).` : '.'),
+        color: COLORS.MUTED,
+      });
+      return { leftQueue: true };
     }
 
     if (active.status === ATTENDANCE_STATUS.SERVING) {

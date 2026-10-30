@@ -25,7 +25,6 @@ const settings = {
   message_panel_title: 'ATENDIMENTO | VANTUS',
   message_panel_description: 'Use a ação abaixo para entrar na fila e aguarde as atualizações.',
   wait_channel_id: '000000000000000000',
-  leave_queue_on_wait_exit: true,
   rejoin_cooldown_minutes: 10,
 };
 
@@ -79,11 +78,9 @@ function buildModel(scenario) {
     footerText:
       'Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente ' +
       'quando houver staff disponível. ' +
-      (settings.leave_queue_on_wait_exit === false
-        ? 'Sair do canal não remove você da fila.'
-        : Number(settings.rejoin_cooldown_minutes) > 0
-          ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
-          : 'Sair da espera remove você da fila.'),
+      (Number(settings.rejoin_cooldown_minutes) > 0
+        ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
+        : 'Sair da espera remove você da fila.'),
     hints: 'Use /sair para desistir da fila e /posicao para ver a sua posição.',
   };
 }
