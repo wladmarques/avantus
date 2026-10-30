@@ -3,8 +3,9 @@
 ## Como rodar
 
 ```bash
-npm test        # 52 testes (node:test), sem token e sem internet
-npm run lint    # valida a sintaxe de todos os arquivos
+npm test             # 52 testes (node:test), sem token e sem internet
+npm run lint         # valida a sintaxe de todos os arquivos
+npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
 
 Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que simula o Discord

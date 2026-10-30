@@ -94,6 +94,7 @@ npx squarecloud-cli logs <app-id> --tail  # acompanha os logs
   mantenha a pasta `data/` fora do pacote enviado para não sobrescrever o banco.
 - Recomendado: crie snapshots manuais no painel antes de grandes atualizações.
 - Para baixar o banco: use o gerenciador de arquivos da SquareCloud e copie `data/vantus.sqlite`.
+- No repositório, a pasta `data/` contém apenas um `.gitkeep`; o banco nunca é versionado.
 
 ## 7. Primeiro uso no Discord
 

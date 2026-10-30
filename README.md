@@ -115,10 +115,20 @@ src/
   handlers/               carregamento de comandos/eventos, respostas, registro
   services/               gateway do Discord, container de dependências, erros
   utils/                  logger, tempo/fuso, validadores
-scripts/                  deploy de comandos e checagem de sintaxe
+scripts/                  deploy de comandos, checagem de sintaxe e de arquivos versionados
 tests/                    testes automatizados (node:test)
 docs/                     guias de instalação, uso e arquitetura
+data/                     banco SQLite (apenas .gitkeep é versionado)
+.github/workflows/        CI (lint + testes + checagem de versionamento)
 ```
+
+### Convenções do repositório
+
+- Nenhum arquivo de configuração sensível é versionado (`.env`, `data/*.sqlite`).
+- `npm run check:tracked` falha se algum arquivo-fonte estiver fora do Git — proteção contra
+  regras de `.gitignore` que capturem pastas do código (ex.: `src/systems/logs`).
+- Padrões de exclusão do armazenamento ficam em `squarecloud.ignore`; os do Git em `.gitignore`.
+- Fim de linha LF e Node 22 fixados em `.gitattributes` e `.nvmrc`.
 
 ---
 
@@ -156,6 +166,7 @@ docs/                     guias de instalação, uso e arquitetura
 npm start                 # inicia o bot
 npm test                  # roda os 52 testes
 npm run lint              # checagem de sintaxe de todo o projeto
+npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
 ```
 
