@@ -23,7 +23,6 @@ const outFile = path.join(root, 'preview', 'panel.html');
 
 const settings = {
   message_panel_title: 'ATENDIMENTO | VANTUS',
-  message_panel_description: 'Use a ação abaixo para entrar na fila e aguarde as atualizações.',
   wait_channel_id: '000000000000000000',
   rejoin_cooldown_minutes: 10,
 };
@@ -67,7 +66,6 @@ function buildModel(scenario) {
 
   return {
     title: settings.message_panel_title,
-    description: settings.message_panel_description,
     open: schedule.open,
     status: {
       indicator: status.indicator,
@@ -182,7 +180,6 @@ const html = `<!doctype html>
     letter-spacing: .2px; text-transform: uppercase;
   }
   .head h1 .icon { color: var(--accent); font-weight: 400; margin-right: 8px; }
-  .head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
   /* Painel de status (interno) */
   .panel {
@@ -206,10 +203,6 @@ const html = `<!doctype html>
   .dot.off { background: var(--accent); box-shadow: 0 0 0 3px rgba(255, 34, 0, .16); }
   .dot.wait { background: #e0b23a; box-shadow: 0 0 0 3px rgba(224, 178, 58, .14); }
   .status-text { min-width: 0; }
-  .status-label {
-    font-size: 10.5px; font-weight: 700; letter-spacing: .09em;
-    text-transform: uppercase; color: var(--muted);
-  }
   .status-headline { font-size: 20px; font-weight: 800; letter-spacing: .2px; margin-top: 3px; }
   .status-note { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
 
@@ -299,14 +292,12 @@ const html = `<!doctype html>
       <div class="container" id="container">
         <div class="head">
           <h1><span class="icon">🎧</span><span id="title"></span></h1>
-          <p id="description"></p>
         </div>
 
         <div class="panel">
           <div class="status-card">
             <span class="dot" id="dot"></span>
             <div class="status-text">
-              <div class="status-label">STATUS DA CENTRAL</div>
               <div class="status-headline" id="headline"></div>
               <div class="status-note" id="statusNote"></div>
             </div>
@@ -356,7 +347,6 @@ function render(key) {
   if (!model) return;
 
   document.getElementById('title').textContent = model.title;
-  document.getElementById('description').textContent = model.description;
   document.getElementById('headline').textContent = model.status.headline;
   document.getElementById('statusNote').textContent = model.status.note;
 
@@ -383,7 +373,7 @@ function render(key) {
 
   document.getElementById('hints').innerHTML = model.canJoin
     ? 'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.'
-    : '⛔ Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
+    : 'Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
 
   document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.classList.toggle('active', button.dataset.scenario === key);

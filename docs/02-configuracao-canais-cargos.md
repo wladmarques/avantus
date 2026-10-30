@@ -196,8 +196,9 @@ Todos os painéis e botões usam a mesma paleta (fonte única: `src/config/theme
 O painel público usa **Components V2** (`panel_style=modern`) num único card escuro com:
 
 - barra de destaque **vermelha `#ff2200`** à esquerda (identidade VANTUS);
-- cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS** + descrição curta (sem avatar);
-- bloco de status com indicador circular e manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL**;
+- cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS**, sem avatar e **sem texto de descrição**;
+- bloco de status minimalista: apenas a manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL** com a
+  nota de apoio (sem o rótulo "STATUS DA CENTRAL" e sem emoji);
 - indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO • ESPERA MÉDIA**, sem emojis;
 - faixa **HORÁRIO DE ATENDIMENTO** com as janelas agrupadas por dia;
 - divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita
@@ -221,19 +222,21 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
   registra um aviso no log.
 - O painel da staff continua em embed (é um painel denso, de leitura interna), com a barra de
   destaque em `#ff2200` e os mesmos botões na superfície escura da paleta — prévia em
-  `npm run preview:staff`.
+  `npm run preview:staff`. Ele é **100% sem emojis**: títulos de seção, campos e botões usam texto
+  puro (ex.: `CHAMAR PRÓXIMO`, `FILA DE ESPERA`, `Disponíveis`).
 
 ## Mensagens editáveis
 
 | Chave | Descrição |
 | --- | --- |
 | `message_panel_title` | Título do painel público |
-| `message_panel_description` | Texto de introdução do painel |
-| `message_closed` | Texto exibido quando a central está fechada |
+| `message_closed` | Texto exibido nos avisos de central fechada |
 
 ```bash
-/config definir chave:message_panel_description valor:Precisa de ajuda com o FiveM? Entre na fila e aguarde um membro da equipe.
+/config definir chave:message_panel_title valor:ATENDIMENTO | VANTUS
 ```
+
+> O texto de introdução do painel não existe mais: o cabeçalho mostra apenas o título.
 
 ## Checklist de configuração
 

@@ -21,7 +21,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/availability.test.js` | entrada na fila só com staff disponível e central aberta: botão desabilitado (V2 e clássico), recusa com `SEM_STAFF`, staff ocupado, liberação imediata, entrada por voz bloqueada |
 | `tests/voiceAutoJoin.test.js` | fluxo real do evento `voiceStateUpdate` (entra na fila ao entrar no canal de espera), servidor divergente, entrada automática desligada, canal de espera ausente, outro canal de voz, fila cheia com aviso ao jogador, bloqueio de reentrada, membro fora do cache, saída do canal tirando da fila (evento) |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |
-| `tests/panels.test.js` | painel V2 (container único, barra `#ff2200`, sem avatar, indicadores sem emojis, botão único neutro), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
+| `tests/panels.test.js` | painel V2 (container único, barra `#ff2200`, sem avatar, sem descrição, status sem rótulo/emoji, indicadores sem emojis, botão único neutro), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |
 | `tests/schedule.test.js` | janelas normais, fechamento, virada de madrugada, dia sem janela, fuso de São Paulo, períodos |
 | `tests/cooldown.test.js` | bloqueio de 10 min ao desistir, DM com tempo restante, expulsão do canal de espera, expiração, staff não gera bloqueio, configuração 0/3 min, `/fila liberar` |

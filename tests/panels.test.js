@@ -23,7 +23,8 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   const text = panelText(message.payload);
   assert.match(text, /ATENDIMENTO \| VANTUS/);
   assert.ok(!/🎧 🎧/.test(text), 'ícone do cabeçalho não duplica');
-  assert.match(text, /STATUS DA CENTRAL/);
+  // bloco de status minimalista: manchete + nota, sem rótulo e sem emoji
+  assert.ok(!text.includes('STATUS DA CENTRAL'), 'rótulo "STATUS DA CENTRAL" removido');
   assert.match(text, /ATENDIMENTO INDISPONÍVEL/, 'sem staff: indisponível');
   assert.match(text, /NA FILA/);
   assert.match(text, /STAFFS DISPONÍVEIS/);
@@ -210,5 +211,5 @@ test('painel indica central fechada fora do horário', async (t) => {
   assert.match(text, /ATENDIMENTO INDISPONÍVEL/);
   assert.match(text, /Central fechada/);
   assert.match(text, /HORÁRIO DE ATENDIMENTO/);
-  assert.match(text, /🔴/);
+  assert.ok(!/[🟢🟡🔴]/u.test(text), 'sem emoji de status no painel público');
 });

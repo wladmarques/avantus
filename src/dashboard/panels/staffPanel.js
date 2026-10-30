@@ -11,7 +11,7 @@ function queueLine(entry) {
     `**#${String(entry.position).padStart(2, '0')} — ${entry.username}**`,
     `Protocolo: \`#${String(entry.protocol).padStart(4, '0')}\` • Entrada: ${formatTime(new Date(entry.joined_at))}`,
     `Espera: ${formatDuration(entry.waitingSeconds)} • Status: AGUARDANDO${
-      entry.order_override ? ' • ⚠️ fora da ordem' : ''
+      entry.order_override ? ' • fora da ordem' : ''
     }`,
   ].join('\n');
 }
@@ -19,13 +19,13 @@ function queueLine(entry) {
 function servingLine(entry, staffList) {
   const staff = staffList.find((item) => item.userId === entry.staff_id);
   return [
-    `**🔴 ${entry.username}** — protocolo \`#${String(entry.protocol).padStart(4, '0')}\``,
+    `**${entry.username}** — protocolo \`#${String(entry.protocol).padStart(4, '0')}\``,
     `Staff: <@${entry.staff_id}>${staff ? '' : ' (desconectado)'} • Início: ${formatTime(
       new Date(entry.started_at ?? Date.now()),
     )} • Duração: ${formatDuration(entry.servingSeconds)}`,
     entry.presence_confirmed
-      ? 'Presença: ✅ confirmada no canal'
-      : 'Presença: ⏳ aguardando entrar no canal',
+      ? 'Presença: confirmada no canal'
+      : 'Presença: aguardando entrar no canal',
   ].join('\n');
 }
 
@@ -57,7 +57,7 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
       : hold
           .map(
             (entry) =>
-              `**⏸️ ${entry.username}** • \`#${String(entry.protocol).padStart(4, '0')}\` • ${
+              `**${entry.username}** • \`#${String(entry.protocol).padStart(4, '0')}\` • ${
                 entry.hold_reason ?? 'sem motivo'
               }`,
           )
@@ -67,48 +67,53 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
     state.staffList.length === 0
       ? '_Nenhum staff registrado ainda._'
       : state.staffList
-          .map((entry) => `${entry.meta.emoji} <@${entry.userId}> — **${entry.status === 'EM_ATENDIMENTO' ? 'EM ATENDIMENTO' : entry.meta.label}**`)
+          .map(
+            (entry) =>
+              `<@${entry.userId}> — **${
+                entry.status === 'EM_ATENDIMENTO' ? 'EM ATENDIMENTO' : entry.meta.label
+              }**`,
+          )
           .join('\n');
 
   const desc = [
-    `**🟡 CENTRAL ${schedule.open ? 'ABERTA' : 'FECHADA'}** • ${formatTime(now)} • Hoje: ${todayWindow.text}`,
+    `**CENTRAL ${schedule.open ? 'ABERTA' : 'FECHADA'}** • ${formatTime(now)} • Hoje: ${todayWindow.text}`,
     '',
-    '**📋 FILA DE ESPERA**',
+    '**FILA DE ESPERA**',
     queueBlock,
     '',
-    '**📞 EM ATENDIMENTO**',
+    '**EM ATENDIMENTO**',
     servingBlock,
-    holdBlock ? '\n**⏸️ PENDENTES**\n' + holdBlock : null,
+    holdBlock ? '\n**PENDENTES**\n' + holdBlock : null,
     '',
-    '**🛡️ EQUIPE**',
+    '**EQUIPE**',
     staffBlock,
   ]
     .filter((line) => line !== null)
     .join('\n');
 
   const fields = [
-    { name: '🎫 Aguardando', value: `**${waiting.length}**`, inline: true },
-    { name: '📞 Em atendimento', value: `**${serving.length}**`, inline: true },
-    { name: '🟢 Disponíveis', value: `**${state.staffCounts.DISPONIVEL}**`, inline: true },
-    { name: '🔴 Ocupados', value: `**${state.staffCounts.EM_ATENDIMENTO}**`, inline: true },
-    { name: '⏳ Espera média', value: `**${formatDuration(state.avgWaitSeconds)}**`, inline: true },
+    { name: 'Aguardando', value: `**${waiting.length}**`, inline: true },
+    { name: 'Em atendimento', value: `**${serving.length}**`, inline: true },
+    { name: 'Disponíveis', value: `**${state.staffCounts.DISPONIVEL}**`, inline: true },
+    { name: 'Ocupados', value: `**${state.staffCounts.EM_ATENDIMENTO}**`, inline: true },
+    { name: 'Espera média', value: `**${formatDuration(state.avgWaitSeconds)}**`, inline: true },
     {
-      name: '⏱️ Atendimento médio',
+      name: 'Atendimento médio',
       value: `**${formatDuration(overview.avgDurationSeconds)}**`,
       inline: true,
     },
-    { name: '✅ Hoje', value: `**${overview.concluded}** concluído(s)`, inline: true },
+    { name: 'Hoje', value: `**${overview.concluded}** concluído(s)`, inline: true },
     {
-      name: '⭐ Avaliação',
+      name: 'Avaliação',
       value: overview.evaluations ? `**${overview.avgRating.toFixed(2)}/4**` : '—',
       inline: true,
     },
-    { name: '⏸️ Pendentes', value: `**${hold.length}**`, inline: true },
+    { name: 'Pendentes', value: `**${hold.length}**`, inline: true },
   ];
 
   const embed = {
     color: COLORS.ACCENT,
-    title: '🛡️ PAINEL DA EQUIPE | VANTUS',
+    title: 'PAINEL DA EQUIPE | VANTUS',
     description: desc,
     fields,
     footer: { text: `${BRAND.footer} • Painel restrito à equipe • Atualização automática` },

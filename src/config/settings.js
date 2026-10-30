@@ -232,14 +232,6 @@ const SETTINGS = {
     group: 'Mensagens',
     validate: (v) => typeof v === 'string' && v.length > 0 && v.length <= 120,
   },
-  message_panel_description: {
-    default:
-      'Precisa de ajuda? Entre na fila de atendimento e aguarde a disponibilidade de um membro da nossa equipe.\n\nNosso sistema organizará automaticamente os atendimentos por ordem de chegada.',
-    type: 'string',
-    label: 'Descrição do painel público',
-    group: 'Mensagens',
-    validate: (v) => typeof v === 'string' && v.length > 0 && v.length <= 1500,
-  },
   message_closed: {
     default: 'A central de atendimento está fechada no momento. Confira os horários de funcionamento abaixo.',
     type: 'string',

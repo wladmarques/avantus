@@ -82,19 +82,19 @@ function staffPanelComponents({ hasQueue = false, hasServing = false, hasHold = 
   // diferenciados pelo ícone (o Discord não permite cor personalizada nos botões).
   return [
     actionRow([
-      button(IDs.STAFF_CALL_NEXT, 'CHAMAR PRÓXIMO', { style: STYLES.SECONDARY, emoji: '📞', disabled: !hasQueue }),
-      button(IDs.STAFF_CALL_SPECIFIC, 'CHAMAR ESPECÍFICO', { style: STYLES.SECONDARY, emoji: '👤', disabled: !hasQueue }),
-      button(IDs.STAFF_SKIP, 'PULAR JOGADOR', { style: STYLES.SECONDARY, emoji: '⏭️', disabled: !hasQueue }),
+      button(IDs.STAFF_CALL_NEXT, 'CHAMAR PRÓXIMO', { style: STYLES.SECONDARY, disabled: !hasQueue }),
+      button(IDs.STAFF_CALL_SPECIFIC, 'CHAMAR ESPECÍFICO', { style: STYLES.SECONDARY, disabled: !hasQueue }),
+      button(IDs.STAFF_SKIP, 'PULAR JOGADOR', { style: STYLES.SECONDARY, disabled: !hasQueue }),
     ]),
     actionRow([
-      button(IDs.STAFF_RETURN, 'DEVOLVER À FILA', { style: STYLES.SECONDARY, emoji: '🔄', disabled: !hasServing }),
-      button(IDs.STAFF_FINISH, 'FINALIZAR', { style: STYLES.SECONDARY, emoji: '✅', disabled: !hasServing }),
-      button(IDs.STAFF_REMOVE, 'REMOVER DA FILA', { style: STYLES.SECONDARY, emoji: '🚫', disabled: !hasQueue && !hasServing }),
+      button(IDs.STAFF_RETURN, 'DEVOLVER À FILA', { style: STYLES.SECONDARY, disabled: !hasServing }),
+      button(IDs.STAFF_FINISH, 'FINALIZAR', { style: STYLES.SECONDARY, disabled: !hasServing }),
+      button(IDs.STAFF_REMOVE, 'REMOVER DA FILA', { style: STYLES.SECONDARY, disabled: !hasQueue && !hasServing }),
     ]),
     actionRow([
-      button(IDs.STAFF_MY_STATUS, 'MEU STATUS', { style: STYLES.SECONDARY, emoji: '🟢' }),
-      button(IDs.STAFF_REACTIVATE, 'REATIVAR PENDENTE', { style: STYLES.SECONDARY, emoji: '▶️', disabled: !hasHold }),
-      button(IDs.STAFF_REFRESH, 'ATUALIZAR PAINEL', { style: STYLES.SECONDARY, emoji: '🔄' }),
+      button(IDs.STAFF_MY_STATUS, 'MEU STATUS', { style: STYLES.SECONDARY }),
+      button(IDs.STAFF_REACTIVATE, 'REATIVAR PENDENTE', { style: STYLES.SECONDARY, disabled: !hasHold }),
+      button(IDs.STAFF_REFRESH, 'ATUALIZAR PAINEL', { style: STYLES.SECONDARY }),
     ]),
   ];
 }

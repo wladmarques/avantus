@@ -68,7 +68,6 @@
     letter-spacing: .2px; text-transform: uppercase;
   }
   .head h1 .icon { color: var(--accent); font-weight: 400; margin-right: 8px; }
-  .head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
   /* Painel de status (interno) */
   .panel {
@@ -92,10 +91,6 @@
   .dot.off { background: var(--accent); box-shadow: 0 0 0 3px rgba(255, 34, 0, .16); }
   .dot.wait { background: #e0b23a; box-shadow: 0 0 0 3px rgba(224, 178, 58, .14); }
   .status-text { min-width: 0; }
-  .status-label {
-    font-size: 10.5px; font-weight: 700; letter-spacing: .09em;
-    text-transform: uppercase; color: var(--muted);
-  }
   .status-headline { font-size: 20px; font-weight: 800; letter-spacing: .2px; margin-top: 3px; }
   .status-note { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
 
@@ -185,14 +180,12 @@
       <div class="container" id="container">
         <div class="head">
           <h1><span class="icon">🎧</span><span id="title"></span></h1>
-          <p id="description"></p>
         </div>
 
         <div class="panel">
           <div class="status-card">
             <span class="dot" id="dot"></span>
             <div class="status-text">
-              <div class="status-label">STATUS DA CENTRAL</div>
               <div class="status-headline" id="headline"></div>
               <div class="status-note" id="statusNote"></div>
             </div>
@@ -229,7 +222,7 @@
   </div>
 </div>
 <script>
-const MODELS = {"disponivel":{"title":"ATENDIMENTO | VANTUS","description":"Use a ação abaixo para entrar na fila e aguarde as atualizações.","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"1 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"1"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"0 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"fila":{"title":"ATENDIMENTO | VANTUS","description":"Use a ação abaixo para entrar na fila e aguarde as atualizações.","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"2 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"3"},{"label":"STAFFS DISPONÍVEIS","value":"2"},{"label":"EM ANDAMENTO","value":"1"},{"label":"ESPERA MÉDIA","value":"10 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"sem_staff":{"title":"ATENDIMENTO | VANTUS","description":"Use a ação abaixo para entrar na fila e aguarde as atualizações.","open":true,"status":{"indicator":"🟡","headline":"ATENDIMENTO INDISPONÍVEL","note":"Fila aberta • aguardando staff disponível"},"cards":[{"label":"NA FILA","value":"1"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"15 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"fechada":{"title":"ATENDIMENTO | VANTUS","description":"Use a ação abaixo para entrar na fila e aguarde as atualizações.","open":false,"status":{"indicator":"🔴","headline":"ATENDIMENTO INDISPONÍVEL","note":"Central fechada • reabre amanhã às 12:00"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"0 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"central fechada • reabre amanhã às 12:00","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."}};
+const MODELS = {"disponivel":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"1 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"1"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"0 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"fila":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"2 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"3"},{"label":"STAFFS DISPONÍVEIS","value":"2"},{"label":"EM ANDAMENTO","value":"1"},{"label":"ESPERA MÉDIA","value":"10 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"sem_staff":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟡","headline":"ATENDIMENTO INDISPONÍVEL","note":"Fila aberta • aguardando staff disponível"},"cards":[{"label":"NA FILA","value":"1"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"15 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"sem staff em serviço","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."},"fechada":{"title":"ATENDIMENTO | VANTUS","open":false,"status":{"indicator":"🔴","headline":"ATENDIMENTO INDISPONÍVEL","note":"Central fechada • reabre amanhã às 12:00"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"},{"label":"ESPERA MÉDIA","value":"0 min"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente quando houver staff disponível. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"central fechada • reabre amanhã às 12:00","hints":"Use /sair para desistir da fila e /posicao para ver a sua posição."}};
 const ORDER = ["disponivel","fila","sem_staff","fechada"];
 const LABELS = {"disponivel":"Atendimento disponível","fila":"Fila em andamento","sem_staff":"Sem staff","fechada":"Central fechada"};
 
@@ -242,7 +235,6 @@ function render(key) {
   if (!model) return;
 
   document.getElementById('title').textContent = model.title;
-  document.getElementById('description').textContent = model.description;
   document.getElementById('headline').textContent = model.status.headline;
   document.getElementById('statusNote').textContent = model.status.note;
 
@@ -269,7 +261,7 @@ function render(key) {
 
   document.getElementById('hints').innerHTML = model.canJoin
     ? 'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.'
-    : '⛔ Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
+    : 'Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
 
   document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.classList.toggle('active', button.dataset.scenario === key);

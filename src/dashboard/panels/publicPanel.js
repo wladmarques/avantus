@@ -137,12 +137,6 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
       : 'central fechada'
     : 'sem staff em serviço';
 
-  const description = String(settings.message_panel_description || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 2);
-
   const waitChannel = settings.wait_channel_id
     ? `Entre em <#${settings.wait_channel_id}> para aguardar atendimento. `
     : 'Entre no canal de voz de espera. ';
@@ -157,18 +151,12 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     .map((entry) => `-# ${entry.range}: ${entry.label}`);
 
   const components = [
-    // Cabeçalho compacto (sem avatar/thumbnail)
-    text([`## ${titleWithIcon(settings.message_panel_title)}`, ...description.map((line) => `-# ${line}`)].join('\n')),
+    // Cabeçalho compacto (sem avatar, sem descrição)
+    text(`## ${titleWithIcon(settings.message_panel_title)}`),
     separator(1),
 
-    // Bloco de status
-    text(
-      [
-        `-# ${status.indicator} STATUS DA CENTRAL`,
-        `## ${status.headline}`,
-        `-# ${status.note}`,
-      ].join('\n'),
-    ),
+    // Bloco de status (sem rótulo e sem emoji)
+    text([`## ${status.headline}`, `-# ${status.note}`].join('\n')),
 
     // Indicadores (rótulos sem emoji)
     text(statLine(state, available, estimate)),
@@ -192,7 +180,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     text(
       canJoin
         ? '-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'
-        : `-# ⛔ Entrada na fila indisponível: ${unavailableNote}.`,
+        : `-# Entrada na fila indisponível: ${unavailableNote}.`,
     ),
   ];
 
@@ -216,7 +204,7 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
   const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
 
   const fields = [
-    { name: '📊 STATUS DA CENTRAL', value: `${status.indicator} ${status.headline}`, inline: false },
+    { name: 'STATUS DA CENTRAL', value: `${status.indicator} ${status.headline}`, inline: false },
     { name: 'NA FILA', value: `**${state.waiting.length}**`, inline: true },
     { name: 'STAFFS DISPONÍVEIS', value: `**${available}**`, inline: true },
     { name: 'EM ANDAMENTO', value: `**${state.serving.length}**`, inline: true },
@@ -227,12 +215,7 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
   const embed = {
     color: open ? COLORS.ACCENT : COLORS.MUTED,
     title: titleWithIcon(settings.message_panel_title),
-    description: [
-      settings.message_panel_description,
-      open ? null : `\n🔒 ${status.note}`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
+    description: open ? null : `🔒 ${status.note}`,
     fields,
     footer: { text: `${BRAND.footer} • Atualizado ${formatTime(now)}` },
     timestamp: now.toISOString(),
