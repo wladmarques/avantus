@@ -1,1 +1,164 @@
-# avantus
+# VANTUS • Central de Atendimento
+
+Bot de atendimento automatizado para o servidor FiveM **VANTUS**: fila por ordem de chegada,
+atendimentos simultâneos em canais de voz, painel público com atualização automática, painel
+exclusivo da equipe, controle administrativo completo e histórico persistente.
+
+> Node.js + discord.js v14 • SQLite local (sem banco externo) • pronto para SquareCloud
+
+---
+
+## Índice
+
+| Documento | Conteúdo |
+| --- | --- |
+| [docs/01-instalacao-squarecloud.md](docs/01-instalacao-squarecloud.md) | Passo a passo de instalação e deploy |
+| [docs/02-configuracao-canais-cargos.md](docs/02-configuracao-canais-cargos.md) | Configuração de canais, cargos e horários |
+| [docs/03-permissoes-discord.md](docs/03-permissoes-discord.md) | Permissões e intents do bot |
+| [docs/04-guia-jogador.md](docs/04-guia-jogador.md) | Guia para os jogadores |
+| [docs/05-guia-staff.md](docs/05-guia-staff.md) | Guia para a equipe de atendimento |
+| [docs/06-guia-admin.md](docs/06-guia-admin.md) | Guia administrativo (comandos e configurações) |
+| [docs/07-arquitetura.md](docs/07-arquitetura.md) | Arquitetura, modelo de dados e fluxos |
+| [docs/08-testes.md](docs/08-testes.md) | Testes automatizados e checklist de QA |
+
+---
+
+## Recursos implementados
+
+**Fila e atendimento**
+- Painel público com botões **Entrar na fila**, **Sair da fila** e **Minha posição**.
+- Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
+- Movimentação automática para o canal de voz de espera e para o canal do staff.
+- Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).
+- Bloqueio de atendimento duplicado por jogador e por staff (com liberação configurável).
+- Perda de presença, desconexão de voz e saída do servidor tratadas automaticamente.
+
+**Painel da equipe**
+- Fila completa (posição, nome, protocolo, entrada, espera, status), atendimentos ativos, pendentes,
+  staffs e seus estados, espera média, duração média e total do dia.
+- Botões: **Chamar próximo**, **Chamar específico** (com motivo obrigatório), **Pular jogador**,
+  **Devolver à fila**, **Finalizar**, **Remover da fila** (justificativa obrigatória),
+  **Meu status**, **Reativar pendente** e **Atualizar painel**.
+
+**Operação**
+- Horário de funcionamento por dia da semana (fuso `America/Sao_Paulo`, janelas que cruzam a madrugada).
+- Abertura/fechamento automático pelo horário e manual pela administração.
+- Status dos staffs: 🟢 disponível, 🔴 em atendimento, 🟡 ausente, ⚫ indisponível.
+- Notificações privadas: entrada, mudança de posição (com anti-spam), chamada, adiamento e avaliação.
+- Logs administrativos de todas as ações, com o responsável.
+- Estatísticas por hoje/7 dias/30 dias/mês/período total, ranking de produtividade e avaliações.
+- Recuperação completa do estado após reinício: fila, atendimentos, painéis e timers.
+
+**Técnico**
+- SQLite via `sql.js` (WebAssembly): sem módulo nativo, sem serviço externo, gravação atômica.
+- Transações serializadas por mutex → operações críticas atômicas.
+- Painéis persistentes: a referência da mensagem fica no banco, nunca duplica.
+- Tratamento global de erros, logs estruturados e encerramento gracioso (SIGINT/SIGTERM).
+- 52 testes automatizados cobrindo fila, concorrência, voz, painéis, persistência, relatórios e UI.
+
+---
+
+## Início rápido
+
+```bash
+git clone <seu-repositorio> && cd avantus
+npm install
+cp .env.example .env      # preencha DISCORD_TOKEN e GUILD_ID
+npm start
+```
+
+No Discord, como administrador:
+
+1. `/setup criar_cargos:true` — cria categoria, canais de voz/texto, cargos e publica os painéis.
+2. `/diagnostico` — confere canais, permissões e painéis.
+3. `/central abrir` — abre a central fora do horário programado (opcional).
+4. `/horario ver` — revisa a agenda de atendimento.
+
+Guia completo: [docs/01-instalacao-squarecloud.md](docs/01-instalacao-squarecloud.md).
+
+---
+
+## Estrutura do projeto
+
+```
+index.js                  ponto de entrada (SquareCloud: MAIN=index.js)
+squarecloud.app           configuração de deploy
+.env.example              variáveis de ambiente
+src/
+  commands/
+    admin/                painel, central, config, horario, staff, fila, estatisticas,
+                          avaliacoes, historico, diagnostico, setup
+    staff/                chamar, finalizar, devolver, pular, status
+    player/               entrar, sair, posicao, protocolo, ajuda
+  config/                 env, settings (editáveis), permissions, theme
+  database/
+    connection.js         SQLite (sql.js), transações e persistência atômica
+    migrations.js         schema versionado
+    repositories/         settings, attendance, staff, evaluations, audit, panels, counters
+  systems/
+    queue/                fachada da fila
+    attendance/           motor de atendimento (regras, timers, recuperação)
+    staff/                disponibilidade da equipe
+    statistics/           relatórios e ranking
+    evaluations/          avaliações pós-atendimento
+    notifications/        mensagens privadas e avisos
+    logs/                 auditoria (banco + canal de logs)
+    schedule/             horário de funcionamento e abertura/fechamento
+    panels/               publicação/atualização dos painéis
+    recovery/             recuperação pós-reinício e diagnóstico
+  dashboard/
+    panels/               layout dos painéis público e staff
+    embeds/               cards e mensagens
+    components/           botões, selects e IDs persistentes
+  interactions/           routers, botões, selects e modais
+  events/                 client, members, voice
+  handlers/               carregamento de comandos/eventos, respostas, registro
+  services/               gateway do Discord, container de dependências, erros
+  utils/                  logger, tempo/fuso, validadores
+scripts/                  deploy de comandos e checagem de sintaxe
+tests/                    testes automatizados (node:test)
+docs/                     guias de instalação, uso e arquitetura
+```
+
+---
+
+## Comandos
+
+| Categoria | Comando | Descrição |
+| --- | --- | --- |
+| Jogador | `/entrar` | Entra na fila |
+| Jogador | `/sair` | Sai da fila |
+| Jogador | `/posicao` | Mostra posição e previsão |
+| Jogador | `/protocolo [numero]` | Consulta seu protocolo |
+| Jogador | `/ajuda` | Como funciona o atendimento |
+| Staff | `/chamar [jogador] [motivo]` | Chama o próximo ou um jogador específico |
+| Staff | `/finalizar [observacao]` | Encerra seu atendimento |
+| Staff | `/devolver [motivo]` | Devolve o jogador ao final da fila |
+| Staff | `/pular jogador motivo` | Pula um jogador (motivo obrigatório) |
+| Staff | `/status situacao` | Define sua disponibilidade |
+| Admin | `/painel publicar\|atualizar\|reconstruir` | Gerencia os painéis |
+| Admin | `/central abrir\|fechar\|alternar\|status` | Controla a central |
+| Admin | `/config ver\|definir` | Edita qualquer configuração |
+| Admin | `/horario ver\|definir\|fechar_dia\|modelo` | Agenda de funcionamento |
+| Admin | `/staff lista\|status` | Disponibilidade da equipe |
+| Admin | `/fila ver\|pular\|remover\|reativar\|limpar` | Administra a fila |
+| Admin | `/estatisticas [periodo]` | Relatórios e ranking |
+| Admin | `/avaliacoes [periodo]` | Avaliações recebidas |
+| Admin | `/historico protocolo\|jogador\|ultimos` | Histórico completo |
+| Admin | `/diagnostico` | Checagem de configuração |
+| Admin | `/setup [criar_cargos]` | Cria a estrutura e publica os painéis |
+
+---
+
+## Scripts
+
+```bash
+npm start                 # inicia o bot
+npm test                  # roda os 52 testes
+npm run lint              # checagem de sintaxe de todo o projeto
+npm run deploy:commands   # registra os slash commands manualmente
+```
+
+## Licença
+
+Uso interno do servidor VANTUS. Todos os direitos reservados.

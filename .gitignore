@@ -1,0 +1,10 @@
+node_modules/
+.env
+data/
+*.sqlite
+*.sqlite.bak
+*.sqlite.tmp
+logs/
+.DS_Store
+coverage/
+snapshots/

@@ -1,0 +1,34 @@
+'use strict';
+
+/** Erro de domínio: a mensagem é segura para mostrar ao usuário. */
+class AppError extends Error {
+  constructor(code, userMessage, meta = {}) {
+    super(userMessage);
+    this.name = 'AppError';
+    this.code = code;
+    this.userMessage = userMessage;
+    this.meta = meta;
+  }
+}
+
+const ERRORS = {
+  CENTRAL_FECHADA: 'CENTRAL_FECHADA',
+  JA_NA_FILA: 'JA_NA_FILA',
+  JA_EM_ATENDIMENTO: 'JA_EM_ATENDIMENTO',
+  FILA_CHEIA: 'FILA_CHEIA',
+  FILA_VAZIA: 'FILA_VAZIA',
+  NAO_NA_FILA: 'NAO_NA_FILA',
+  STAFF_SEM_VOZ: 'STAFF_SEM_VOZ',
+  STAFF_OCUPADO: 'STAFF_OCUPADO',
+  STAFF_SEM_PERMISSAO: 'STAFF_SEM_PERMISSAO',
+  JOGADOR_NAO_ENCONTRADO: 'JOGADOR_NAO_ENCONTRADO',
+  JOGADOR_NAO_COMPARECEU: 'JOGADOR_NAO_COMPARECEU',
+  ATENDIMENTO_NAO_ENCONTRADO: 'ATENDIMENTO_NAO_ENCONTRADO',
+  ATENDIMENTO_NAO_EM_ANDAMENTO: 'ATENDIMENTO_NAO_EM_ANDAMENTO',
+  CANAL_INVALIDO: 'CANAL_INVALIDO',
+  CONFIGURACAO_INCOMPLETA: 'CONFIGURACAO_INCOMPLETA',
+  MOTIVO_OBRIGATORIO: 'MOTIVO_OBRIGATORIO',
+  ERRO_INTERNO: 'ERRO_INTERNO',
+};
+
+module.exports = { AppError, ERRORS };
