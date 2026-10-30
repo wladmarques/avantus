@@ -117,6 +117,10 @@ const html = `<!doctype html>
   .text h2 { font-size: 19px; margin: 2px 0; font-weight: 700; }
   .text h3 { font-size: 16px; margin: 2px 0; font-weight: 700; }
   .subtext { color: var(--subtle); font-size: 12.5px; }
+  .mention {
+    background: rgba(88, 101, 242, .3); color: #c9cdfb;
+    border-radius: 3px; padding: 0 2px; font-weight: 500;
+  }
   .stat-label { font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
   .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
   .sep { height: 1px; background: #3f4147; margin: 2px 0; }
@@ -205,7 +209,8 @@ function renderMarkdown(content) {
 function inline(text) {
   return text
     .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-    .replace(/<#\\d+>/g, '<span class="mention">#canal-de-voz</span>');
+    .replace(/&lt;#(\\d+)&gt;/g, '<span class="mention">#canal-de-voz</span>')
+    .replace(/<#(\\d+)>/g, '<span class="mention">#canal-de-voz</span>');
 }
 
 function renderComponent(component) {
@@ -217,11 +222,23 @@ function renderComponent(component) {
       return '<div class="card' + (tight ? ' tight' : '') + '" style="--accent:' + colorOf(component.accent_color) + '">' + inner + '</div>';
     }
     case 10: { // text display
-      let content = renderMarkdown(component.content);
-      // Transforma "**ROTULO**\n## valor" em bloco de indicador
-      const match = /<strong>([^<]+)<\\/strong><\\/div><div class="text"><h2>([^<]+)<\\/h2><\\/div>/.exec(content);
-      if (match) {
-        content = '<div class="stat-label">' + match[1] + '</div><div class="stat-value">' + match[2] + '</div>';
+      const content = renderMarkdown(component.content);
+      // "**ROTULO**" seguido de "## valor" vira um bloco de indicador.
+      const labelPrefix = '<div class="text"><strong>';
+      const valueMarker = '</div><div class="text"><h2>';
+      if (content.startsWith(labelPrefix)) {
+        const labelEnd = content.indexOf('</strong>' + valueMarker);
+        const valueEnd = labelEnd >= 0 ? content.indexOf('</h2></div>', labelEnd) : -1;
+        if (labelEnd > 0 && valueEnd > 0) {
+          const label = content.slice(labelPrefix.length, labelEnd);
+          const value = content.slice(labelEnd + ('</strong>' + valueMarker).length, valueEnd);
+          const rest = content.slice(valueEnd + '</h2></div>'.length);
+          return (
+            '<div class="stat-label">' + label + '</div>' +
+            '<div class="stat-value">' + value + '</div>' +
+            rest
+          );
+        }
       }
       return content;
     }

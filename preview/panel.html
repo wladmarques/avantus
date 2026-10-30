@@ -59,6 +59,10 @@
   .text h2 { font-size: 19px; margin: 2px 0; font-weight: 700; }
   .text h3 { font-size: 16px; margin: 2px 0; font-weight: 700; }
   .subtext { color: var(--subtle); font-size: 12.5px; }
+  .mention {
+    background: rgba(88, 101, 242, .3); color: #c9cdfb;
+    border-radius: 3px; padding: 0 2px; font-weight: 500;
+  }
   .stat-label { font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
   .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
   .sep { height: 1px; background: #3f4147; margin: 2px 0; }
@@ -105,7 +109,7 @@
   </div>
 </div>
 <script>
-const PAYLOADS = {"aberta":{"flags":32768,"components":[{"type":17,"accent_color":16742936,"components":[{"type":9,"components":[{"type":10,"content":"## 🎧 ATENDIMENTO | VANTUS\n-# VANTUS • Central de Atendimento • Atualizado 14:18"}]},{"type":14,"divider":true,"spacing":2},{"type":10,"content":"Precisa de ajuda? Entre na fila de atendimento e aguarde a disponibilidade de um membro da nossa equipe.\n\nNosso sistema organizará automaticamente os atendimentos por ordem de chegada."}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**STATUS DA CENTRAL**\n## 🟢 FILA ABERTA\n-# 3 staff(s) disponível(is) para atender agora."}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🎫 NA FILA**\n## 3"}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**🛡️ STAFFS DISPONÍVEIS**\n## 3"}]},{"type":17,"accent_color":16723349,"components":[{"type":10,"content":"**📞 EM ATENDIMENTO**\n## 2"}]},{"type":17,"accent_color":3718648,"components":[{"type":10,"content":"**⏳ ESPERA MÉDIA**\n## 8 minutos"}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🗓️ HORÁRIO DE ATENDIMENTO**\n-# **Seg–Sex:** 12:00 às 02:00\n-# **Sáb–Dom:** 12:00 às 00:00"}]},{"type":17,"accent_color":2278750,"components":[{"type":10,"content":"**🎙️ Fila por canal de voz**"},{"type":10,"content":"-# Entre em <#000000000000000000> para aguardar atendimento. Você será movido automaticamente quando um staff te chamar. Sair da fila remove você do atendimento."},{"type":1,"components":[{"type":2,"custom_id":"pub:join","style":3,"label":"ENTRAR NA FILA","disabled":false,"emoji":{"name":"🎫"}},{"type":2,"custom_id":"pub:leave","style":4,"label":"SAIR DA FILA","disabled":false,"emoji":{"name":"❌"}},{"type":2,"custom_id":"pub:status","style":2,"label":"MINHA POSIÇÃO","disabled":false,"emoji":{"name":"📊"}}]}]}]},"fechada":{"flags":32768,"components":[{"type":17,"accent_color":7041664,"components":[{"type":9,"components":[{"type":10,"content":"## 🎧 ATENDIMENTO | VANTUS\n-# VANTUS • Central de Atendimento • Atualizado 14:18"}]},{"type":14,"divider":true,"spacing":2},{"type":10,"content":"Precisa de ajuda? Entre na fila de atendimento e aguarde a disponibilidade de um membro da nossa equipe.\n\nNosso sistema organizará automaticamente os atendimentos por ordem de chegada."}]},{"type":17,"accent_color":7041664,"components":[{"type":10,"content":"**STATUS DA CENTRAL**\n## 🔴 CENTRAL FECHADA\n-# Reabre amanhã às 12:00."}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🎫 NA FILA**\n## 0"}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**🛡️ STAFFS DISPONÍVEIS**\n## 0"}]},{"type":17,"accent_color":16723349,"components":[{"type":10,"content":"**📞 EM ATENDIMENTO**\n## 0"}]},{"type":17,"accent_color":3718648,"components":[{"type":10,"content":"**⏳ ESPERA MÉDIA**\n## 8 minutos"}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🗓️ HORÁRIO DE ATENDIMENTO**\n-# **Seg–Sex:** 12:00 às 02:00\n-# **Sáb–Dom:** 12:00 às 00:00"}]},{"type":17,"accent_color":7041664,"components":[{"type":10,"content":"**🎙️ Fila por canal de voz**"},{"type":10,"content":"-# Entre em <#000000000000000000> para aguardar atendimento. Você será movido automaticamente quando um staff te chamar. Sair da fila remove você do atendimento."},{"type":1,"components":[{"type":2,"custom_id":"pub:join","style":3,"label":"ENTRAR NA FILA","disabled":false,"emoji":{"name":"🎫"}},{"type":2,"custom_id":"pub:leave","style":4,"label":"SAIR DA FILA","disabled":false,"emoji":{"name":"❌"}},{"type":2,"custom_id":"pub:status","style":2,"label":"MINHA POSIÇÃO","disabled":false,"emoji":{"name":"📊"}}]}]}]}};
+const PAYLOADS = {"aberta":{"flags":32768,"components":[{"type":17,"accent_color":16742936,"components":[{"type":9,"components":[{"type":10,"content":"## 🎧 ATENDIMENTO | VANTUS\n-# VANTUS • Central de Atendimento • Atualizado 14:19"}]},{"type":14,"divider":true,"spacing":2},{"type":10,"content":"Precisa de ajuda? Entre na fila de atendimento e aguarde a disponibilidade de um membro da nossa equipe.\n\nNosso sistema organizará automaticamente os atendimentos por ordem de chegada."}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**STATUS DA CENTRAL**\n## 🟢 FILA ABERTA\n-# 3 staff(s) disponível(is) para atender agora."}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🎫 NA FILA**\n## 3"}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**🛡️ STAFFS DISPONÍVEIS**\n## 3"}]},{"type":17,"accent_color":16723349,"components":[{"type":10,"content":"**📞 EM ATENDIMENTO**\n## 2"}]},{"type":17,"accent_color":3718648,"components":[{"type":10,"content":"**⏳ ESPERA MÉDIA**\n## 8 minutos"}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🗓️ HORÁRIO DE ATENDIMENTO**\n-# **Seg–Sex:** 12:00 às 02:00\n-# **Sáb–Dom:** 12:00 às 00:00"}]},{"type":17,"accent_color":2278750,"components":[{"type":10,"content":"**🎙️ Fila por canal de voz**"},{"type":10,"content":"-# Entre em <#000000000000000000> para aguardar atendimento. Você será movido automaticamente quando um staff te chamar. Sair da fila remove você do atendimento."},{"type":1,"components":[{"type":2,"custom_id":"pub:join","style":3,"label":"ENTRAR NA FILA","disabled":false,"emoji":{"name":"🎫"}},{"type":2,"custom_id":"pub:leave","style":4,"label":"SAIR DA FILA","disabled":false,"emoji":{"name":"❌"}},{"type":2,"custom_id":"pub:status","style":2,"label":"MINHA POSIÇÃO","disabled":false,"emoji":{"name":"📊"}}]}]}]},"fechada":{"flags":32768,"components":[{"type":17,"accent_color":7041664,"components":[{"type":9,"components":[{"type":10,"content":"## 🎧 ATENDIMENTO | VANTUS\n-# VANTUS • Central de Atendimento • Atualizado 14:19"}]},{"type":14,"divider":true,"spacing":2},{"type":10,"content":"Precisa de ajuda? Entre na fila de atendimento e aguarde a disponibilidade de um membro da nossa equipe.\n\nNosso sistema organizará automaticamente os atendimentos por ordem de chegada."}]},{"type":17,"accent_color":7041664,"components":[{"type":10,"content":"**STATUS DA CENTRAL**\n## 🔴 CENTRAL FECHADA\n-# Reabre amanhã às 12:00."}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🎫 NA FILA**\n## 0"}]},{"type":17,"accent_color":9133302,"components":[{"type":10,"content":"**🛡️ STAFFS DISPONÍVEIS**\n## 0"}]},{"type":17,"accent_color":16723349,"components":[{"type":10,"content":"**📞 EM ATENDIMENTO**\n## 0"}]},{"type":17,"accent_color":3718648,"components":[{"type":10,"content":"**⏳ ESPERA MÉDIA**\n## 8 minutos"}]},{"type":17,"accent_color":16742936,"components":[{"type":10,"content":"**🗓️ HORÁRIO DE ATENDIMENTO**\n-# **Seg–Sex:** 12:00 às 02:00\n-# **Sáb–Dom:** 12:00 às 00:00"}]},{"type":17,"accent_color":7041664,"components":[{"type":10,"content":"**🎙️ Fila por canal de voz**"},{"type":10,"content":"-# Entre em <#000000000000000000> para aguardar atendimento. Você será movido automaticamente quando um staff te chamar. Sair da fila remove você do atendimento."},{"type":1,"components":[{"type":2,"custom_id":"pub:join","style":3,"label":"ENTRAR NA FILA","disabled":false,"emoji":{"name":"🎫"}},{"type":2,"custom_id":"pub:leave","style":4,"label":"SAIR DA FILA","disabled":false,"emoji":{"name":"❌"}},{"type":2,"custom_id":"pub:status","style":2,"label":"MINHA POSIÇÃO","disabled":false,"emoji":{"name":"📊"}}]}]}]}};
 const COLORS = {
   16086040: '#ff7a18', 9124596: '#8b5cf6', 16723349: '#ff2d95', 3719160: '#38bdf8',
   2288663: '#22c55e', 15680580: '#ef4444', 7038819: '#6b7280', 9144318: '#8b5cf6',
@@ -147,7 +151,8 @@ function renderMarkdown(content) {
 function inline(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/<#\d+>/g, '<span class="mention">#canal-de-voz</span>');
+    .replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#canal-de-voz</span>')
+    .replace(/<#(\d+)>/g, '<span class="mention">#canal-de-voz</span>');
 }
 
 function renderComponent(component) {
@@ -159,12 +164,23 @@ function renderComponent(component) {
       return '<div class="card' + (tight ? ' tight' : '') + '" style="--accent:' + colorOf(component.accent_color) + '">' + inner + '</div>';
     }
     case 10: { // text display
-      let content = renderMarkdown(component.content);
-      // Transforma "**ROTULO**
-## valor" em bloco de indicador
-      const match = /<strong>([^<]+)<\/strong><\/div><div class="text"><h2>([^<]+)<\/h2><\/div>/.exec(content);
-      if (match) {
-        content = '<div class="stat-label">' + match[1] + '</div><div class="stat-value">' + match[2] + '</div>';
+      const content = renderMarkdown(component.content);
+      // "**ROTULO**" seguido de "## valor" vira um bloco de indicador.
+      const labelPrefix = '<div class="text"><strong>';
+      const valueMarker = '</div><div class="text"><h2>';
+      if (content.startsWith(labelPrefix)) {
+        const labelEnd = content.indexOf('</strong>' + valueMarker);
+        const valueEnd = labelEnd >= 0 ? content.indexOf('</h2></div>', labelEnd) : -1;
+        if (labelEnd > 0 && valueEnd > 0) {
+          const label = content.slice(labelPrefix.length, labelEnd);
+          const value = content.slice(labelEnd + ('</strong>' + valueMarker).length, valueEnd);
+          const rest = content.slice(valueEnd + '</h2></div>'.length);
+          return (
+            '<div class="stat-label">' + label + '</div>' +
+            '<div class="stat-value">' + value + '</div>' +
+            rest
+          );
+        }
       }
       return content;
     }
