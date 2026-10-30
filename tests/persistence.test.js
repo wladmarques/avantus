@@ -109,8 +109,42 @@ test('painéis não são duplicados e continuam funcionando após reinício', as
   gateway.channelMessages.push({ id: 'msg-1', channelId: services.settings.get('public_channel_id'), payload: {} });
 
   const report = await services.recovery.run(env.guildId);
-  assert.ok(report.panels.some((entry) => entry.startsWith('public')));
-  assert.equal(gateway.channelMessages.length, 1, 'continuou editando a mesma mensagem');
+  assert.ok(report.panels.some((entry) => entry.startsWith('public: atualizado')));
+  const publicMessages = gateway.channelMessages.filter(
+    (message) => message.channelId === services.settings.get('public_channel_id'),
+  );
+  assert.equal(publicMessages.length, 1, 'continuou editando a mesma mensagem');
+
+  // painel da staff nunca publicado é criado na recuperação
+  assert.ok(report.panels.some((entry) => entry.startsWith('staff: publicado')));
+  assert.equal(
+    gateway.channelMessages.filter(
+      (message) => message.channelId === services.settings.get('staff_channel_id'),
+    ).length,
+    1,
+  );
 
   await db.close();
+});
+
+test('painel apagado à mão é republicado na recuperação', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  await env.services.panels.publish(env.guildId, 'public', env.services.settings.get('public_channel_id'));
+  const channelId = env.services.settings.get('public_channel_id');
+
+  // simula a mensagem apagada no Discord: editar passa a falhar com "Unknown Message"
+  env.gateway.editMessage = async () => {
+    const error = new Error('Unknown Message');
+    error.code = 10008;
+    throw error;
+  };
+
+  const result = await env.services.panels.publish(env.guildId, 'public', channelId);
+  assert.equal(result.mode, 'created');
+  assert.equal(
+    env.gateway.channelMessages.filter((message) => message.channelId === channelId).length,
+    2,
+  );
 });

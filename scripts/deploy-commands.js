@@ -5,7 +5,7 @@
  *   npm run deploy:commands
  * Útil quando AUTO_REGISTER_COMMANDS=false.
  */
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Events } = require('discord.js');
 const { env, validateEnv } = require('../src/config/env');
 const { loadCommands } = require('../src/handlers/commandHandler');
 const { registerCommands } = require('../src/handlers/registerCommands');
@@ -22,7 +22,7 @@ async function main() {
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   await client.login(env.token);
-  await new Promise((resolve) => client.once('ready', resolve));
+  await new Promise((resolve) => client.once(Events.ClientReady, resolve));
 
   const commands = loadCommands();
   const total = await registerCommands({

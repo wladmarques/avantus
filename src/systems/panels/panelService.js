@@ -64,7 +64,13 @@ class PanelService {
         await this.gateway.editMessage(guildId, existing.channel_id, existing.message_id, payload);
         return { ...existing, mode: 'edited' };
       } catch (error) {
-        logger.warn(`Mensagem do painel ${key} não pôde ser editada: ${error.message}. Publicando novamente.`);
+        // 10008 = Unknown Message, 10003 = Unknown Channel: a mensagem não existe mais.
+        const gone = error?.code === 10008 || error?.code === 10003;
+        if (!gone) {
+          logger.warn(`Falha ao editar o painel ${key}: ${error.message}`);
+          throw error;
+        }
+        logger.warn(`Mensagem do painel ${key} não existe mais. Publicando uma nova.`);
       }
     }
 

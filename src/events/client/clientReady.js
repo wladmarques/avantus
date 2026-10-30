@@ -6,8 +6,9 @@ const { formatTime } = require('../../utils/time');
 
 const logger = createLogger('ready');
 
+// discord.js 14.27 emite `clientReady` (o antigo `ready` será removido na v15)
 module.exports = {
-  name: 'ready',
+  name: 'clientReady',
   once: true,
   async execute(client, context) {
     const { services, env, runtime } = context;
@@ -76,6 +77,18 @@ module.exports = {
     logger.info(
       `Central pronta • ${services.schedule.statusLabel(guildId)} • ${formatTime()}`,
     );
+
+    const missingPanels = ['public', 'staff'].filter((key) => {
+      const panel = services.repositories.panels.getSync(guildId, key);
+      return !panel?.message_id;
+    });
+    if (missingPanels.length > 0) {
+      logger.warn(
+        `Painéis não publicados (${missingPanels.join(', ')}). ` +
+          'Rode /setup ou /painel publicar no Discord para publicá-los.',
+      );
+    }
+
     await services.panels.refresh(guildId).catch(() => null);
   },
 };

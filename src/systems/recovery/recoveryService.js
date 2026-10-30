@@ -32,18 +32,17 @@ class RecoveryService {
     }
 
     for (const key of ['public', 'staff']) {
-      const panel = this.repos.panels.getSync(guildId, key);
-      if (!panel?.message_id) {
-        report.panels.push(`${key}: não publicado`);
+      const channelId = this.panels.defaultChannel(key);
+      if (!channelId) {
+        report.panels.push(`${key}: canal não configurado`);
         continue;
       }
       try {
-        const { payload } = this.panels.buildPayload(guildId, key);
-        await this.gateway.editMessage(guildId, panel.channel_id, panel.message_id, payload);
-        report.panels.push(`${key}: atualizado`);
+        const result = await this.panels.publish(guildId, key, channelId);
+        report.panels.push(`${key}: ${result.mode === 'created' ? 'publicado' : 'atualizado'}`);
       } catch (error) {
-        logger.warn(`Painel ${key} precisa ser republicado: ${error.message}`);
-        report.panels.push(`${key}: precisa reconstruir (${error.message})`);
+        logger.warn(`Não foi possível publicar o painel ${key}: ${error.message}`);
+        report.panels.push(`${key}: falhou (${error.message})`);
       }
     }
 
