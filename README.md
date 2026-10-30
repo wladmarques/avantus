@@ -168,7 +168,11 @@ npm test                  # roda os 52 testes
 npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
+npm run package           # gera o .zip de deploy para a SquareCloud
 ```
+
+O pacote gerado (`../vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`, `data`,
+`.env` ou arquivos SQLite, com o `squarecloud.app` na raiz.
 
 ## Licença
 
