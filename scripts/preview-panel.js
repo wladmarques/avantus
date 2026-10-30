@@ -1,273 +1,388 @@
 'use strict';
 
 /**
- * Gera uma pré-visualização do painel público em HTML.
+ * Pré-visualização do painel público.
  *   npm run preview:panel  →  preview/panel.html
  *
- * O HTML usa exatamente o payload gerado em produção (mesma árvore de
- * componentes), então serve para aprovar o layout antes de publicar no Discord.
+ * O HTML reproduz o layout de referência da VANTUS (container escuro, painel de
+ * status interno, 4 cards de indicadores lado a lado, faixa de horário e rodapé
+ * com o botão de entrada). Os NÚMEROS vêm das mesmas funções usadas em
+ * produção (`statusInfo`, `describeScheduleCompact`), então a prévia nunca
+ * mostra dado inventado.
+ *
+ * Aviso: no Discord (Components V2) não é possível aninhar containers nem criar
+ * colunas — o painel publicado é a versão compacta equivalente a este layout.
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildPublicPanelV2 } = require('../src/dashboard/panels/publicPanel');
+const { statLine, describeScheduleCompact, statusInfo } = require('../src/dashboard/panels/publicPanel');
 const { DEFAULT_SCHEDULE } = require('../src/config/settings');
 
 const root = path.join(__dirname, '..');
 const outFile = path.join(root, 'preview', 'panel.html');
 
-const fullState = {
-  waiting: [{ position: 1 }],
-  serving: [],
-  hold: [],
-  staffCounts: { DISPONIVEL: 1, EM_ATENDIMENTO: 0 },
-};
-
-const scenarios = {
-  aberta: {
-    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
-    state: fullState,
-    estimateWaitSeconds: 600,
-  },
-  movimentada: {
-    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
-    state: {
-      waiting: [1, 2, 3, 4],
-      serving: [1, 2],
-      hold: [],
-      staffCounts: { DISPONIVEL: 3, EM_ATENDIMENTO: 2 },
-    },
-    estimateWaitSeconds: 780,
-  },
-  sem_staff: {
-    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
-    state: { waiting: [1], serving: [], hold: [], staffCounts: { DISPONIVEL: 0, EM_ATENDIMENTO: 0 } },
-    estimateWaitSeconds: 900,
-  },
-  fechada: {
-    schedule: { open: false, nextOpen: 'amanhã às 12:00', schedule: DEFAULT_SCHEDULE },
-    state: { waiting: [], serving: [], hold: [], staffCounts: { DISPONIVEL: 0, EM_ATENDIMENTO: 0 } },
-    estimateWaitSeconds: 0,
-  },
-};
-
-const baseSettings = {
-  message_panel_title: '🎧 ATENDIMENTO | VANTUS',
+const settings = {
+  message_panel_title: 'ATENDIMENTO | VANTUS',
   message_panel_description: 'Use a ação abaixo para entrar na fila e aguarde as atualizações.',
   wait_channel_id: '000000000000000000',
   leave_queue_on_wait_exit: true,
   rejoin_cooldown_minutes: 10,
 };
 
-const payloads = Object.fromEntries(
-  Object.entries(scenarios).map(([key, scenario]) => [
-    key,
-    buildPublicPanelV2({
-      settings: { ...baseSettings, estimateWaitSeconds: scenario.estimateWaitSeconds },
-      state: scenario.state,
-      schedule: scenario.schedule,
-      iconUrl: 'server-icon',
-      now: new Date(),
-    }).payload,
-  ]),
+const scenarios = {
+  disponivel: {
+    label: 'Atendimento disponível',
+    state: { waiting: [], serving: [], staffCounts: { DISPONIVEL: 1 }, estimateWaitSeconds: 0 },
+    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
+  },
+  fila: {
+    label: 'Fila em andamento',
+    state: { waiting: [1, 2, 3], serving: [1], staffCounts: { DISPONIVEL: 2 }, estimateWaitSeconds: 600 },
+    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
+  },
+  sem_staff: {
+    label: 'Sem staff',
+    state: { waiting: [1], serving: [], staffCounts: { DISPONIVEL: 0 }, estimateWaitSeconds: 900 },
+    schedule: { open: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
+  },
+  fechada: {
+    label: 'Central fechada',
+    state: { waiting: [], serving: [], staffCounts: { DISPONIVEL: 0 }, estimateWaitSeconds: 0 },
+    schedule: { open: false, nextOpen: 'amanhã às 12:00', schedule: DEFAULT_SCHEDULE },
+  },
+};
+
+/** Monta o modelo de dados que o HTML consome (valores reais do sistema). */
+function buildModel(scenario) {
+  const { state, schedule } = scenario;
+  const available = state.staffCounts.DISPONIVEL ?? 0;
+  const status = statusInfo({ open: schedule.open, availableStaff: available, nextOpen: schedule.nextOpen });
+  const scheduleEntries = describeScheduleCompact(schedule.schedule);
+
+  return {
+    title: settings.message_panel_title,
+    description: settings.message_panel_description,
+    open: schedule.open,
+    status: {
+      indicator: status.indicator,
+      headline: status.headline,
+      note: status.note,
+    },
+    cards: [
+      { label: 'NA FILA', value: String(state.waiting.length) },
+      { label: 'STAFFS DISPONÍVEIS', value: String(available) },
+      { label: 'EM ANDAMENTO', value: String(state.serving.length) },
+      { label: 'ESPERA MÉDIA', value: formatEstimate(state.estimateWaitSeconds) },
+    ],
+    schedule: scheduleEntries.map((entry) => `${entry.range}: ${entry.label}`),
+    footerTitle: 'Fila por canal de voz',
+    footerText:
+      'Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente ' +
+      'quando houver staff disponível. ' +
+      (settings.leave_queue_on_wait_exit === false
+        ? 'Sair do canal não remove você da fila.'
+        : Number(settings.rejoin_cooldown_minutes) > 0
+          ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
+          : 'Sair da espera remove você da fila.'),
+    hints: 'Use /sair para desistir da fila e /posicao para ver a sua posição.',
+  };
+}
+
+function formatEstimate(seconds) {
+  const value = Number(seconds) || 0;
+  if (value <= 0) return '0 min';
+  if (value < 60) return `${value} seg`;
+  const minutes = Math.round(value / 60);
+  return `${minutes} min`;
+}
+
+const models = Object.fromEntries(
+  Object.entries(scenarios).map(([key, scenario]) => [key, buildModel(scenario)]),
 );
+
+// Garante que a versão em texto do Discord continua consistente com a prévia.
+const sanity = statLine(scenarios.fila.state, 2, 600);
+if (!sanity.includes('NA FILA')) {
+  throw new Error('statLine divergente na geração da pré-visualização.');
+}
 
 const html = `<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VANTUS • Pré-visualização do painel</title>
+<title>VANTUS • Painel de atendimento</title>
 <style>
   :root {
-    --bg: #1e1f22;
-    --panel: #2b2d31;
-    --card: #232428;
-    --text: #f2f3f5;
-    --subtle: #949ba4;
-    --green: #248046;
-    --brand: #5865f2;
+    --page: #0a0a0c;
+    --panel-outer: #0e0e11;
+    --panel-inner: #141519;
+    --card: #1c1e24;
+    --card-2: #191b20;
+    --line: #26282f;
+    --text: #f5f6f7;
+    --muted: #9aa1ab;
+    --dim: #6f757e;
+    --green: #3ba55d;
+    --green-soft: #57d68a;
+    --green-btn: #14361f;
+    --orange: #ff7a18;
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    padding: 24px 16px 56px;
+    color: var(--text);
+    font-family: "gg sans", "Inter", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding: 26px 16px 60px;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 700px; margin: 0 auto; }
+  .wrap { max-width: 660px; margin: 0 auto; }
+
   .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .toolbar button {
-    background: #313338; color: var(--text); border: 1px solid #3f4147;
-    border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: #17181c; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: .15s ease;
   }
-  .toolbar button.active { background: #404249; border-color: #5c5f66; }
-  .message { background: var(--panel); border-radius: 10px; padding: 14px 16px; display: flex; gap: 14px; }
-  .avatar {
-    width: 40px; height: 40px; border-radius: 50%; flex: 0 0 40px;
-    background: linear-gradient(135deg, #ff7a18, #ff2d95 55%, #8b5cf6);
-    display: grid; place-items: center; font-size: 18px;
-  }
-  .body { flex: 1; min-width: 0; }
-  .author { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  .bot-tag { background: var(--brand); font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
-  .timestamp { color: var(--subtle); font-size: 12px; font-weight: 400; margin-left: 2px; }
+  .toolbar button:hover { color: var(--text); }
+  .toolbar button.active { background: #23252c; color: var(--text); border-color: #343740; }
+
+  /* Mensagem do Discord */
+  .message { display: block; }
+  .message-body { min-width: 0; }
+  .author { font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .bot-tag { background: #5865f2; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
+  .timestamp { color: var(--dim); font-size: 11.5px; font-weight: 400; }
+
+  /* Container principal: fundo quase preto + barra laranja */
   .container {
-    margin-top: 8px; background: var(--card); border-radius: 10px;
-    border-left: 4px solid var(--accent, #5865f2); padding: 14px 16px;
-    display: flex; flex-direction: column; gap: 10px;
+    margin-top: 9px;
+    background: var(--panel-outer);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--orange);
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
   }
-  .sep { height: 1px; background: #3b3d44; }
-  .sep.small { opacity: .6; }
-  .section { display: flex; gap: 14px; align-items: center; justify-content: space-between; }
-  .section .content { flex: 1; min-width: 0; }
-  .thumb { width: 68px; height: 68px; border-radius: 8px; overflow: hidden; flex: 0 0 68px; background: #313338; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .t { font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; }
-  .h1 { font-size: 23px; font-weight: 700; margin: 0; }
-  .h2 { font-size: 26px; font-weight: 700; margin: 1px 0 2px; }
-  .label { font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
-  .sub { color: var(--subtle); font-size: 13px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
-  .chip {
-    background: #2b2d31; border-radius: 6px; padding: 3px 8px;
-    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 13px; color: #dbdee1;
+
+  /* Cabeçalho */
+  .head h1 {
+    margin: 0; font-size: 25px; line-height: 1.15; font-weight: 800;
+    letter-spacing: .2px; text-transform: uppercase;
   }
-  .chip-value { font-weight: 700; font-size: 15px; margin-left: 4px; }
-  .stat { display: flex; flex-direction: column; gap: 0; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .head h1 .icon { font-weight: 400; margin-right: 8px; }
+  .head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+  /* Painel de status (interno) */
+  .panel {
+    margin-top: 16px;
+    background: var(--panel-inner);
+    border: 1px solid #1f2127;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .status-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card-2);
+    border-radius: 8px;
+    padding: 13px 16px;
+  }
+  .dot {
+    width: 11px; height: 11px; border-radius: 50%; flex: 0 0 11px;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(59, 165, 93, .14);
+  }
+  .dot.off { background: #e05a5a; box-shadow: 0 0 0 3px rgba(224, 90, 90, .14); }
+  .dot.wait { background: #e0b23a; box-shadow: 0 0 0 3px rgba(224, 178, 58, .14); }
+  .status-text { min-width: 0; }
+  .status-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .status-headline { font-size: 20px; font-weight: 800; letter-spacing: .2px; margin-top: 3px; }
+  .status-note { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+
+  /* Quatro cards */
+  .cards {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-top: 10px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid #22242b;
+    border-radius: 8px;
+    padding: 11px 13px 13px;
+  }
+  .card-bar {
+    width: 26px; height: 3px; border-radius: 2px;
+    background: var(--green); margin-bottom: 10px;
+  }
+  .card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); line-height: 1.25;
+  }
+  .card-value { font-size: 26px; font-weight: 800; line-height: 1.15; margin-top: 6px; white-space: nowrap; }
+
+  /* Faixa de horário */
+  .schedule {
+    margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: var(--card-2);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .schedule-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--green-soft); white-space: nowrap;
+  }
+  .schedule-values { text-align: right; font-size: 11.5px; color: var(--muted); line-height: 1.55; white-space: nowrap; }
+
+  /* Divisor */
+  .divider { height: 1px; background: var(--line); margin: 15px 0 13px; }
+
+  /* Rodapé */
+  .footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+  .footer-left { min-width: 0; }
+  .footer-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .footer-text { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.55; max-width: 46ch; }
   .btn {
-    border: none; border-radius: 4px; padding: 9px 16px; font-size: 14px; font-weight: 600;
-    color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green-btn); color: var(--green-soft);
+    border: 1px solid #1d4a2b; border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; font-weight: 700;
+    cursor: default; white-space: nowrap; flex: 0 0 auto;
   }
-  .btn.success { background: var(--green); }
-  .btn.primary { background: var(--brand); }
-  .btn.secondary { background: #4e5058; }
-  .btn.danger { background: #da373c; }
-  .mention { background: rgba(88, 101, 242, .3); color: #c9cdfb; border-radius: 3px; padding: 0 2px; font-weight: 500; }
-  .note { margin-top: 22px; color: var(--subtle); font-size: 12.5px; line-height: 1.55; border-top: 1px solid #2f3136; padding-top: 14px; }
-  code.key { background: #1e1f22; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .hints { margin-top: 12px; font-size: 10.5px; color: var(--dim); }
+  .hints code { background: #17181c; border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
+
+  .note {
+    margin-top: 22px; padding-top: 14px; border-top: 1px solid #1c1e23;
+    color: var(--dim); font-size: 11.5px; line-height: 1.6;
+  }
+
+  @media (max-width: 560px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .footer { flex-direction: column; align-items: stretch; }
+    .btn { justify-content: center; }
+    .schedule { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .schedule-values { text-align: left; }
+    .head h1 { font-size: 21px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="toolbar">
-    <button data-scenario="aberta" class="active">Fila aberta</button>
-    <button data-scenario="movimentada">Movimento alto</button>
-    <button data-scenario="sem_staff">Sem staff</button>
-    <button data-scenario="fechada">Fechada</button>
-  </div>
+  <div class="toolbar" id="toolbar"></div>
+
   <div class="message">
-    <div class="avatar">🎧</div>
-    <div class="body">
+    <div class="message-body">
       <div class="author">VANTUS ATENDIMENTO <span class="bot-tag">APP</span>
         <span class="timestamp" id="clock"></span>
       </div>
-      <div id="root"></div>
+
+      <div class="container" id="container">
+        <div class="head">
+          <h1><span class="icon">🎧</span><span id="title"></span></h1>
+          <p id="description"></p>
+        </div>
+
+        <div class="panel">
+          <div class="status-card">
+            <span class="dot" id="dot"></span>
+            <div class="status-text">
+              <div class="status-label">STATUS DA CENTRAL</div>
+              <div class="status-headline" id="headline"></div>
+              <div class="status-note" id="statusNote"></div>
+            </div>
+          </div>
+
+          <div class="cards" id="cards"></div>
+
+          <div class="schedule">
+            <div class="schedule-label">Horário de atendimento:</div>
+            <div class="schedule-values" id="schedule"></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="footer">
+          <div class="footer-left">
+            <div class="footer-title"><span>🎧</span><span id="footerTitle"></span></div>
+            <p class="footer-text" id="footerText"></p>
+          </div>
+          <button class="btn" type="button"><span>🎟️</span><span>Entrar na Fila</span></button>
+        </div>
+
+        <div class="hints" id="hints"></div>
+      </div>
     </div>
   </div>
+
   <div class="note">
-    Pré-visualização do painel público em <strong>Components V2</strong> (<code class="key">panel_style=modern</code>):
-    um único card, indicadores em linha e botão principal à direita do texto.<br>
-    Para o layout em embed: <code class="key">/config definir chave:panel_style valor:classic</code>.
+    Reprodução do layout de referência da VANTUS. No Discord, o painel é publicado em
+    <strong>Components V2</strong> na forma compacta equivalente: a API não permite containers
+    aninhados nem cards em colunas. Todos os valores exibidos vêm do sistema real
+    (fila, staffs, atendimentos, espera e agenda configurada).
   </div>
 </div>
 <script>
-const PAYLOADS = ${JSON.stringify(payloads)};
+const MODELS = ${JSON.stringify(models)};
+const ORDER = ${JSON.stringify(Object.keys(scenarios))};
+const LABELS = ${JSON.stringify(Object.fromEntries(Object.entries(scenarios).map(([k, v]) => [k, v.label])))};
 
-const ACCENTS = {
-  16742936: '#ff7a18', 9144534: '#8b5cf6', 16723349: '#ff2d95',
-  3719160: '#38bdf8', 2288663: '#22c55e', 15680580: '#ef4444', 7038819: '#6b7280',
-};
-
-function colorOf(value) {
-  if (value === undefined || value === null) return '#5865f2';
-  if (typeof value === 'number') return ACCENTS[value] || '#' + value.toString(16).padStart(6, '0');
-  return value;
+function esc(value) {
+  return String(value).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
-function esc(text) {
-  return String(text).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-}
+function render(key) {
+  const model = MODELS[key];
+  if (!model) return;
 
-function inline(raw) {
-  let out = esc(raw);
-  out = out.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
-  out = out.replace(/\\u0060([^\\u0060]+)\\u0060/g, '<span class="chip">$1</span>');
-  out = out.replace(/&lt;#(\\d+)&gt;/g, '<span class="mention">#aguardando-atendimento</span>');
-  out = out.replace(/<#(\\d+)>/g, '<span class="mention">#aguardando-atendimento</span>');
-  return out;
-}
+  document.getElementById('title').textContent = model.title;
+  document.getElementById('description').textContent = model.description;
+  document.getElementById('headline').textContent = model.status.headline;
+  document.getElementById('statusNote').textContent = model.status.note;
 
-/** Renderiza "**LABEL**", "## VALOR" e "-# subtexto" como o bloco de status. */
-function renderText(content) {
-  const lines = String(content).split('\\n');
-  let html = '';
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) { html += '<div style="height:6px"></div>'; continue; }
-    if (trimmed.startsWith('## ')) html += '<div class="h2">' + inline(trimmed.slice(3)) + '</div>';
-    else if (trimmed.startsWith('-# ')) html += '<div class="sub">' + inline(trimmed.slice(3)) + '</div>';
-    else if (/^\\*\\*[^*]+\\*\\*$/.test(trimmed)) html += '<div class="label">' + inline(trimmed) + '</div>';
-    else html += '<div class="t">' + inline(trimmed) + '</div>';
-  }
-  return '<div class="stat">' + html + '</div>';
-}
+  const dot = document.getElementById('dot');
+  dot.className = 'dot' + (model.status.indicator === '🟢' ? '' : model.status.indicator === '🟡' ? ' wait' : ' off');
 
-function renderButton(component) {
-  const style = ['secondary', 'primary', 'success', 'danger'][(component.style ?? 2) - 1] || 'secondary';
-  const emoji = component.emoji?.name ? component.emoji.name + ' ' : '';
-  return '<button class="btn ' + style + '">' + emoji + esc(component.label || '') + '</button>';
-}
+  document.getElementById('cards').innerHTML = model.cards
+    .map(
+      (card) =>
+        '<div class="card">' +
+        '<div class="card-bar"></div>' +
+        '<div class="card-label">' + esc(card.label) + '</div>' +
+        '<div class="card-value">' + esc(card.value) + '</div>' +
+        '</div>',
+    )
+    .join('');
 
-function render(component) {
-  switch (component.type) {
-    case 17:
-      return '<div class="container" style="--accent:' + colorOf(component.accent_color) + '">' +
-        (component.components || []).map(render).join('') + '</div>';
-    case 10:
-      return renderText(component.content);
-    case 14:
-      return '<div class="sep' + (component.spacing === 2 ? '' : ' small') + '"></div>';
-    case 9: {
-      const content = '<div class="content">' + (component.components || []).map(render).join('') + '</div>';
-      const accessory = component.accessory;
-      let extra = '';
-      if (accessory?.type === 11) {
-        const url = accessory.media?.url;
-        extra = url && url !== 'server-icon'
-          ? '<div class="thumb"><img src="' + esc(url) + '" alt=""></div>'
-          : '<div class="thumb" style="display:grid;place-items:center;font-size:26px">🎧</div>';
-      } else if (accessory?.type === 2) {
-        extra = renderButton(accessory);
-      }
-      return '<div class="section">' + content + extra + '</div>';
-    }
-    case 1:
-      return '<div class="row">' + (component.components || []).map(render).join('') + '</div>';
-    case 2:
-      return renderButton(component);
-    default:
-      return '';
-  }
-}
+  document.getElementById('schedule').innerHTML = model.schedule.map(esc).join('<br>');
+  document.getElementById('footerTitle').textContent = model.footerTitle;
+  document.getElementById('footerText').textContent = model.footerText;
+  document.getElementById('hints').innerHTML =
+    'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.';
 
-function renderScenario(key) {
-  const payload = PAYLOADS[key];
-  document.getElementById('root').innerHTML = (payload.components || []).map(render).join('');
-  document.querySelectorAll('.toolbar button').forEach((button) => {
+  document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.classList.toggle('active', button.dataset.scenario === key);
   });
 }
 
-document.querySelectorAll('.toolbar button').forEach((button) => {
-  button.addEventListener('click', () => renderScenario(button.dataset.scenario));
+const toolbar = document.getElementById('toolbar');
+toolbar.innerHTML = ORDER.map(
+  (key) => '<button data-scenario="' + key + '">' + esc(LABELS[key]) + '</button>',
+).join('');
+toolbar.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-scenario]');
+  if (button) render(button.dataset.scenario);
 });
 
 const now = new Date();
-document.getElementById('clock').textContent = 'hoje às ' +
-  String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+document.getElementById('clock').textContent =
+  'hoje às ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 
-renderScenario('aberta');
+render('disponivel');
 </script>
 </body>
 </html>

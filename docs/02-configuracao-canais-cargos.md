@@ -127,16 +127,19 @@ equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
 
 ## Estilo do painel público
 
-O painel público usa **Components V2** (`panel_style=modern`): **um único card compacto** com
-cabeçalho (título + subtítulo + ícone do servidor), bloco de status, indicadores em linha,
-horário de atendimento e uma faixa final com o texto explicativo à esquerda e o botão
-**Entrar na Fila** à direita. Botões secundários (*Minha posição* e *Sair da fila*) ficam na linha
-abaixo do texto.
+O painel público usa **Components V2** (`panel_style=modern`) num único card escuro com:
 
-```bash
-/config definir chave:panel_style valor:classic   # volta para o layout em embed
-/painel publicar painel:Público                    # recria a mensagem no novo estilo
-```
+- barra de destaque **laranja** à esquerda (identidade VANTUS);
+- cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS** + descrição curta (sem avatar);
+- bloco de status com indicador circular e manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL**;
+- indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO • ESPERA MÉDIA**, sem emojis;
+- faixa **HORÁRIO DE ATENDIMENTO** com as janelas agrupadas por dia;
+- divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita;
+- os comandos `/sair` e `/posicao` aparecem como dica discreta (sem botões extras).
+
+> **Limitação da API do Discord:** containers não podem ser aninhados nem organizados em colunas.
+> A referência visual completa (painel interno + 4 cards lado a lado) está disponível em
+> `npm run preview:panel`; no Discord o bot publica a versão compacta equivalente, com os mesmos dados.
 
 - Ao trocar o estilo, o bot **apaga a mensagem antiga e publica a nova** (não ficam dois painéis).
 - Se a API do Discord recusar Components V2, o bot publica automaticamente o layout clássico e

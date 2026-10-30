@@ -21,11 +21,12 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
 
   const text = panelText(message.payload);
   assert.match(text, /ATENDIMENTO \| VANTUS/);
+  assert.ok(!/🎧 🎧/.test(text), 'ícone do cabeçalho não duplica');
   assert.match(text, /STATUS DA CENTRAL/);
-  assert.match(text, /AGUARDANDO STAFF/, 'sem staff: aguardando disponibilidade');
+  assert.match(text, /ATENDIMENTO INDISPONÍVEL/, 'sem staff: indisponível');
   assert.match(text, /NA FILA/);
   assert.match(text, /STAFFS DISPONÍVEIS/);
-  assert.match(text, /EM ATENDIMENTO/);
+  assert.match(text, /EM ANDAMENTO/);
   assert.match(text, /ESPERA MÉDIA/);
   assert.match(text, /HORÁRIO DE ATENDIMENTO/);
   assert.match(text, /Seg–Sex/);
@@ -35,15 +36,17 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.match(text, /Fila por canal de voz/);
   assert.match(text, /Você será movido automaticamente/);
 
-  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:status', 'pub:leave']);  // layout clássico mantém a action row original
+  // Visual limpo: apenas o botão principal fica no painel
+  assert.deepEqual(panelButtonIds(message.payload), ['pub:join']);
 
-  // cabeçalho: seção com o ícone do servidor como thumbnail
   const container = message.payload.components[0];
   assert.equal(container.type, 17, 'container único');
+  assert.equal(container.accent_color, 0xff7a18, 'barra de destaque laranja');
+
+  // cabeçalho compacto e sem avatar/thumbnail (remoção pedida na revisão visual)
   const header = container.components[0];
-  assert.equal(header.type, 9);
-  assert.equal(header.accessory.type, 11);
-  assert.equal(header.accessory.media.url, env.gateway.iconUrl);
+  assert.equal(header.type, 10, 'cabeçalho é um bloco de texto');
+  assert.ok(!JSON.stringify(container).includes('"type":11'), 'nenhuma thumbnail no painel');
 
   // rodapé: texto à esquerda e botão principal à direita
   const footerSection = container.components.find(
@@ -53,19 +56,21 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.equal(footerSection.accessory.custom_id, 'pub:join');
   assert.equal(footerSection.accessory.style, 3, 'botão verde (sucesso)');
 
-  // indicadores em linha (chips), não em cards empilhados
-  const chips = container.components.find(
-    (component) => component.type === 10 && component.content.includes('`🎫 NA FILA`'),
+  // indicadores em uma linha compacta, sem emojis e sem etiquetas de código
+  const stats = container.components.find(
+    (component) => component.type === 10 && component.content.includes('**NA FILA**'),
   );
-  assert.ok(chips, 'linha de indicadores');
-  assert.match(chips.content, /`🛡️ STAFFS DISPONÍVEIS`/);
-  assert.match(chips.content, /`⏳ ESPERA MÉDIA`/);
+  assert.ok(stats, 'linha de indicadores');
+  assert.match(stats.content, /\*\*STAFFS DISPONÍVEIS\*\*/);
+  assert.match(stats.content, /\*\*ESPERA MÉDIA\*\*/);
+  assert.ok(!stats.content.includes('`'), 'sem etiquetas de código');
+  assert.ok(!/[🎫🛡️📞⏳]/u.test(stats.content), 'sem emojis nos indicadores');
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000003001', displayName: 'Teste' });
   await env.services.panels.refresh(env.guildId);
 
   const updated = env.gateway.channelMessages.find((item) => item.id === message.id);
-  assert.match(panelText(updated.payload), /🎫 NA FILA` \*\*1\*\*/);
+  assert.match(panelText(updated.payload), /\*\*NA FILA\*\* 1/);
 });
 
 test('status muda para ATENDIMENTO DISPONÍVEL quando há staff livre', async (t) => {
@@ -179,7 +184,8 @@ test('painel indica central fechada fora do horário', async (t) => {
 
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
   const text = panelText(payload);
-  assert.match(text, /CENTRAL FECHADA/);
+  assert.match(text, /ATENDIMENTO INDISPONÍVEL/);
+  assert.match(text, /Central fechada/);
   assert.match(text, /HORÁRIO DE ATENDIMENTO/);
-  assert.match(text, /📕|🔴/);
+  assert.match(text, /🔴/);
 });

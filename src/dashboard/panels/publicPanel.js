@@ -3,18 +3,22 @@
 /**
  * Painel público da central.
  *
- * Layout `modern` (Components V2): UM único card compacto, como a referência
- * visual da VANTUS — cabeçalho com ícone, status, indicadores lado a lado,
- * horário e uma faixa final com o botão principal à direita do texto.
+ * Layout `modern` (Components V2): um único container escuro com barra de
+ * destaque laranja, cabeçalho compacto, bloco de status, indicadores, faixa de
+ * horário e rodapé com o botão "Entrar na Fila" à direita.
  *
- * Layout `classic`: embed tradicional (fallback automático se a API do
- * Discord recusar Components V2).
+ * Limitação da API do Discord: containers não podem ser aninhados nem
+ * organizados em colunas — por isso os 4 indicadores aparecem em uma linha
+ * compacta em vez de 4 cards lado a lado (o layout de referência completo está
+ * disponível em `npm run preview:panel`).
+ *
+ * Layout `classic`: embed tradicional (fallback automático).
  *
  * Tudo em JSON puro: os payloads podem ser testados sem conexão com o Discord.
  */
 const { COLORS, BRAND } = require('../../config/theme');
 const { publicPanelComponents } = require('../components/buttons');
-const { formatDuration, formatTime, DAY_KEYS, tzParts } = require('../../utils/time');
+const { formatDuration, formatTime, DAY_KEYS } = require('../../utils/time');
 
 /** MessageFlags.IsComponentsV2 */
 const COMPONENTS_V2_FLAG = 32768;
@@ -32,20 +36,39 @@ const button = (customId, label, style, emoji) => ({
 
 const DAY_SHORT = { mon: 'Seg', tue: 'Ter', wed: 'Qua', thu: 'Qui', fri: 'Sex', sat: 'Sáb', sun: 'Dom' };
 
-/** Linha de "chips": cada indicador vira um bloco de código com o valor em negrito. */
-function statChips(state, available, estimate) {
-  const chip = (label, value) => `\`${label}\` **${value}**`;
+/** Ícone do cabeçalho: usa o do título quando já existe, senão adiciona o headset. */
+function titleWithIcon(title) {
+  const value = String(title || BRAND.title).trim();
+  // Mantém o emoji do título quando ele já começa com um.
+  const startsWithEmoji = /^[\p{Extended_Pictographic}]/u.test(value);
+  return startsWithEmoji ? value : `🎧 ${value}`;
+}
+
+/** Espera média no formato curto usado no painel: "0 min", "8 min", "45s". */
+function formatEstimate(seconds) {
+  const value = Math.max(0, Math.round(Number(seconds) || 0));
+  if (value === 0) return '0 min';
+  if (value < 60) return `${value}s`;
+  return `${Math.round(value / 60)} min`;
+}
+
+/**
+ * Indicadores em uma linha compacta: rótulo em negrito + valor.
+ * Sem emojis e sem etiquetas de código — segue o visual minimalista.
+ */
+function statLine(state, available, estimate) {
+  const item = (label, value) => `**${label}** ${value}`;
   return [
-    chip('🎫 NA FILA', state.waiting.length),
-    chip('🛡️ STAFFS DISPONÍVEIS', available),
-    chip('📞 EM ATENDIMENTO', state.serving.length),
-    chip('⏳ ESPERA MÉDIA', formatDuration(estimate)),
-  ].join('   ');
+    item('NA FILA', state.waiting.length),
+    item('STAFFS DISPONÍVEIS', available),
+    item('EM ANDAMENTO', state.serving.length),
+    item('ESPERA MÉDIA', formatEstimate(estimate)),
+  ].join('  •  ');
 }
 
 /** Agrupa dias consecutivos com o mesmo horário: "Seg–Sex: 12:00 às 02:00". */
 function describeScheduleCompact(schedule) {
-  if (!schedule || typeof schedule !== 'object') return ['-# Não configurado'];
+  if (!schedule || typeof schedule !== 'object') return ['Não configurado'];
 
   const groups = [];
   let current = null;
@@ -66,64 +89,51 @@ function describeScheduleCompact(schedule) {
     const first = DAY_SHORT[days[0]];
     const last = DAY_SHORT[days[days.length - 1]];
     const range = days.length === 1 ? first : `${first}–${last}`;
-    return group.label === 'fechado'
-      ? `-# **${range}:** fechado`
-      : `-# **${range}:** ${group.label}`;
+    return { range, label: group.label };
   });
 }
 
-/** Bloco de status: manchete curta, igual à referência. */
-function statusBlock({ open, availableStaff, nextOpen }) {
+/**
+ * Bloco de status: rótulo pequeno com indicador + manchete em destaque.
+ * @returns {{indicator: string, headline: string, note: string}}
+ */
+function statusInfo({ open, availableStaff, nextOpen }) {
   if (!open) {
-    return [
-      '**🔴 STATUS DA CENTRAL**',
-      '## CENTRAL FECHADA',
-      `-# ${nextOpen ? `Reabre ${nextOpen}.` : 'Confira os horários de atendimento abaixo.'}`,
-    ].join('\n');
+    return {
+      indicator: '🔴',
+      headline: 'ATENDIMENTO INDISPONÍVEL',
+      note: nextOpen ? `Central fechada • reabre ${nextOpen}` : 'Central fechada no momento',
+    };
   }
   if (availableStaff > 0) {
-    return [
-      '**🟢 STATUS DA CENTRAL**',
-      '## ATENDIMENTO DISPONÍVEL',
-      `-# ${availableStaff} staff(s) disponível(is) para atender agora.`,
-    ].join('\n');
+    return {
+      indicator: '🟢',
+      headline: 'ATENDIMENTO DISPONÍVEL',
+      note: `${availableStaff} staff(s) disponível(is) para atender`,
+    };
   }
-  return [
-    '**🟡 STATUS DA CENTRAL**',
-    '## AGUARDANDO STAFF',
-    '-# Nenhum staff disponível agora; sua solicitação aguardará a equipe.',
-  ].join('\n');
+  return {
+    indicator: '🟡',
+    headline: 'ATENDIMENTO INDISPONÍVEL',
+    note: 'Fila aberta • aguardando staff disponível',
+  };
 }
 
 /**
- * Layout moderno (Components V2) — um único container compacto.
+ * Layout moderno (Components V2).
  * @returns {{payload: object, format: 'v2'}}
  */
-function buildPublicPanelV2({ settings, state, schedule, iconUrl = null, now = new Date() }) {
+function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
   const estimate = settings.estimateWaitSeconds ?? 0;
+  const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
 
-  const subtitle = String(settings.message_panel_description || '')
+  const description = String(settings.message_panel_description || '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .slice(0, 2)
-    .map((line) => `-# ${line}`)
-    .join('\n');
-
-  const header = {
-    type: 9,
-    components: [
-      text(
-        [
-          `## ${settings.message_panel_title || BRAND.title}`,
-          subtitle || `-# ${BRAND.footer} • Atualizado ${formatTime(now)}`,
-        ].join('\n'),
-      ),
-    ],
-    ...(iconUrl ? { accessory: { type: 11, media: { url: iconUrl } } } : {}),
-  };
+    .slice(0, 2);
 
   const waitChannel = settings.wait_channel_id
     ? `Entre em <#${settings.wait_channel_id}> para aguardar atendimento. `
@@ -138,41 +148,44 @@ function buildPublicPanelV2({ settings, state, schedule, iconUrl = null, now = n
     exitNote = 'Sair da espera remove você da fila.';
   }
 
-  const footer = {
-    type: 9,
-    components: [
-      text(
-        [
-          '**🎙️ Fila por canal de voz**',
-          `-# ${waitChannel}Você será movido automaticamente quando um staff estiver disponível. ${exitNote}`,
-        ].join('\n'),
-      ),
-    ],
-    accessory: button('pub:join', 'Entrar na Fila', 3, '🎟️'),
-  };
-
-  const extras = open
-    ? {
-        type: 1,
-        components: [
-          button('pub:status', 'Minha posição', 2, '📊'),
-          button('pub:leave', 'Sair da fila', 2, '🚪'),
-        ],
-      }
-    : null;
+  const scheduleLines = describeScheduleCompact(schedule.schedule)
+    .slice(0, 3)
+    .map((entry) => `-# ${entry.range}: ${entry.label}`);
 
   const components = [
-    header,
-    separator(2),
-    text(statusBlock({ open, availableStaff: available, nextOpen: schedule.nextOpen })),
-    text(statChips(state, available, estimate)),
+    // Cabeçalho compacto (sem avatar/thumbnail)
+    text([`## ${titleWithIcon(settings.message_panel_title)}`, ...description.map((line) => `-# ${line}`)].join('\n')),
     separator(1),
+
+    // Bloco de status
     text(
-      ['**🗓️ HORÁRIO DE ATENDIMENTO**', ...describeScheduleCompact(schedule.schedule)].join('\n'),
+      [
+        `-# ${status.indicator} STATUS DA CENTRAL`,
+        `## ${status.headline}`,
+        `-# ${status.note}`,
+      ].join('\n'),
     ),
-    separator(1),
-    footer,
-    ...(extras ? [extras] : []),
+
+    // Indicadores (rótulos sem emoji)
+    text(statLine(state, available, estimate)),
+
+    // Faixa de horário
+    text(['-# **HORÁRIO DE ATENDIMENTO:**', ...scheduleLines].join('\n')),
+
+    // Divisor único, como na referência
+    separator(2),
+
+    // Rodapé: texto à esquerda, botão à direita
+    {
+      type: 9,
+      components: [
+        text(
+          ['**🎧 Fila por canal de voz**', `-# ${waitChannel}Você será movido automaticamente quando houver staff disponível. ${exitNote}`].join('\n'),
+        ),
+      ],
+      accessory: button('pub:join', 'Entrar na Fila', 3, '🎟️'),
+    },
+    text('-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'),
   ];
 
   return {
@@ -185,29 +198,30 @@ function buildPublicPanelV2({ settings, state, schedule, iconUrl = null, now = n
 }
 
 /**
- * Layout clássico (embed) — usado como fallback.
+ * Layout clássico (embed) — fallback.
  * @returns {{payload: object, format: 'embed'}}
  */
 function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now = new Date() }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
   const estimate = settings.estimateWaitSeconds ?? 0;
+  const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
 
   const fields = [
-    { name: '📊 STATUS DA CENTRAL', value: open ? '🟢 **ABERTA**' : '📕 **FECHADA**', inline: true },
-    { name: '🎫 NA FILA', value: `**${state.waiting.length}** jogador(es)`, inline: true },
-    { name: '🛡️ STAFFS DISPONÍVEIS', value: `**${available}** em serviço`, inline: true },
-    { name: '📞 EM ATENDIMENTO', value: `**${state.serving.length}** ativo(s)`, inline: true },
-    { name: '⏳ ESPERA MÉDIA', value: `**${formatDuration(estimate)}**`, inline: true },
-    { name: '⏰ HORÁRIO DE ATENDIMENTO', value: `**${todayWindow?.text ?? '—'}**`, inline: true },
+    { name: '📊 STATUS DA CENTRAL', value: `${status.indicator} ${status.headline}`, inline: false },
+    { name: 'NA FILA', value: `**${state.waiting.length}**`, inline: true },
+    { name: 'STAFFS DISPONÍVEIS', value: `**${available}**`, inline: true },
+    { name: 'EM ANDAMENTO', value: `**${state.serving.length}**`, inline: true },
+    { name: 'ESPERA MÉDIA', value: `**${formatEstimate(estimate)}**`, inline: true },
+    { name: 'HORÁRIO DE ATENDIMENTO', value: `**${todayWindow?.text ?? '—'}**`, inline: false },
   ];
 
   const embed = {
     color: open ? COLORS.ORANGE : COLORS.MUTED,
-    title: settings.message_panel_title || BRAND.title,
+    title: titleWithIcon(settings.message_panel_title),
     description: [
       settings.message_panel_description,
-      open ? null : `\n🔒 **Central fechada**${schedule.nextOpen ? ` • reabre ${schedule.nextOpen}` : ''}`,
+      open ? null : `\n🔒 ${status.note}`,
     ]
       .filter(Boolean)
       .join('\n'),
@@ -234,5 +248,8 @@ module.exports = {
   buildPublicPanelV2,
   buildPublicPanelClassic,
   describeScheduleCompact,
-  statChips,
+  statLine,
+  statusInfo,
+  titleWithIcon,
+  formatEstimate,
 };

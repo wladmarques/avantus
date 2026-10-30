@@ -26,9 +26,10 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 ## Recursos implementados
 
 **Fila e atendimento**
-- Painel público em **Components V2**: um card compacto com cabeçalho, status, indicadores em
-  linha e botão **Entrar na fila** à direita do texto — layout clássico em embed disponível por
-  configuração (`panel_style`). Prévia local com `npm run preview:panel`.
+- Painel público em **Components V2**: card escuro com barra laranja, cabeçalho compacto, bloco de
+  status (disponível/indisponível), indicadores linha, faixa de horário e botão **Entrar na fila**
+  à direita — layout clássico em embed por configuração (`panel_style`). Prévia fiel do layout em
+  `npm run preview:panel`.
 - Protocolo exclusivo (`#0001`), horário de entrada e posição calculada em tempo real.
 - Fila sincronizada com a voz **nos dois sentidos**: entrar na fila move para o canal de espera e
   entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
