@@ -104,6 +104,9 @@
   };
 
   async function api(path, options = {}) {
+    // `auth: false` = rota pública (login): um 401 ali significa senha errada,
+    // não sessão expirada — a mensagem do servidor deve chegar ao usuário.
+    const { auth = true, ...init } = options;
     const token = getToken();
     const response = await fetch(withToken(path, token), {
       credentials: 'same-origin',
@@ -111,9 +114,9 @@
         'content-type': 'application/json',
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
-      ...options,
+      ...init,
     });
-    if (response.status === 401) {
+    if (response.status === 401 && auth) {
       const hadToken = Boolean(token);
       setToken('');
       showLogin(
@@ -157,6 +160,12 @@
   function showApp() {
     $('login').hidden = true;
     $('app').hidden = false;
+    // A tela de login sai do fluxo (hidden) e o painel começa no topo.
+    try {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch {
+      /* scroll indisponível */
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -475,10 +484,16 @@
   $('login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const error = $('login-error');
+    const button = $('login-submit');
     error.hidden = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Entrando…';
+    }
     try {
       const data = await api('/api/login', {
         method: 'POST',
+        auth: false,
         body: JSON.stringify({ password: $('password').value }),
       });
       // Guarda o token: em iframe/preview o cookie pode ser bloqueado pelo navegador.
@@ -487,6 +502,8 @@
       }
       setToken(data.token);
       $('password').value = '';
+      error.hidden = true;
+      $('login-hint').hidden = true;
       showApp();
       setPeriod(6);
       await refresh({ silent: true });
@@ -495,13 +512,24 @@
     } catch (requestError) {
       error.textContent = requestError.message;
       error.hidden = false;
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Entrar';
+      }
     }
   });
 
   $('logout').addEventListener('click', async () => {
     await api('/api/logout', { method: 'POST' }).catch(() => null);
     setToken('');
+    $('password').value = '';
     showLogin();
+    try {
+      $('password').focus();
+    } catch {
+      /* foco opcional */
+    }
   });
 
   $('period-buttons').addEventListener('click', (event) => {

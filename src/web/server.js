@@ -42,8 +42,11 @@ const SESSION_COOKIE = 'vantus_session';
 /** Versão dos assets (muda a cada carregamento do processo) — invalida o cache do navegador. */
 const ASSET_VERSION = (() => {
   try {
-    const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'));
-    return crypto.createHash('sha1').update(app).digest('hex').slice(0, 8);
+    const hash = crypto.createHash('sha1');
+    for (const file of ['index.html', 'styles.css', 'app.js']) {
+      hash.update(fs.readFileSync(path.join(PUBLIC_DIR, file)));
+    }
+    return hash.digest('hex').slice(0, 8);
   } catch {
     return String(Date.now());
   }
@@ -119,7 +122,8 @@ function readBody(req, limit = 256 * 1024) {
 function createWebServer({ services, env = {}, password = null, guildId = null }) {
   const sessions = new Map();
   const attempts = new Map();
-  const secret = password || env.webPanelPassword || null;
+  // Espaços nas pontas (senha colada do gerenciador/terminal) não devem invalidar o acesso.
+  const secret = String(password || env.webPanelPassword || '').trim() || null;
   const secretHash = secret ? sha256(secret) : null;
   // Chave de assinatura derivada da senha: os tokens continuam válidos mesmo se o
   // processo reiniciar (o preview e a SquareCloud reiniciam com frequência).
@@ -286,7 +290,7 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           return sendJson(res, 503, { error: 'Painel desativado: configure WEB_PANEL_PASSWORD.' });
         }
         const body = await readBody(req);
-        if (!body.password || !safeEqual(sha256(body.password), secretHash)) {
+        if (!body.password || !safeEqual(sha256(String(body.password).trim()), secretHash)) {
           return sendJson(res, 401, { error: 'Senha incorreta.' });
         }
         const token = createSession();

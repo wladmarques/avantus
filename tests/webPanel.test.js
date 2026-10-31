@@ -6,8 +6,11 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { createTestEnv } = require('./helpers');
-const { createWebServer } = require('../src/web/server');
+const { createWebServer, PUBLIC_DIR, ASSET_VERSION } = require('../src/web/server');
 
 const PASSWORD = 'senha-de-teste';
 const STAFF = '960000000000001001';
@@ -95,6 +98,20 @@ test('senha errada e senha correta', async (t) => {
   assert.equal(overview.status, 200);
   assert.equal(overview.json.guildId, env.guildId);
   assert.ok(Array.isArray(overview.json.staff));
+});
+
+test('senha com espaços nas pontas é aceita', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  // Senha colada de gerenciador/terminal costuma vir com espaço ou quebra de linha.
+  const ok = await panel.call('/api/login', { method: 'POST', body: { password: `  ${PASSWORD}  ` } });
+  assert.equal(ok.status, 200);
+  assert.ok(ok.json.token);
 });
 
 test('painel desativado sem senha configurada', async (t) => {
@@ -337,4 +354,35 @@ test('HTML serve os assets com versão e sem cache', async (t) => {
   assert.match(page.text, /app\.js\?v=/, 'script com versão (fura cache antigo)');
   assert.match(page.text, /styles\.css\?v=/);
   assert.match(String(page.headers.get('cache-control')), /no-store/);
+});
+
+test('CSS respeita o atributo hidden (a tela de login desaparece ao entrar)', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const css = await panel.call('/styles.css');
+
+  // Regressão: ".login { display: grid }" vencia o [hidden] do navegador, então a
+  // tela de senha continuava visível depois do login, por cima do painel.
+  assert.match(
+    css.text,
+    /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/s,
+    'regra global [hidden] precisa vencer os display das classes',
+  );
+  assert.match(css.text, /\.login\s*\{[^}]*display:\s*grid/s, 'layout do login preservado');
+
+  // A versão dos assets deve cobrir também o CSS: mudar só o estilo invalida o cache.
+  const hash = crypto.createHash('sha1');
+  for (const file of ['index.html', 'styles.css', 'app.js']) {
+    hash.update(fs.readFileSync(path.join(PUBLIC_DIR, file)));
+  }
+  assert.equal(ASSET_VERSION, hash.digest('hex').slice(0, 8));
+
+  const page = await panel.call('/');
+  assert.match(page.text, /styles\.css\?v=/);
+  assert.match(page.text, /id="login-submit"/, 'botão de entrada identificável para o estado "Entrando…"');
 });

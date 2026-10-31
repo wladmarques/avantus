@@ -94,7 +94,8 @@ servidor por `Authorization: Bearer`, por `?auth=` ou por cookie (`SameSite=None
 O logout revoga o token imediatamente.
 
 O painel também é servido sem `X-Frame-Options` e com `Content-Security-Policy: frame-ancestors *`,
-e os assets saem com `no-store` + versão (`app.js?v=…`) para nunca rodar um JS antigo em cache.
+e os assets saem com `no-store` + versão (`app.js?v=…`, `styles.css?v=…`) para nunca rodar um JS ou
+CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 
 > Como o token pode ir no hash da URL em modo de contingência, evite compartilhar o link do painel
 > enquanto estiver logado; ao sair (**Sair**) ele é removido.
@@ -140,6 +141,8 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | Painel não abre | `WEB_PANEL_PASSWORD` vazio (painel desligado) ou porta bloqueada — veja o log `web` do bot |
 | Tela em branco no preview/iframe | era bloqueio de `X-Frame-Options` — corrigido; se persistir, rode `LOG_LEVEL=debug` e confira `GET /` no log |
 | Login "não aceita" e volta para a tela de senha | corrigido: token assinado em memória/hash, aceito via header, query ou cookie. Se aparecer, clique em **Recarregar** na própria tela (limpa cache do JS antigo) |
+| Entra, mas a tela de senha **continua na frente** do painel | era CSS: `.login { display: grid }` vencia o atributo `hidden`. Corrigido com `[hidden] { display: none !important }`; há teste de regressão do CSS |
+| Mensagem "unauthorized" ao errar a senha | corrigido: o login mostra o texto do servidor (**Senha incorreta.**) e o botão fica em "Entrando…" durante a requisição |
 | Horas erradas após queda do bot | a sessão é fechada no limite de `hour_bank_max_session_hours`; ajuste manualmente a escala/horário pelo painel |
 
 ## Log do painel

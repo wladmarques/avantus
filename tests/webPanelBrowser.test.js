@@ -199,12 +199,16 @@ test('login funciona sem storage e sem cookie (e sobrevive ao reload)', async (t
   await wait(250);
 
   assert.equal(first.doc.getElementById('app').hidden, false, 'painel aberto após o login');
+  assert.equal(first.doc.getElementById('login').hidden, true, 'a tela de login desaparece após entrar');
+  assert.equal(first.doc.getElementById('password').value, '', 'senha limpa do formulário');
+  assert.equal(first.doc.getElementById('login-error').hidden, true, 'nenhum erro pendente');
   assert.match(first.location.hash, /auth=/, 'token persistido no hash (fallback sem storage)');
 
   // "Reload": mesmo hash, storage ainda bloqueado.
   const second = harness.load({ hash: first.location.hash });
   await wait(250);
   assert.equal(second.doc.getElementById('app').hidden, false, 'continua logado após recarregar');
+  assert.equal(second.doc.getElementById('login').hidden, true, 'login continua oculto após recarregar');
   assert.notEqual(second.doc.getElementById('stat-staff').textContent, '', 'dados carregados');
 });
 
@@ -226,4 +230,30 @@ test('token inválido no hash não abre o painel', async (t) => {
 
   assert.equal(page.doc.getElementById('app').hidden, true, 'token inválido volta para o login');
   assert.equal(page.doc.getElementById('login').hidden, false);
+});
+
+test('senha errada mostra a mensagem do servidor e mantém o login', async (t) => {
+  const harness = await createHarness(t);
+
+  const page = harness.load();
+  await wait(120);
+
+  page.doc.getElementById('password').value = 'senha-errada';
+  await page.doc.getElementById('login-form').listeners.submit[0]({ preventDefault() {} });
+  await wait(200);
+
+  const error = page.doc.getElementById('login-error');
+  assert.equal(error.hidden, false, 'erro visível');
+  assert.match(error.textContent, /Senha incorreta/, 'mensagem do servidor, não "unauthorized"');
+  assert.equal(page.doc.getElementById('app').hidden, true, 'painel continua fechado');
+  assert.equal(page.doc.getElementById('login').hidden, false, 'login continua visível');
+  assert.equal(page.doc.getElementById('login-submit').disabled, false, 'botão reabilitado');
+
+  // Com a senha certa na sequência, entra normalmente.
+  page.doc.getElementById('password').value = PASSWORD;
+  await page.doc.getElementById('login-form').listeners.submit[0]({ preventDefault() {} });
+  await wait(250);
+  assert.equal(page.doc.getElementById('app').hidden, false);
+  assert.equal(page.doc.getElementById('login').hidden, true);
+  assert.equal(error.hidden, true, 'erro anterior limpo');
 });
