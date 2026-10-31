@@ -20,6 +20,7 @@ const {
   sendWeeklySchedule,
 } = require('../src/systems/hourbank/scheduleBroadcast');
 const { PALETTE } = require('../src/config/theme');
+const { weekParity } = require('../src/systems/hourbank/shiftSchedule');
 
 const STAFF_A = '970000000000001001';
 const STAFF_B = '970000000000001002';
@@ -98,20 +99,21 @@ test('escala da semana: segunda a domingo, sem emojis e nas cores da VANTUS', as
   assert.equal(embed.footer.text, 'VANTUS • Banco de horas');
   assert.equal(built.payload.allowed_mentions.parse.length, 0, 'sem pingar ninguém');
 
-  // Sete dias, na ordem da semana.
-  assert.equal(embed.fields.length, 7);
+  // Só aparecem os dias com alguém escalado — sem colunas vazias repetidas.
   assert.deepEqual(
-    embed.fields.map((field) => field.name.split(' · ')[0]),
-    ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'],
+    embed.fields.map((field) => field.name),
+    ['Segunda · 12/01', 'Quarta · 14/01', 'Domingo · 18/01'],
   );
-  assert.equal(embed.fields[0].name, 'Segunda · 12/01');
-  assert.equal(embed.fields[6].name, 'Domingo · 18/01');
+  assert.ok(
+    embed.fields.every((field) => field.inline === false),
+    'campos em largura cheia (nada de colunas apertadas)',
+  );
 
   // Ordenado por horário de início, nome — e sem emoji em lugar nenhum.
   assert.equal(embed.fields[0].value, 'gabriel_tt — 08:00–12:00\npedrosa17 — 12:00–18:00');
-  assert.equal(embed.fields[1].value, '—', 'dia sem escala');
-  assert.equal(embed.fields[2].value, 'pedrosa17 — 22:00–02:00 (+1 dia)', 'turno que vira o dia');
-  assert.equal(embed.fields[6].value, 'pedrosa17 — 09:00–13:00');
+  assert.equal(embed.fields[1].value, 'pedrosa17 — 22:00–02:00 (+1 dia)', 'turno que vira o dia');
+  assert.equal(embed.fields[2].value, 'pedrosa17 — 09:00–13:00');
+  assert.match(embed.description, /fim de semana \*\*[AB]\*\*/);
   assert.equal(EMOJI.test(JSON.stringify(embed)), false, 'mensagem sem emojis');
 });
 
@@ -136,7 +138,8 @@ test('escala da semana usa o nome definido no painel e a menção quando não h�
     timeZone: 'America/Sao_Paulo',
     now: Date.UTC(2026, 0, 15, 13, 0, 0),
   });
-  const tuesday = built.payload.embeds[0].fields[1];
+  const tuesday = built.payload.embeds[0].fields[0];
+  assert.equal(tuesday.name, 'Terça · 13/01');
   assert.equal(tuesday.value, 'mika — 10:00–14:00');
 
   await env.services.hourBank.setDisplayName({ guildId: env.guildId, userId: STAFF_A, staffName: '' });
@@ -152,7 +155,7 @@ test('escala da semana usa o nome definido no painel e a menção quando não h�
     now: Date.UTC(2026, 0, 15, 13, 0, 0),
   });
   assert.match(
-    withoutName.payload.embeds[0].fields[1].value,
+    withoutName.payload.embeds[0].fields[0].value,
     new RegExp(`^<@${STAFF_A}> — 10:00–14:00$`),
     'sem nome, menciona o usuário (sem pingar)',
   );
@@ -426,4 +429,79 @@ test('startWatcher envia no tick e stopWatcher para de rodar', async (t) => {
   // O relógio real não é segunda 09:00 — nada é enviado, mas o watcher rodou sem erro.
   assert.equal(receiver.received.length, 0);
   assert.equal(broadcast.timer, null, 'timer encerrado');
+});
+
+test('organização: dias iguais viram um bloco e turnos encostados viram um só', async (t) => {
+  const env = await createTestEnv({ staff: false });
+  t.after(env.cleanup);
+
+  // Cenário real do canal: dois turnos seguidos por dia útil, nomes compridos.
+  const weekdayPairs = [
+    { weekday: 1, start: '11:00', end: '13:00' },
+    { weekday: 1, start: '13:00', end: '15:00' },
+  ];
+  for (const weekday of [2, 3, 4, 5]) {
+    weekdayPairs.push({ ...weekdayPairs[0], weekday }, { ...weekdayPairs[1], weekday });
+  }
+  await env.services.hourBank.setSchedule({
+    guildId: env.guildId,
+    userId: STAFF_A,
+    staffName: 'Conde',
+    shifts: weekdayPairs,
+  });
+  await env.services.hourBank.setSchedule({
+    guildId: env.guildId,
+    userId: STAFF_B,
+    staffName: 'Rafael Kavallieri 0303',
+    shifts: weekdayPairs.map((shift) => ({ ...shift })),
+  });
+  // Fim de semana: só o Conde, no grupo que estiver valendo nesta semana.
+  const parity = weekParity(Date.UTC(2026, 0, 15, 13, 0, 0), 'America/Sao_Paulo');
+  await env.services.hourBank.setSchedule({
+    guildId: env.guildId,
+    userId: STAFF_A,
+    staffName: 'Conde',
+    shifts: [{ weekday: 6, start: '11:00', end: '13:00', parity }].concat(
+      weekdayPairs,
+      [{ weekday: 0, start: '11:00', end: '13:00', parity }],
+    ),
+  });
+
+  const built = buildWeeklySchedule({
+    hourBank: env.services.hourBank,
+    guildId: env.guildId,
+    timeZone: 'America/Sao_Paulo',
+    now: Date.UTC(2026, 0, 15, 13, 0, 0),
+  });
+  const embed = built.payload.embeds[0];
+
+  // Duas seções em vez de sete colunas repetidas.
+  assert.equal(embed.fields.length, 2);
+  assert.equal(embed.fields[0].name, 'Segunda a sexta · 12/01–16/01');
+  assert.equal(embed.fields[1].name, 'Sábado e domingo · 17/01 e 18/01');
+  assert.ok(embed.fields.every((field) => field.inline === false), 'largura cheia, sem quebra de nome');
+
+  // 11:00–13:00 + 13:00–15:00 viram uma faixa só, um nome por linha.
+  assert.equal(
+    embed.fields[0].value,
+    'Conde — 11:00–15:00\nRafael Kavallieri 0303 — 11:00–15:00',
+  );
+  assert.equal(embed.fields[1].value, 'Conde — 11:00–13:00');
+  assert.match(embed.description, new RegExp(`fim de semana \\*\\*${parity}\\*\\*`));
+});
+
+test('organização: semana sem ninguém escalado avisa em uma linha', async (t) => {
+  const env = await createTestEnv({ staff: false });
+  t.after(env.cleanup);
+
+  const built = buildWeeklySchedule({
+    hourBank: env.services.hourBank,
+    guildId: env.guildId,
+    timeZone: 'America/Sao_Paulo',
+    now: Date.UTC(2026, 0, 15, 13, 0, 0),
+  });
+  const embed = built.payload.embeds[0];
+  assert.deepEqual(embed.fields, [], 'sem campos vazios');
+  assert.match(embed.description, /Ninguém escalado nesta semana\./);
+  assert.equal(built.staffCount, 0);
 });

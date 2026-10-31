@@ -178,18 +178,19 @@ test('webhook: fim de semana mostra só o grupo da semana publicada', async (t) 
   assert.equal(weekA.week.parity, 'A');
   assert.equal(weekB.week.parity, 'B');
 
-  const saturdayFieldA = weekA.payload.embeds[0].fields.find((field) => field.name.startsWith('Sábado'));
-  const sundayFieldA = weekA.payload.embeds[0].fields.find((field) => field.name.startsWith('Domingo'));
-  const mondayFieldA = weekA.payload.embeds[0].fields.find((field) => field.name.startsWith('Segunda'));
-  assert.match(saturdayFieldA.value, /pedrosa17/);
-  assert.doesNotMatch(saturdayFieldA.value, /mika/, 'grupo B folga no fim de semana A');
-  assert.match(sundayFieldA.value, /pedrosa17/);
-  assert.match(mondayFieldA.value, /pedrosa17/);
-  assert.match(mondayFieldA.value, /mika/, 'dias úteis valem para todos');
+  // Dias úteis iguais viram um único bloco; sábado e domingo, outro.
+  const weekdayFieldA = weekA.payload.embeds[0].fields.find((field) => field.name.startsWith('Segunda a sexta'));
+  const weekendFieldA = weekA.payload.embeds[0].fields.find((field) => field.name.startsWith('Sábado e domingo'));
+  assert.ok(weekdayFieldA, 'dias úteis agrupados em uma linha do tempo');
+  assert.ok(weekendFieldA, 'sábado e domingo agrupados');
+  assert.match(weekendFieldA.value, /pedrosa17/);
+  assert.doesNotMatch(weekendFieldA.value, /mika/, 'grupo B folga no fim de semana A');
+  assert.match(weekdayFieldA.value, /pedrosa17/);
+  assert.match(weekdayFieldA.value, /mika/, 'dias úteis valem para todos');
 
-  const saturdayFieldB = weekB.payload.embeds[0].fields.find((field) => field.name.startsWith('Sábado'));
-  assert.match(saturdayFieldB.value, /mika/);
-  assert.doesNotMatch(saturdayFieldB.value, /pedrosa17/, 'grupo A folga no fim de semana B');
+  const weekendFieldB = weekB.payload.embeds[0].fields.find((field) => field.name.startsWith('Sábado e domingo'));
+  assert.match(weekendFieldB.value, /mika/);
+  assert.doesNotMatch(weekendFieldB.value, /pedrosa17/, 'grupo A folga no fim de semana B');
 });
 
 test('sessão em fim de semana de folga não conta atraso', async (t) => {

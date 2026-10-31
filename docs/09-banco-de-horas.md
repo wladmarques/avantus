@@ -61,14 +61,31 @@ O painel publica a **escala da semana** (segunda a domingo) no canal do webhook 
 
 Como a mensagem é montada (sem emojis, paleta VANTUS):
 
-- embed com barra vermelha `#ff2200`, título `ESCALA DA SEMANA` e a semana
-  (`26/10 a 01/11`);
-- **um campo por dia** da semana, com a data e uma linha por staff:
-  `pedrosa17 — 12:00–02:00 (+1 dia)`;
+```
+ESCALA DA SEMANA
+26/10 a 01/11 · fim de semana A
+Horários no fuso do bot. Turnos com "+1 dia" terminam no dia seguinte.
+
+Segunda a sexta · 26/10–30/10
+Conde — 11:00–15:00
+Rafael Kavallieri 0303 — 11:00–15:00
+
+Sábado e domingo · 31/10 e 01/11
+Conde — 11:00–13:00
+VANTUS • Banco de horas
+```
+
+- embed com barra vermelha `#ff2200` e título `ESCALA DA SEMANA`;
+- a descrição mostra a semana e o **grupo do fim de semana** (`· fim de semana A`);
+- **dias com a mesma escala viram um bloco só** — como os dias úteis são idênticos, a semana
+  inteira costuma caber em duas seções (`Segunda a sexta · 26/10–30/10` e
+  `Sábado e domingo · 31/10 e 01/11`) em vez de sete colunas repetidas;
+- cada staff aparece **uma vez por bloco**, com os turnos encadeados resumidos:
+  `11:00–13:00` + `13:00–15:00` → `11:00–15:00`;
+- campos em largura cheia (nada de três colunas apertadas quebrando o nome);
 - staffs ordenados pelo horário de início (e pelo nome em caso de empate);
-- nos fins de semana só entram os staffs do **grupo daquela semana** (revezamento A/B);
-- dia sem ninguém escalado aparece como `—`;
-- rodapé `VANTUS • Banco de horas`;
+- nos fins de semana só entram os staffs do **grupo daquela semana**;
+- dias sem ninguém escalado não aparecem; semana vazia mostra *Ninguém escalado nesta semana.*;
 - ninguém é mencionado/pingado (`allowed_mentions.parse` vazio).
 
 O webhook fica salvo na configuração `hour_bank_webhook_url` (tabela `settings`) e só é

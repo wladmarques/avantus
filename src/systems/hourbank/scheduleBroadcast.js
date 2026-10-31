@@ -87,6 +87,78 @@ function staffLabel(hourBank, guildId, shift, names) {
   );
 }
 
+/** Junta turnos encostados do mesmo staff: 11:00–13:00 + 13:00–15:00 → 11:00–15:00. */
+function mergeRanges(entries) {
+  const sorted = [...entries].sort((a, b) => a.startMinutes - b.startMinutes);
+  const ranges = [];
+  for (const entry of sorted) {
+    const last = ranges[ranges.length - 1];
+    if (last && last.endMinutes === entry.startMinutes) {
+      last.endMinutes = entry.endMinutes;
+    } else {
+      ranges.push({ startMinutes: entry.startMinutes, endMinutes: entry.endMinutes });
+    }
+  }
+  return ranges.map((range) => {
+    const overnight = range.endMinutes <= range.startMinutes;
+    return `${minutesToHHMM(range.startMinutes)}–${minutesToHHMM(range.endMinutes)}${overnight ? ' (+1 dia)' : ''}`;
+  });
+}
+
+/** Uma linha por staff no dia, com os horários agrupados. */
+function dayLines(entries) {
+  const byStaff = new Map();
+  for (const entry of entries) {
+    if (!byStaff.has(entry.userId)) byStaff.set(entry.userId, { name: entry.name, shifts: [] });
+    byStaff.get(entry.userId).shifts.push(entry);
+  }
+  return [...byStaff.values()]
+    .map((staff) => ({
+      name: staff.name,
+      firstStart: Math.min(...staff.shifts.map((shift) => shift.startMinutes)),
+      ranges: mergeRanges(staff.shifts),
+    }))
+    .sort((a, b) => a.firstStart - b.firstStart || a.name.localeCompare(b.name))
+    .map((staff) => `${staff.name} — ${staff.ranges.join(' · ')}`);
+}
+
+/** Nome do campo para um intervalo de dias: "Segunda · 26/10", "Sábado e domingo · …". */
+function rangeLabel(days, from, to) {
+  const first = days[from];
+  const last = days[to];
+  const firstLabel = WEEKDAY_LABELS[first.weekday];
+  if (from === to) return `${firstLabel} · ${first.dateLabel}`;
+  const lastLabel = WEEKDAY_LABELS[last.weekday].toLowerCase();
+  if (to === from + 1) return `${firstLabel} e ${lastLabel} · ${first.dateLabel} e ${last.dateLabel}`;
+  return `${firstLabel} a ${lastLabel} · ${first.dateLabel}–${last.dateLabel}`;
+}
+
+/**
+ * Agrupa dias consecutivos com exatamente a mesma escala.
+ *
+ * Como os dias úteis usam o mesmo horário (e sábado/domingo também), a semana
+ * inteira costuma virar dois blocos em vez de sete colunas repetidas.
+ */
+function groupDays(week, byDay) {
+  const groups = [];
+  let current = null;
+  week.days.forEach((day, index) => {
+    const lines = dayLines(byDay.get(day.weekday) ?? []);
+    if (!lines.length) {
+      current = null;
+      return;
+    }
+    const key = lines.join('\n');
+    if (current && current.key === key && current.to === index - 1) {
+      current.to = index;
+      return;
+    }
+    current = { key, lines, from: index, to: index };
+    groups.push(current);
+  });
+  return groups;
+}
+
 /**
  * Monta a mensagem (payload pronto para o webhook) com a escala da semana.
  * Sem emojis: apenas dias, horários e nomes.
@@ -96,51 +168,48 @@ function buildWeeklySchedule({ hourBank, guildId, timeZone = undefined, now = Da
   const week = weekWindow(now, timeZone);
   const shifts = hourBank.listShifts(guildId);
   const names = hourBank.names(guildId);
+  const parity = weekParity(week.days[0].ts, timeZone);
 
   const byDay = new Map(week.days.map((day) => [day.weekday, []]));
   for (const shift of shifts) {
-    const bucket = byDay.get(Number(shift.weekday));
+    const weekday = Number(shift.weekday);
+    const bucket = byDay.get(weekday);
     if (!bucket) continue;
     // Fim de semana revezado: só entra quem trabalha na semana publicada.
-    const day = week.days.find((item) => item.weekday === Number(shift.weekday));
+    const day = week.days.find((item) => item.weekday === weekday);
     if (shift.parity && shift.parity !== weekParity(day.ts, timeZone)) continue;
     bucket.push({
       userId: shift.userId,
       name: staffLabel(hourBank, guildId, shift, names),
-      start: shift.start ?? minutesToHHMM(shift.startMinutes),
-      end: shift.end ?? minutesToHHMM(shift.endMinutes),
-      overnight: Boolean(shift.overnight),
       startMinutes: Number(shift.startMinutes),
+      endMinutes: Number(shift.endMinutes),
     });
   }
 
-  const staffIds = new Set(shifts.map((shift) => shift.userId));
-  const fields = week.days.map((day) => {
-    const entries = (byDay.get(day.weekday) ?? []).sort(
-      (a, b) => a.startMinutes - b.startMinutes || a.name.localeCompare(b.name),
-    );
-    const value = entries.length
-      ? entries
-          .map((entry) => `${entry.name} — ${entry.start}–${entry.end}${entry.overnight ? ' (+1 dia)' : ''}`)
-          .join('\n')
-          .slice(0, 1024)
-      : '—';
-    return {
-      name: `${WEEKDAY_LABELS[day.weekday]} · ${day.dateLabel}`,
-      value,
-      inline: true,
-    };
-  });
+  const groups = groupDays(week, byDay);
+  const fields = groups.map((group) => ({
+    name: rangeLabel(week.days, group.from, group.to),
+    value: group.lines.join('\n').slice(0, 1024),
+    inline: false,
+  }));
+
+  const staffIds = new Set(
+    [...byDay.values()].flat().map((entry) => entry.userId),
+  );
+  const hasOvernight = groups.some((group) => group.lines.some((line) => line.includes('(+1 dia)')));
+
+  const description = [
+    `**${week.days[0].dateLabel} a ${week.days[6].dateLabel}** · fim de semana **${parity}**`,
+    hasOvernight
+      ? 'Horários no fuso do bot. Turnos com "+1 dia" terminam no dia seguinte.'
+      : 'Horários no fuso do bot.',
+  ];
+  if (!groups.length) description.push('Ninguém escalado nesta semana.');
 
   const embed = new EmbedBuilder()
     .setColor(PALETTE.RED)
     .setTitle('ESCALA DA SEMANA')
-    .setDescription(
-      [
-        `**${week.days[0].dateLabel} a ${week.days[6].dateLabel}**`,
-        'Horários no fuso do bot. Turnos com "+1 dia" terminam no dia seguinte.',
-      ].join('\n'),
-    )
+    .setDescription(description.join('\n'))
     .addFields(fields)
     .setFooter({ text: 'VANTUS • Banco de horas' })
     .setTimestamp(new Date(now));
@@ -152,7 +221,7 @@ function buildWeeklySchedule({ hourBank, guildId, timeZone = undefined, now = Da
       endKey: week.days[6].key,
       startLabel: week.days[0].dateLabel,
       endLabel: week.days[6].dateLabel,
-      parity: weekParity(week.days[0].ts, timeZone),
+      parity,
     },
     staffCount: staffIds.size,
     shiftCount: shifts.length,
