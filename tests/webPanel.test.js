@@ -386,3 +386,101 @@ test('CSS respeita o atributo hidden (a tela de login desaparece ao entrar)', as
   assert.match(page.text, /styles\.css\?v=/);
   assert.match(page.text, /id="login-submit"/, 'botão de entrada identificável para o estado "Entrando…"');
 });
+
+test('nome do staff: o painel resolve pelo Discord e permite editar', async (t) => {
+  const DEFAULT_STAFF_ID = '900000000000000900';
+  const env = await createTestEnv({
+    members: { [DEFAULT_STAFF_ID]: { inGuild: true, displayName: 'pedrosa17' } },
+    settings: {},
+  });
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+
+  // Sem nome cadastrado, o painel usa o nome do membro no Discord (e guarda).
+  const first = await panel.call('/api/overview', { token });
+  assert.equal(first.status, 200);
+  assert.equal(first.json.staff[0].staffName, 'pedrosa17');
+
+  // Mesmo que o membro saia do cache do bot, o nome já resolvido permanece.
+  env.gateway.members.delete(DEFAULT_STAFF_ID);
+  const second = await panel.call('/api/overview', { token });
+  assert.equal(second.json.staff[0].staffName, 'pedrosa17');
+
+  // Edição manual pelo painel (rota exige sessão).
+  const anonymous = await panel.call(`/api/staff/${DEFAULT_STAFF_ID}/name`, {
+    method: 'PUT',
+    body: { staffName: 'Pedro SA' },
+  });
+  assert.equal(anonymous.status, 401);
+
+  const renamed = await panel.call(`/api/staff/${DEFAULT_STAFF_ID}/name`, {
+    method: 'PUT',
+    body: { staffName: '  Pedro   SA  ' },
+    token,
+  });
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.json.staffName, 'Pedro SA', 'espaços normalizados');
+
+  const afterRename = await panel.call('/api/overview', { token });
+  assert.equal(afterRename.json.staff[0].staffName, 'Pedro SA');
+  const report = await panel.call('/api/report', { token });
+  assert.equal(report.json.staff.find((item) => item.userId === DEFAULT_STAFF_ID).staffName, 'Pedro SA');
+
+  // Nome manual não é sobrescrito pela resolução automática.
+  env.gateway.members.set(DEFAULT_STAFF_ID, { inGuild: true, displayName: 'outro-nome' });
+  const again = await panel.call('/api/overview', { token });
+  assert.equal(again.json.staff[0].staffName, 'Pedro SA');
+
+  // Limpar ("Usar nome do Discord") remove o nome manual.
+  const cleared = await panel.call(`/api/staff/${DEFAULT_STAFF_ID}/name`, {
+    method: 'PUT',
+    body: { staffName: '' },
+    token,
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.json.staffName, null);
+});
+
+test('nome definido pela escala vale sem turnos e aparece no painel', async (t) => {
+  const env = await createTestEnv({ staff: false, settings: {} });
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+  const saved = await panel.call(`/api/staff/${STAFF}/shifts`, {
+    method: 'PUT',
+    body: { staffName: 'mika', shifts: [] },
+    token,
+  });
+  assert.equal(saved.status, 200);
+
+  const overview = await panel.call('/api/overview', { token });
+  assert.equal(overview.json.staff[0].staffName, 'mika', 'nome salvo mesmo sem turno');
+});
+
+test('todo id usado pelo app.js existe no HTML (nada quebra ao carregar o painel)', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const page = await panel.call('/');
+  const js = await panel.call('/app.js');
+  const ids = new Set();
+  for (const match of js.text.matchAll(/\$\('([a-z0-9-]+)'\)/gi)) ids.add(match[1]);
+  for (const match of js.text.matchAll(/getElementById\('([a-z0-9-]+)'\)/gi)) ids.add(match[1]);
+  assert.ok(ids.size > 10, 'o painel usa vários elementos');
+
+  const missing = [...ids].filter((id) => !new RegExp(`id="${id}"`).test(page.text));
+  assert.deepEqual(missing, [], `ids ausentes no index.html: ${missing.join(', ')}`);
+});

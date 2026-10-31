@@ -115,6 +115,25 @@
     </form>
   </dialog>
 
+  <!-- Modal: nome do staff -->
+  <dialog id="name-modal">
+    <form id="name-form" method="dialog">
+      <h2 id="name-title">Nome do staff</h2>
+      <p class="muted small">Esse nome identifica o staff no painel e nos relatórios. Se ficar vazio, o painel tenta usar o nome do Discord.</p>
+      <div class="field">
+        <label for="name-input">Nome exibido</label>
+        <input id="name-input" type="text" maxlength="60" placeholder="Ex.: pedrosa17" autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="name-discord" class="btn ghost">Usar nome do Discord</button>
+        <span class="spacer"></span>
+        <button type="button" id="name-cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" class="btn primary">Salvar nome</button>
+      </div>
+      <p id="name-error" class="error" hidden></p>
+    </form>
+  </dialog>
+
   <!-- Modal: sessões -->
   <dialog id="sessions-modal">
     <h2 id="sessions-title">Sessões</h2>

@@ -11,6 +11,7 @@
     staff: [],
     period: { from: '', to: '' },
     editing: null,
+    renaming: null,
     timer: null,
   };
 
@@ -235,7 +236,11 @@
 
       const who = el('td');
       const whoBox = el('div', 'who');
-      whoBox.appendChild(el('strong', null, row.staffName || `Usuário ${row.userId}`));
+      whoBox.appendChild(
+        row.staffName
+          ? el('strong', null, row.staffName)
+          : el('strong', 'unnamed', `Usuário ${row.userId}`),
+      );
       whoBox.appendChild(el('span', null, row.userId));
       who.appendChild(whoBox);
 
@@ -259,9 +264,11 @@
       }
 
       const actions = el('td', 'num');
+      const rename = el('button', 'btn tiny', row.staffName ? 'Nome' : 'Definir nome');
+      rename.addEventListener('click', () => openName(row));
       const edit = el('button', 'btn tiny', 'Editar escala');
       edit.addEventListener('click', () => openSchedule(row));
-      actions.appendChild(edit);
+      actions.append(rename, edit);
 
       for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
       body.appendChild(tr);
@@ -396,6 +403,42 @@
       await refresh({ silent: true });
     } catch (error) {
       const node = $('modal-error');
+      node.textContent = error.message;
+      node.hidden = false;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Modal de nome                                                       */
+  /* ------------------------------------------------------------------ */
+
+  function openName(row) {
+    state.renaming = row;
+    $('name-title').textContent = `Nome do staff • ${row.userId}`;
+    $('name-input').value = row.staffName || '';
+    $('name-error').hidden = true;
+    $('name-modal').showModal();
+    try {
+      $('name-input').focus();
+      $('name-input').select();
+    } catch {
+      /* foco opcional */
+    }
+  }
+
+  async function submitName(staffName) {
+    const row = state.renaming;
+    if (!row) return;
+    try {
+      const data = await api(`/api/staff/${row.userId}/name`, {
+        method: 'PUT',
+        body: JSON.stringify({ staffName }),
+      });
+      $('name-modal').close();
+      toast(data.staffName ? 'Nome salvo.' : 'Nome removido — usando o nome do Discord.');
+      await refresh({ silent: true });
+    } catch (error) {
+      const node = $('name-error');
       node.textContent = error.message;
       node.hidden = false;
     }
@@ -550,6 +593,13 @@
   $('cancel').addEventListener('click', () => $('modal').close());
   $('sessions-close').addEventListener('click', () => $('sessions-modal').close());
   $('schedule-form').addEventListener('submit', saveSchedule);
+
+  $('name-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    submitName($('name-input').value.trim());
+  });
+  $('name-cancel').addEventListener('click', () => $('name-modal').close());
+  $('name-discord').addEventListener('click', () => submitName(''));
 
   // Sessão existente? Abre direto no painel.
   (async () => {

@@ -351,3 +351,49 @@ test('banco de horas desligado não cria sessões', async (t) => {
 
   assert.equal(env.services.hourBank.activeSession(env.guildId, STAFF), null);
 });
+
+test('nome do staff: salvo no painel, herdado da sessão e do Discord', async (t) => {
+  const { addMember } = require('./helpers');
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  const { hourBank } = env.services;
+
+  // Staff cadastrado (status) e com sessão, mas sem nome em lugar nenhum.
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'INDISPONIVEL',
+    updatedBy: 'teste',
+  });
+  await hourBank.startSession({ guildId: env.guildId, userId: STAFF, at: Date.now() - 30 * MINUTE });
+  await hourBank.endSession({ guildId: env.guildId, userId: STAFF, at: Date.now() });
+  assert.equal(hourBank.overview(env.guildId).staff.find((r) => r.userId === STAFF).staffName, null);
+
+  // Nome vindo do Discord (resolução automática).
+  hourBank.rememberDiscordName(env.guildId, STAFF, 'lucas.v');
+  assert.equal(hourBank.overview(env.guildId).staff.find((r) => r.userId === STAFF).staffName, 'lucas.v');
+
+  // Nome definido no painel vence — e a resolução do Discord não o sobrescreve.
+  await hourBank.setDisplayName({ guildId: env.guildId, userId: STAFF, staffName: '  Pedro   SA ' });
+  hourBank.rememberDiscordName(env.guildId, STAFF, 'nome-antigo');
+  const row = hourBank.overview(env.guildId).staff.find((item) => item.userId === STAFF);
+  assert.equal(row.staffName, 'Pedro SA', 'espaços normalizados');
+  assert.equal(hourBank.report(env.guildId).staff.find((item) => item.userId === STAFF).staffName, 'Pedro SA');
+
+  // Nome vale mesmo sem escala cadastrada.
+  assert.equal(hourBank.nameOf(env.guildId, STAFF), 'Pedro SA');
+
+  // Limpar o nome manual → o painel volta a resolver o nome pelo Discord.
+  await hourBank.setDisplayName({ guildId: env.guildId, userId: STAFF, staffName: '' });
+  assert.equal(hourBank.nameOf(env.guildId, STAFF), null, 'nome manual removido');
+  hourBank.rememberDiscordName(env.guildId, STAFF, 'lucas.v');
+  assert.equal(
+    hourBank.overview(env.guildId).staff.find((item) => item.userId === STAFF).staffName,
+    'lucas.v',
+  );
+
+  addMember(env.gateway, STAFF, { displayName: 'lucas.v' });
+  const member = await env.gateway.getMember(env.guildId, STAFF);
+  assert.equal(member.displayName, 'lucas.v');
+});

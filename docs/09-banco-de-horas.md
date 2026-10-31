@@ -49,6 +49,23 @@ WEB_PANEL_HOST=0.0.0.0
 - **Período**: hoje, 7 dias, 30 dias ou intervalo personalizado.
 - **CSV**: exporta o relatório do período (horas, sessões, entrada, saída, atrasos).
 
+### Nome do staff
+
+Cada staff aparece pelo **nome cadastrado**. A ordem usada pelo painel é:
+
+1. nome definido manualmente no painel (**Nome** / **Definir nome** na linha do staff);
+2. nome guardado de uma resolução anterior;
+3. nome do membro no servidor (resolvido automaticamente pela API do Discord);
+4. nome que ficou registrado na escala ou nas sessões;
+5. se nada existir: `Usuário <id>`.
+
+O botão **Usar nome do Discord** remove o nome manual e deixa o painel voltar a usar o nome do
+membro. O nome manual **nunca** é sobrescrito pela resolução automática. Tudo fica na tabela
+`staff_names` (migração v6), então sobrevive a reinícios.
+
+> O nome do Discord é resolvido no primeiro carregamento do painel e guardado — se o bot estiver
+> offline (sem conexão com o Discord), o painel mantém o último nome conhecido.
+
 ### Cadastrar a escala
 
 1. Clique em **Editar escala** na linha do staff.
@@ -56,9 +73,9 @@ WEB_PANEL_HOST=0.0.0.0
 3. Turnos que cruzam a meia-noite são aceitos (`22:00` → `02:00`).
 4. **Salvar escala** — o bot passa a usar a nova escala imediatamente.
 
-> O staff aparece no painel assim que tem escala cadastrada ou status registrado. Para
-> cadastrar alguém novo, use `/banco escala` uma vez com o membro — ele passa a aparecer
-> no painel para edição completa.
+> O staff aparece no painel assim que tem **nome**, escala cadastrada ou status registrado.
+> Para cadastrar alguém novo, use `/banco escala` uma vez com o membro ou defina o nome pelo
+> painel no botão **Definir nome** da linha dele.
 
 ### API (mesma origem, exige sessão)
 
@@ -70,6 +87,7 @@ WEB_PANEL_HOST=0.0.0.0
 | GET | `/api/report?from&to` | relatório agregado por staff |
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end }] }` |
+| PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
 | DELETE | `/api/staff/:userId/shifts` | remove a escala |
 | GET | `/api/health` | verificação de disponibilidade |
 

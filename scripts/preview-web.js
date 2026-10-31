@@ -36,6 +36,10 @@ const STAFF = [
   { id: '900000000000000004', name: 'mika', status: 'INDISPONIVEL' },
 ];
 
+// Staff sem nome cadastrado: o painel mostra "Usuário <id>" até alguém definir o
+// nome (botão "Definir nome") — ou até o nome ser resolvido pelo Discord.
+const SEM_NOME = '271052015704997888';
+
 function hhmm(minutes) {
   const value = ((minutes % 1440) + 1440) % 1440;
   return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -105,6 +109,31 @@ async function main() {
       manual: true,
     });
   }
+
+  // Exemplo de nome resolvido automaticamente pelo Discord (membro do servidor).
+  gateway.members.set('900000000000000005', { inGuild: true, displayName: 'renan.br' });
+  await services.staff.setStatus({
+    guildId: GUILD,
+    userId: '900000000000000005',
+    status: 'DISPONIVEL',
+    updatedBy: 'preview',
+    manual: true,
+  });
+
+  // Exemplo do caso sem nome nenhum (nem no painel, nem no Discord).
+  await services.staff.setStatus({
+    guildId: GUILD,
+    userId: SEM_NOME,
+    status: 'AUSENTE',
+    updatedBy: 'preview',
+    manual: true,
+  });
+  await services.hourBank.startSession({
+    guildId: GUILD,
+    userId: SEM_NOME,
+    at: Date.now() - 70 * MINUTE,
+  });
+  await services.hourBank.endSession({ guildId: GUILD, userId: SEM_NOME, at: Date.now() - 20 * MINUTE });
 
   const active = services.hourBank.activeSession(GUILD, STAFF[0].id);
   if (active) {

@@ -231,6 +231,25 @@ const migrations = [
       `);
     },
   },
+  {
+    version: 6,
+    name: 'nomes_do_staff',
+    up(db) {
+      db.exec(`
+        -- Nome exibido de cada staff no painel.
+        -- source = 'painel' (definido manualmente, nunca sobrescrito) ou
+        --          'discord' (resolvido automaticamente pelo membro do servidor).
+        CREATE TABLE IF NOT EXISTS staff_names (
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          staff_name TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'painel',
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY (guild_id, user_id)
+        );
+      `);
+    },
+  },
 ];
 
 /**

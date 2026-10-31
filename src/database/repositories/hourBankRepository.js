@@ -46,6 +46,41 @@ class HourBankRepository {
   }
 
   /* ------------------------------------------------------------------ */
+  /* Nome exibido                                                        */
+  /* ------------------------------------------------------------------ */
+
+  listNamesSync(guildId) {
+    return this.db.all('SELECT * FROM staff_names WHERE guild_id = ?', [guildId]);
+  }
+
+  findNameSync(guildId, userId) {
+    return this.db.get('SELECT * FROM staff_names WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
+  }
+
+  /**
+   * Grava o nome exibido. Um nome definido pelo painel (`painel`) nunca é
+   * sobrescrito pela resolução automática do Discord (`discord`).
+   */
+  upsertNameSync(guildId, userId, staffName, source = 'painel') {
+    const now = Date.now();
+    this.db.run(
+      `INSERT INTO staff_names (guild_id, user_id, staff_name, source, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(guild_id, user_id) DO UPDATE SET
+         staff_name = excluded.staff_name,
+         source = excluded.source,
+         updated_at = excluded.updated_at
+       WHERE staff_names.source <> 'painel' OR excluded.source = 'painel'`,
+      [guildId, userId, staffName, source, now],
+    );
+    return this.findNameSync(guildId, userId);
+  }
+
+  deleteNameSync(guildId, userId) {
+    this.db.run('DELETE FROM staff_names WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Sessões                                                             */
   /* ------------------------------------------------------------------ */
 

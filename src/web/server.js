@@ -264,6 +264,47 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
     fs.createReadStream(filePath).pipe(res);
   }
 
+  // Nomes exibidos: o painel mostra "Usuário <id>" quando não há nome cadastrado.
+  // Aqui completamos com o nome do membro no Discord (cache curto + persistência),
+  // sem nunca sobrescrever um nome definido manualmente no painel.
+  const nameCache = new Map();
+  const NAME_TTL_MS = 10 * 60 * 1000;
+  const NAME_RETRY_MS = 60 * 1000;
+
+  async function fillStaffNames(guildId, rows) {
+    const gateway = services.gateway;
+    if (!gateway || typeof gateway.getMember !== 'function' || !guildId) return;
+    const pending = rows.filter((row) => row && row.userId && !row.staffName).slice(0, 40);
+    if (!pending.length) return;
+
+    await Promise.all(
+      pending.map(async (row) => {
+        const key = `${guildId}:${row.userId}`;
+        const cached = nameCache.get(key);
+        const ttl = cached?.name ? NAME_TTL_MS : NAME_RETRY_MS;
+        if (cached && Date.now() - cached.at < ttl) {
+          if (cached.name) row.staffName = cached.name;
+          return;
+        }
+        let name = null;
+        try {
+          const info = await gateway.getMember(guildId, row.userId);
+          if (info && info.inGuild !== false) name = info.displayName || info.username || null;
+        } catch (error) {
+          logger.debug(`Não foi possível resolver o nome de ${row.userId}: ${error.message}`);
+        }
+        nameCache.set(key, { name, at: Date.now() });
+        if (!name) return;
+        row.staffName = name;
+        try {
+          services.hourBank.rememberDiscordName(guildId, row.userId, name);
+        } catch (error) {
+          logger.debug(`Falha ao guardar o nome de ${row.userId}: ${error.message}`);
+        }
+      }),
+    );
+  }
+
   const server = http.createServer(async (req, res) => {
     const startedAt = Date.now();
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -340,12 +381,14 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       if (pathname === '/api/overview' && req.method === 'GET') {
         const from = url.searchParams.get('from');
         const to = url.searchParams.get('to');
+        const overview = services.hourBank.overview(currentGuildId, { from, to });
+        await fillStaffNames(currentGuildId, overview.staff);
         return sendJson(res, 200, {
           guildId: currentGuildId,
           timezone: env.timezone ?? null,
           reminderMinutes: services.hourBank.reminderMinutes,
           enabled: services.hourBank.enabled,
-          ...services.hourBank.overview(currentGuildId, { from, to }),
+          ...overview,
         });
       }
 
@@ -354,6 +397,7 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           from: url.searchParams.get('from'),
           to: url.searchParams.get('to'),
         });
+        await fillStaffNames(currentGuildId, report.staff);
         return sendJson(res, 200, report);
       }
 
@@ -364,6 +408,28 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           to: url.searchParams.get('to'),
         });
         return sendJson(res, 200, { sessions: sessionsList });
+      }
+
+      const nameMatch = /^\/api\/staff\/(\d{5,25})\/name$/.exec(pathname);
+      if (nameMatch && req.method === 'PUT') {
+        const userId = nameMatch[1];
+        const body = await readBody(req);
+        try {
+          const staffName = await services.hourBank.setDisplayName({
+            guildId: currentGuildId,
+            userId,
+            staffName: typeof body.staffName === 'string' ? body.staffName : null,
+          });
+          nameCache.delete(`${currentGuildId}:${userId}`);
+          logger.info(
+            staffName
+              ? `Nome do staff ${userId} definido pelo painel: ${staffName}`
+              : `Nome manual do staff ${userId} removido (volta ao nome do Discord).`,
+          );
+          return sendJson(res, 200, { ok: true, staffName });
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
       }
 
       const shiftsMatch = /^\/api\/staff\/(\d{5,25})\/shifts$/.exec(pathname);

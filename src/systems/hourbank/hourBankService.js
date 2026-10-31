@@ -85,10 +85,60 @@ class HourBankService {
    */
   async setSchedule({ guildId, userId, staffName = null, shifts = [] }) {
     const normalized = shifts.map(normalizeShift);
-    await this.db.transaction(async () =>
-      this.repo.replaceShiftsSync(guildId, userId, staffName, normalized),
-    );
+    await this.db.transaction(async () => {
+      this.repo.replaceShiftsSync(guildId, userId, staffName, normalized);
+      // O nome vale mesmo sem turno cadastrado (staff recém-adicionado).
+      if (staffName) this.repo.upsertNameSync(guildId, userId, staffName, 'painel');
+    });
     return this.listShifts(guildId, userId);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Nome exibido                                                        */
+  /* ------------------------------------------------------------------ */
+
+  /** Nomes exibidos por staff: Map<userId, nome>. */
+  names(guildId) {
+    const map = new Map();
+    for (const row of this.repo.listNamesSync(guildId)) {
+      if (row.staff_name) map.set(row.user_id, row.staff_name);
+    }
+    return map;
+  }
+
+  nameOf(guildId, userId) {
+    const row = this.repo.findNameSync(guildId, userId);
+    return row?.staff_name ?? null;
+  }
+
+  /**
+   * Define o nome do staff pelo painel. String vazia/null remove o nome manual
+   * (o painel volta a usar o nome do Discord).
+   * @returns {Promise<string|null>}
+   */
+  async setDisplayName({ guildId, userId, staffName = null }) {
+    const clean = typeof staffName === 'string' ? staffName.trim().replace(/\s+/g, ' ') : '';
+    await this.db.transaction(async () => {
+      if (clean) {
+        this.repo.upsertNameSync(guildId, userId, clean.slice(0, 60), 'painel');
+        // Mantém a escala coerente com o nome novo.
+        this.db.run('UPDATE staff_shifts SET staff_name = ? WHERE guild_id = ? AND user_id = ?', [
+          clean.slice(0, 60),
+          guildId,
+          userId,
+        ]);
+      } else {
+        this.repo.deleteNameSync(guildId, userId);
+      }
+    });
+    return clean ? clean.slice(0, 60) : null;
+  }
+
+  /** Nome vindo do próprio Discord (não sobrescreve um nome definido no painel). */
+  rememberDiscordName(guildId, userId, staffName) {
+    const clean = typeof staffName === 'string' ? staffName.trim() : '';
+    if (!clean) return null;
+    return this.repo.upsertNameSync(guildId, userId, clean.slice(0, 60), 'discord');
   }
 
   async clearSchedule({ guildId, userId }) {
@@ -311,6 +361,7 @@ class HourBankService {
 
     const rows = this.repo.listSessionsSync(guildId, { from: startTs, to: endTs });
     const shifts = this.listShifts(guildId);
+    const names = this.names(guildId);
     const shiftsByUser = new Map();
     for (const shift of shifts) {
       if (!shiftsByUser.has(shift.userId)) shiftsByUser.set(shift.userId, []);
@@ -360,12 +411,12 @@ class HourBankService {
       entry.days.set(key2, day);
     }
 
-    // Staff com escala mas sem sessão no período continuam aparecendo no painel.
+    // Staff com escala ou só com nome cadastrado continua aparecendo no painel.
     for (const [userId, userShifts] of shiftsByUser) {
       if (byUser.has(userId)) continue;
       byUser.set(userId, {
         userId,
-        staffName: userShifts[0]?.staffName ?? null,
+        staffName: names.get(userId) ?? userShifts[0]?.staffName ?? null,
         totalMinutes: 0,
         sessions: 0,
         lateCount: 0,
@@ -376,6 +427,28 @@ class HourBankService {
         lastEnd: null,
         days: new Map(),
       });
+    }
+
+    for (const userId of names.keys()) {
+      if (byUser.has(userId)) continue;
+      byUser.set(userId, {
+        userId,
+        staffName: names.get(userId),
+        totalMinutes: 0,
+        sessions: 0,
+        lateCount: 0,
+        lateMinutes: 0,
+        earlyLeaveMinutes: 0,
+        scheduledMinutes: 0,
+        firstStart: null,
+        lastEnd: null,
+        days: new Map(),
+      });
+    }
+
+    // Nome salvo no painel/Discord tem prioridade sobre o nome congelado na sessão.
+    for (const entry of byUser.values()) {
+      entry.staffName = names.get(entry.userId) ?? entry.staffName ?? null;
     }
 
     const staff = [...byUser.values()]
@@ -505,6 +578,7 @@ class HourBankService {
 
     const report = this.report(guildId, { from, to, now });
     const reportByUser = new Map(report.staff.map((item) => [item.userId, item]));
+    const names = this.names(guildId);
     const shifts = this.listShifts(guildId);
     const shiftsByUser = new Map();
     for (const shift of shifts) {
@@ -522,7 +596,7 @@ class HourBankService {
         available: row.status === STAFF_STATUS.DISPONIVEL,
       });
     }
-    for (const userId of shiftsByUser.keys()) {
+    for (const userId of [...shiftsByUser.keys(), ...names.keys()]) {
       if (!staffRows.has(userId)) {
         staffRows.set(userId, {
           userId,
@@ -543,6 +617,7 @@ class HourBankService {
       return {
         ...row,
         staffName:
+          names.get(row.userId) ??
           row.staffName ??
           userShifts[0]?.staffName ??
           stats?.staffName ??

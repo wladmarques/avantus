@@ -128,6 +128,7 @@ tbody tr.clickable:hover { background: #15161a; }
 .empty { text-align: center; color: var(--dim); padding: 22px 0; }
 
 .who { display: flex; flex-direction: column; gap: 2px; }
+.who .unnamed { color: var(--muted); font-style: italic; font-weight: 600; }
 .who strong { font-weight: 700; }
 .who span { font-size: 11px; color: var(--dim); }
 
