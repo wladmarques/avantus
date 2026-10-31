@@ -15,7 +15,12 @@ function scheduleText(shifts) {
   return shifts
     .slice()
     .sort((a, b) => a.weekday - b.weekday || a.startMinutes - b.startMinutes)
-    .map((shift) => `**${shift.weekdayLabel}:** ${shift.start} às ${shift.end}`)
+    .map(
+      (shift) =>
+        `**${shift.weekdayLabel}:** ${shift.start} às ${shift.end}${
+          shift.parity ? ` _(fim de semana ${shift.parity})_` : ''
+        }`,
+    )
     .join('\n');
 }
 
@@ -58,6 +63,16 @@ module.exports = {
         )
         .addStringOption((option) =>
           option.setName('fim').setDescription('Fim (HH:MM)').setRequired(true).setMaxLength(5),
+        )
+        .addStringOption((option) =>
+          option
+            .setName('grupo')
+            .setDescription('Fim de semana: grupo do revezamento (A/B). Padrão: todos os fins de semana')
+            .addChoices(
+              { name: 'Grupo A (um fim de semana sim, outro não)', value: 'A' },
+              { name: 'Grupo B (alterna com o A)', value: 'B' },
+              { name: 'Todos os fins de semana', value: 'todos' },
+            ),
         ),
     )
     .addSubcommand((sub) =>
@@ -166,13 +181,24 @@ module.exports = {
         const weekday = Number(interaction.options.getString('dia'));
         const start = interaction.options.getString('inicio');
         const end = interaction.options.getString('fim');
-        const shift = normalizeShift({ weekday, start, end });
+        const group = interaction.options.getString('grupo');
+        // O revezamento só existe nos fins de semana (sábado = 6, domingo = 0).
+        const isWeekend = weekday === 0 || weekday === 6;
+        const parity = isWeekend && group && group !== 'todos' ? group : null;
+        const shift = normalizeShift({ weekday, start, end, parity });
 
         const existing = services.hourBank.listShifts(guildId, target.id);
         const shifts = existing
-          .filter((item) => !(item.weekday === shift.weekday && item.startMinutes === shift.startMinutes && item.endMinutes === shift.endMinutes))
-          .map((item) => ({ weekday: item.weekday, start: item.start, end: item.end }));
-        shifts.push({ weekday, start, end });
+          .filter(
+            (item) =>
+              !(
+                item.weekday === shift.weekday &&
+                item.startMinutes === shift.startMinutes &&
+                item.endMinutes === shift.endMinutes
+              ),
+          )
+          .map((item) => ({ weekday: item.weekday, start: item.start, end: item.end, parity: item.parity }));
+        shifts.push({ weekday, start, end, parity });
 
         const saved = await services.hourBank.setSchedule({
           guildId,

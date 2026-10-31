@@ -6,6 +6,10 @@
  * Turnos são guardados como `weekday` (0 = domingo … 6 = sábado) e minutos
  * desde 00:00. Um turno em que `end <= start` atravessa a meia-noite
  * (ex.: 22:00 → 02:00), exatamente como a agenda da central.
+ *
+ * Fins de semana se **revezam**: cada semana do calendário pertence ao grupo
+ * `A` ou `B` (alternando de segunda a domingo) e um turno com `parity` só vale
+ * nas semanas daquele grupo. Turnos com `parity = null` valem sempre.
  */
 const { startOfDay, addDays, dayKey, tzParts, DAY_KEYS, DAY_LABELS } = require('../../utils/time');
 
@@ -49,7 +53,18 @@ function normalizeShift(input) {
   if (startMinutes === endMinutes) {
     throw new Error('O horário de início e de fim não podem ser iguais.');
   }
-  return { weekday, startMinutes, endMinutes };
+  const parity = normalizeParity(input?.parity);
+  return { weekday, startMinutes, endMinutes, parity };
+}
+
+/** Grupo do revezamento de fim de semana: null (todas as semanas), 'A' ou 'B'. */
+function normalizeParity(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parity = String(value).trim().toUpperCase();
+  if (parity !== 'A' && parity !== 'B') {
+    throw new Error('Grupo de fim de semana inválido (use A, B ou nenhum).');
+  }
+  return parity;
 }
 
 /** Linha do banco → objeto de turno usado pelo serviço/painel. */
@@ -66,11 +81,32 @@ function toShift(row) {
     weekdayShort: WEEKDAY_SHORT[weekday] ?? '—',
     startMinutes,
     endMinutes,
+    parity: row.parity ?? null,
     start: minutesToHHMM(startMinutes),
     end: minutesToHHMM(endMinutes),
     durationMinutes: durationMinutes(startMinutes, endMinutes),
     overnight: endMinutes <= startMinutes,
   };
+}
+
+/**
+ * Grupo da semana (A/B) a que uma data pertence — semanas de segunda a domingo.
+ * Duas semanas seguidas nunca têm o mesmo grupo.
+ */
+function weekParity(reference, timeZone = undefined) {
+  const ts = reference instanceof Date ? reference.getTime() : Number(reference);
+  const { weekday } = tzParts(new Date(ts), timeZone);
+  const offsetToMonday = weekday === 0 ? -6 : 1 - weekday;
+  const monday = startOfDay(addDays(new Date(ts), offsetToMonday), timeZone);
+  const mondayKey = dayKey(new Date(monday), timeZone);
+  const days = Math.floor(Date.parse(`${mondayKey}T00:00:00Z`) / 86400000);
+  return Math.floor(days / 7) % 2 === 0 ? 'A' : 'B';
+}
+
+/** O turno vale para a semana da data informada? (parity null = todas) */
+function shiftAppliesToWeek(shift, reference, timeZone = undefined) {
+  if (!shift?.parity) return true;
+  return shift.parity === weekParity(reference, timeZone);
 }
 
 /** Meia-noite local deslocada em `offset` dias (referência estável para o turno). */
@@ -115,6 +151,7 @@ function findActiveShift(shifts, now = new Date(), timeZone = undefined) {
     for (const offset of [-1, 0]) {
       if (weekdayOf(ts, offset, timeZone) !== shift.weekday) continue;
       const occurrence = occurrenceFor(shift, ts, offset, timeZone);
+      if (!shiftAppliesToWeek(shift, occurrence.startTs, timeZone)) continue;
       if (ts >= occurrence.startTs && ts < occurrence.endTs) {
         if (!best || occurrence.startTs > best.startTs) best = { ...occurrence, lateMinutes: 0 };
       }
@@ -129,11 +166,14 @@ function findActiveShift(shifts, now = new Date(), timeZone = undefined) {
  */
 function findNextShift(shifts, now = new Date(), { horizonMs = 24 * 3600000, timeZone = undefined } = {}) {
   const ts = now instanceof Date ? now.getTime() : Number(now);
+  // -1 cobre turnos de ontem; o resto acompanha o horizonte pedido.
+  const maxOffset = Math.max(2, Math.ceil(horizonMs / 86400000) + 1);
   let best = null;
   for (const shift of shifts) {
-    for (const offset of [-1, 0, 1, 2]) {
+    for (let offset = -1; offset <= maxOffset; offset += 1) {
       if (weekdayOf(ts, offset, timeZone) !== shift.weekday) continue;
       const occurrence = occurrenceFor(shift, ts, offset, timeZone);
+      if (!shiftAppliesToWeek(shift, occurrence.startTs, timeZone)) continue;
       if (occurrence.startTs < ts) continue;
       if (occurrence.startTs - ts > horizonMs) continue;
       if (!best || occurrence.startTs < best.startTs) best = occurrence;
@@ -182,7 +222,10 @@ module.exports = {
   minutesToHHMM,
   durationMinutes,
   normalizeShift,
+  normalizeParity,
   toShift,
+  weekParity,
+  shiftAppliesToWeek,
   occurrenceFor,
   findActiveShift,
   findNextShift,

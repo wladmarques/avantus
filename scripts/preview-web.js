@@ -29,11 +29,12 @@ const PASSWORD = process.env.PREVIEW_PASSWORD || 'vantus';
 const GUILD = '100000000000000001';
 const MINUTE = 60000;
 
+// Revezamento: o grupo A trabalha um fim de semana e o B no seguinte.
 const STAFF = [
-  { id: '900000000000000001', name: 'pedrosa17', status: 'DISPONIVEL' },
-  { id: '900000000000000002', name: 'gabriel_tt', status: 'EM_ATENDIMENTO' },
-  { id: '900000000000000003', name: 'lucas.v', status: 'AUSENTE' },
-  { id: '900000000000000004', name: 'mika', status: 'INDISPONIVEL' },
+  { id: '900000000000000001', name: 'pedrosa17', status: 'DISPONIVEL', weekday: ['12:00', '02:00'], weekend: 'A' },
+  { id: '900000000000000002', name: 'gabriel_tt', status: 'EM_ATENDIMENTO', weekday: ['12:00', '02:00'], weekend: 'A' },
+  { id: '900000000000000003', name: 'lucas.v', status: 'AUSENTE', weekday: ['20:00', '02:00'], weekend: 'B' },
+  { id: '900000000000000004', name: 'mika', status: 'INDISPONIVEL', weekday: ['12:00', '02:00'], weekend: 'B' },
 ];
 
 // Staff sem nome cadastrado: o painel mostra "Usuário <id>" até alguém definir o
@@ -71,20 +72,22 @@ async function main() {
   const desiredLevel = process.env.LOG_LEVEL || 'warn';
   setLevel('warn');
 
-  // Escala de exemplo para todos os dias (o turno da madrugada vira o dia).
-  const schedules = [
-    { start: '12:00', end: '02:00' },
-    { start: '12:00', end: '02:00' },
-    { start: '20:00', end: '02:00' },
-    { start: '12:00', end: '02:00' },
-  ];
+  // Escala de exemplo: dias úteis com o mesmo horário + fim de semana revezado.
+  const scheduleShifts = ({ weekday: weekdayTimes, weekend }) => {
+    const [start, end] = weekdayTimes;
+    const shifts = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, start, end }));
+    for (const weekday of [6, 0]) {
+      shifts.push({ weekday, start, end, parity: weekend });
+    }
+    return shifts;
+  };
 
   for (const [index, staff] of STAFF.entries()) {
     await services.hourBank.setSchedule({
       guildId: GUILD,
       userId: staff.id,
       staffName: staff.name,
-      shifts: Array.from({ length: 7 }, (_, weekday) => ({ weekday, ...schedules[index] })),
+      shifts: scheduleShifts(staff),
     });
 
     // Sessões dos últimos dias (entrada alguns minutos após o turno → atraso).

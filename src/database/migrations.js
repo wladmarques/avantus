@@ -250,6 +250,15 @@ const migrations = [
       `);
     },
   },
+  {
+    version: 7,
+    name: 'revezamento_de_fim_de_semana',
+    up(db) {
+      // parity = null  → o turno vale todas as semanas
+      // parity = 'A'/'B' → turno de fim de semana que se reveza a cada semana
+      db.exec('ALTER TABLE staff_shifts ADD COLUMN parity TEXT;');
+    },
+  },
 ];
 
 /**

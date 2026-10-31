@@ -5,14 +5,14 @@
  * Consome a API do bot (mesma origem) — nenhuma dependência externa.
  */
 (() => {
-  const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-
   const state = {
     staff: [],
     period: { from: '', to: '' },
     editing: null,
     renaming: null,
     timer: null,
+    // Grupo do revezamento da semana (A/B) — vem do /api/overview.
+    weekParity: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -203,14 +203,23 @@
     return 'dot off';
   }
 
+  // Turnos do dia de hoje que valem para o revezamento desta semana.
+  function shiftsForToday(row) {
+    const weekday = new Date().getDay();
+    return (row.shifts || []).filter(
+      (shift) => Number(shift.weekday) === weekday && (!shift.parity || shift.parity === state.weekParity),
+    );
+  }
+
   function shiftTextForToday(row) {
     if (row.currentShift) return `${row.currentShift.start} às ${row.currentShift.end}`;
-    const weekday = new Date().getDay();
-    const day = (row.weekly || [])[weekday];
-    if (day && day.shifts.length > 0) {
-      return day.shifts.map((shift) => `${shift.start} às ${shift.end}`).join(' / ');
+    const today = shiftsForToday(row);
+    if (today.length > 0) {
+      return today.map((shift) => `${shift.start} às ${shift.end}`).join(' / ');
     }
-    if (row.nextShift) return `próximo: ${row.nextShift.start} (${row.nextShift.dayKey.slice(8, 10)}/${row.nextShift.dayKey.slice(5, 7)})`;
+    if (row.nextShift) {
+      return `próximo: ${row.nextShift.start} (${row.nextShift.dayKey.slice(8, 10)}/${row.nextShift.dayKey.slice(5, 7)})`;
+    }
     return 'sem escala';
   }
 
@@ -275,6 +284,25 @@
     }
   }
 
+  // Resumo de uma escala: dias úteis (mesmo horário) + fim de semana e grupo.
+  function scheduleSummary(row) {
+    const shifts = row.shifts || [];
+    const weekdays = shifts.filter((shift) => Number(shift.weekday) >= 1 && Number(shift.weekday) <= 5);
+    const weekends = shifts.filter((shift) => Number(shift.weekday) === 0 || Number(shift.weekday) === 6);
+    const times = (list) => [...new Set(list.map((shift) => `${shift.start}–${shift.end}`))].join(' / ');
+    return {
+      weekdays: weekdays.length ? times(weekdays) : null,
+      weekends: weekends.length ? times(weekends) : null,
+      weekendGroup: weekends.find((shift) => shift.parity)?.parity ?? (weekends.length ? 'all' : null),
+    };
+  }
+
+  function weekendGroupLabel(group) {
+    if (group === 'all') return 'Todos os fins de semana';
+    if (group === 'A' || group === 'B') return `Fim de semana ${group}`;
+    return '—';
+  }
+
   function renderScheduleList(staff) {
     const container = $('schedule-list');
     container.innerHTML = '';
@@ -286,6 +314,7 @@
     }
 
     for (const row of withShifts) {
+      const summary = scheduleSummary(row);
       const card = el('div', 'schedule-card');
       const title = el('h3');
       title.appendChild(el('span', null, row.staffName || row.userId));
@@ -295,11 +324,16 @@
       card.appendChild(title);
 
       const list = el('ul');
-      for (const day of row.weekly) {
-        if (!day.shifts.length) continue;
+      if (summary.weekdays) {
         const item = el('li');
-        item.appendChild(el('span', null, day.label));
-        item.appendChild(el('strong', null, day.shifts.map((shift) => `${shift.start}–${shift.end}`).join(' / ')));
+        item.appendChild(el('span', null, 'Dias úteis'));
+        item.appendChild(el('strong', null, summary.weekdays));
+        list.appendChild(item);
+      }
+      if (summary.weekends) {
+        const item = el('li');
+        item.appendChild(el('span', null, weekendGroupLabel(summary.weekendGroup)));
+        item.appendChild(el('strong', null, summary.weekends));
         list.appendChild(item);
       }
       card.appendChild(list);
@@ -327,6 +361,11 @@
       const overview = await api(`/api/overview${query ? `?${query}` : ''}`);
       state.staff = overview.staff;
       state.period = overview.period;
+      state.weekParity = overview.weekParity || null;
+      if (state.weekParity) {
+        $('weekend-note-panel').textContent =
+          `Dias úteis têm horário fixo; o fim de semana desta semana é do grupo ${state.weekParity}.`;
+      }
       $('guild').textContent = overview.guildId ? `Servidor ${overview.guildId}` : '';
       renderStats(overview);
       renderStaff(overview);
@@ -341,45 +380,50 @@
   /* Modal de escala                                                     */
   /* ------------------------------------------------------------------ */
 
-  function shiftRow(shift = { weekday: 1, start: '12:00', end: '18:00' }) {
-    const row = el('div', 'shift-row');
-
-    const select = el('select');
-    WEEKDAYS.forEach((label, index) => {
-      const option = el('option', null, label);
-      option.value = String(index);
-      if (Number(shift.weekday) === index) option.selected = true;
-      select.appendChild(option);
-    });
-
-    const start = el('input');
-    start.type = 'time';
-    start.value = shift.start || '12:00';
-
-    const end = el('input');
-    end.type = 'time';
-    end.value = shift.end || '18:00';
-
-    const remove = el('button', 'icon-btn', '×');
-    remove.type = 'button';
-    remove.title = 'Remover turno';
-    remove.addEventListener('click', () => row.remove());
-
-    row.append(select, start, end, remove);
-    return row;
-  }
-
+  /** Preenche o modal com a escala atual do staff (dias úteis + fim de semana). */
   function openSchedule(row) {
     state.editing = row;
     $('modal-title').textContent = `Escala • ${row.staffName || row.userId}`;
     $('staff-name').value = row.staffName || '';
     $('modal-error').hidden = true;
 
-    const rows = $('shift-rows');
-    rows.innerHTML = '';
-    for (const shift of row.shifts || []) rows.appendChild(shiftRow(shift));
-    if (!rows.children.length) rows.appendChild(shiftRow());
+    const summary = scheduleSummary(row);
+    const weekdayShift = (row.shifts || []).find(
+      (shift) => Number(shift.weekday) >= 1 && Number(shift.weekday) <= 5,
+    );
+    const weekendShift = (row.shifts || []).find(
+      (shift) => Number(shift.weekday) === 0 || Number(shift.weekday) === 6,
+    );
+
+    $('weekday-enabled').checked = Boolean(summary.weekdays);
+    $('weekday-start').value = weekdayShift?.start || '12:00';
+    $('weekday-end').value = weekdayShift?.end || '18:00';
+
+    $('weekend-enabled').checked = Boolean(summary.weekends);
+    $('weekend-start').value = weekendShift?.start || '12:00';
+    $('weekend-end').value = weekendShift?.end || '02:00';
+    $('weekend-group').value = summary.weekendGroup || 'A';
+
+    updateWeekendNote();
     $('modal').showModal();
+  }
+
+  function updateWeekendNote() {
+    const enabled = $('weekend-enabled').checked;
+    const group = $('weekend-group').value;
+    const current = state.weekParity;
+    const parts = [];
+    if (!enabled) {
+      parts.push('Sem fim de semana nesta escala.');
+    } else if (group === 'all') {
+      parts.push('Trabalha em todos os fins de semana.');
+    } else {
+      parts.push(`Grupos A e B se revezam: ${group === 'A' ? 'A' : 'B'} trabalha, ${group === 'A' ? 'B' : 'A'} folga.`);
+      if (current) {
+        parts.push(`Este fim de semana é do grupo ${current}${current === group ? ' (trabalha)' : ' (folga)'}.`);
+      }
+    }
+    $('weekend-note').textContent = parts.join(' ');
   }
 
   async function saveSchedule(event) {
@@ -388,9 +432,18 @@
     if (!row) return;
 
     const shifts = [];
-    for (const item of $('shift-rows').children) {
-      const [select, start, end] = item.querySelectorAll('select, input');
-      shifts.push({ weekday: Number(select.value), start: start.value, end: end.value });
+    if ($('weekday-enabled').checked) {
+      // Segunda a sexta com o mesmo horário — sem cadastrar dia por dia.
+      for (let weekday = 1; weekday <= 5; weekday += 1) {
+        shifts.push({ weekday, start: $('weekday-start').value, end: $('weekday-end').value });
+      }
+    }
+    if ($('weekend-enabled').checked) {
+      const group = $('weekend-group').value;
+      const parity = group === 'all' ? null : group;
+      for (const weekday of [6, 0]) {
+        shifts.push({ weekday, start: $('weekend-start').value, end: $('weekend-end').value, parity });
+      }
     }
 
     try {
@@ -695,7 +748,8 @@
 
   $('apply').addEventListener('click', () => refresh());
   $('export').addEventListener('click', exportCsv);
-  $('add-shift').addEventListener('click', () => $('shift-rows').appendChild(shiftRow()));
+  $('weekend-enabled').addEventListener('change', updateWeekendNote);
+  $('weekend-group').addEventListener('change', updateWeekendNote);
   $('force-reload').addEventListener('click', () => {
     setToken('');
     // Recarrega ignorando o cache do navegador.
@@ -729,6 +783,7 @@
       showApp();
       setPeriod(6);
       state.staff = overview.staff;
+      state.weekParity = overview.weekParity || null;
       renderStats(overview);
       renderStaff(overview);
       renderScheduleList(overview.staff);

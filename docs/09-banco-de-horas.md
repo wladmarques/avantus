@@ -13,7 +13,8 @@ aviso por DM antes do turno e relatórios completos em um painel web.
 | Faltam **5 minutos** para o turno cadastrado | o bot envia uma **DM de aviso** (uma única vez por turno/dia) |
 | A sessão passa de `hour_bank_max_session_hours` (padrão 12h) | é fechada automaticamente (proteção contra queda do bot) |
 
-**Atraso** = diferença entre a entrada real e o início do turno cadastrado.
+**Atraso** = diferença entre a entrada real e o início do turno cadastrado (nos fins de semana
+revezados, só conta para quem está escalado naquele fim de semana).
 **Saída antecipada** = diferença entre o fim do turno e a saída real.
 
 Nada disso é manual: os números vêm do próprio status do staff, que já é atualizado
@@ -65,6 +66,7 @@ Como a mensagem é montada (sem emojis, paleta VANTUS):
 - **um campo por dia** da semana, com a data e uma linha por staff:
   `pedrosa17 — 12:00–02:00 (+1 dia)`;
 - staffs ordenados pelo horário de início (e pelo nome em caso de empate);
+- nos fins de semana só entram os staffs do **grupo daquela semana** (revezamento A/B);
 - dia sem ninguém escalado aparece como `—`;
 - rodapé `VANTUS • Banco de horas`;
 - ninguém é mencionado/pingado (`allowed_mentions.parse` vazio).
@@ -120,10 +122,27 @@ membro. O nome manual **nunca** é sobrescrito pela resolução automática. Tud
 
 ### Cadastrar a escala
 
+A escala tem **dois blocos** — não é preciso cadastrar dia por dia.
+
 1. Clique em **Editar escala** na linha do staff.
-2. Informe o nome (opcional) e adicione os turnos: dia da semana + início + fim.
-3. Turnos que cruzam a meia-noite são aceitos (`22:00` → `02:00`).
+2. **Dias úteis**: marque a caixa e informe **um único horário** — ele vale de segunda a sexta.
+3. **Fim de semana**: marque a caixa, informe o horário e escolha o **revezamento**:
+   - **Fim de semana A** ou **Fim de semana B** — os grupos se alternam: quem trabalha em um
+     fim de semana folga no próximo;
+   - **Todos os fins de semana** — o staff trabalha todo sábado e domingo.
 4. **Salvar escala** — o bot passa a usar a nova escala imediatamente.
+
+O modal mostra ainda qual grupo é o **desta semana** e se o staff trabalha ou folga, e o
+cabeçalho de *Escala cadastrada* repete essa informação. Turnos que cruzam a meia-noite são
+aceitos (`22:00` → `02:00`) e, no fim de semana, valem para **sábado e domingo**.
+
+> O revezamento é semanal: cada semana do calendário (segunda a domingo) pertence ao grupo A ou
+> B, alternando sempre. Um staff do grupo A só tem turno previsto nos fins de semana A — nos
+> fins de semana B ele não conta atraso/saída antecipada, não recebe DM de aviso e não aparece
+> na escala daquela semana no webhook. O mesmo vale para o grupo B.
+
+Pelo Discord, `/banco escala` aceita o parâmetro opcional **grupo** (`A`, `B` ou *todos*) para
+os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia.
 
 > O staff aparece no painel assim que tem **nome**, escala cadastrada ou status registrado.
 > Para cadastrar alguém novo, use `/banco escala` uma vez com o membro ou defina o nome pelo
@@ -138,7 +157,7 @@ membro. O nome manual **nunca** é sobrescrito pela resolução automática. Tud
 | GET | `/api/overview?from&to` | staff + status + escala + horas |
 | GET | `/api/report?from&to` | relatório agregado por staff |
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
-| PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end }] }` |
+| PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end, parity? }] }` — `parity` = `A`/`B` para fim de semana revezado |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
@@ -209,6 +228,7 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | Sintoma | Causa / solução |
 | --- | --- |
 | Não conta horas | staff precisa estar **DISPONÍVEL** (ou em atendimento); confira `/banco ver` |
+| Staff não aparece no fim de semana | ele está no outro grupo do revezamento (A/B) — confira o grupo na **Escala cadastrada** |
 | DM de aviso não chega | staff com DM fechada; `hour_bank_reminder_minutes` igual a `0`; turno cadastrado para outro dia |
 | Atraso zerado | o staff entrou **antes** ou exatamente no início do turno, ou não havia turno naquele horário |
 | Painel não abre | `WEB_PANEL_PASSWORD` vazio (painel desligado) ou porta bloqueada — veja o log `web` do bot |

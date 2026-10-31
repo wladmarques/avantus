@@ -33,9 +33,19 @@ class HourBankRepository {
     for (const shift of shifts) {
       this.db.run(
         `INSERT INTO staff_shifts
-           (guild_id, user_id, staff_name, weekday, start_minutes, end_minutes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [guildId, userId, staffName ?? null, shift.weekday, shift.startMinutes, shift.endMinutes, now, now],
+           (guild_id, user_id, staff_name, weekday, start_minutes, end_minutes, parity, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          guildId,
+          userId,
+          staffName ?? null,
+          shift.weekday,
+          shift.startMinutes,
+          shift.endMinutes,
+          shift.parity ?? null,
+          now,
+          now,
+        ],
       );
     }
     return this.listShiftsSync(guildId, userId);

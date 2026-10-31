@@ -20,6 +20,7 @@ const {
   findActiveShift,
   findNextShift,
   shiftsByWeekday,
+  weekParity,
   latenessFor,
   earlyLeaveFor,
   minutesToHHMM,
@@ -628,12 +629,17 @@ class HourBankService {
           start: shift.start,
           end: shift.end,
           overnight: shift.overnight,
+          parity: shift.parity ?? null,
         })),
         weekly: shiftsByWeekday(userShifts).map((day) => ({
           weekday: day.weekday,
           label: day.label,
           short: day.short,
-          shifts: day.shifts.map((shift) => ({ start: shift.start, end: shift.end })),
+          shifts: day.shifts.map((shift) => ({
+            start: shift.start,
+            end: shift.end,
+            parity: shift.parity ?? null,
+          })),
         })),
         currentShift: activeShift
           ? {
@@ -679,6 +685,9 @@ class HourBankService {
       generatedAt: now,
       period: report.period,
       totals: report.totals,
+      // Grupo do revezamento nesta semana: quem tem escala 'A' só trabalha nas
+      // semanas 'A' (as semanas alternam A/B).
+      weekParity: weekParity(now, this.timeZone),
       staff,
     };
   }

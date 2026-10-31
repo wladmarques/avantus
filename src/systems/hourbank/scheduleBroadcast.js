@@ -12,7 +12,7 @@ const { EmbedBuilder } = require('discord.js');
 const { PALETTE } = require('../../config/theme');
 const { createLogger } = require('../../utils/logger');
 const { tzParts, startOfDay, addDays, dayKey } = require('../../utils/time');
-const { minutesToHHMM } = require('./shiftSchedule');
+const { minutesToHHMM, weekParity } = require('./shiftSchedule');
 
 const logger = createLogger('hourbank');
 
@@ -101,6 +101,9 @@ function buildWeeklySchedule({ hourBank, guildId, timeZone = undefined, now = Da
   for (const shift of shifts) {
     const bucket = byDay.get(Number(shift.weekday));
     if (!bucket) continue;
+    // Fim de semana revezado: só entra quem trabalha na semana publicada.
+    const day = week.days.find((item) => item.weekday === Number(shift.weekday));
+    if (shift.parity && shift.parity !== weekParity(day.ts, timeZone)) continue;
     bucket.push({
       userId: shift.userId,
       name: staffLabel(hourBank, guildId, shift, names),
@@ -149,6 +152,7 @@ function buildWeeklySchedule({ hourBank, guildId, timeZone = undefined, now = Da
       endKey: week.days[6].key,
       startLabel: week.days[0].dateLabel,
       endLabel: week.days[6].dateLabel,
+      parity: weekParity(week.days[0].ts, timeZone),
     },
     staffCount: staffIds.size,
     shiftCount: shifts.length,

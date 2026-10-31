@@ -89,7 +89,7 @@
     <div class="panel">
       <div class="panel-head">
         <h2>Escala cadastrada</h2>
-        <span class="muted small">Defina o horário de atendimento de cada staff. O aviso por DM é enviado antes do início.</span>
+        <span class="muted small" id="weekend-note-panel">Dias úteis têm horário fixo; os fins de semana se revezam entre os grupos A e B.</span>
       </div>
       <div id="schedule-list" class="schedule-list"></div>
     </div>
@@ -125,14 +125,51 @@
   <dialog id="modal">
     <form id="schedule-form" method="dialog">
       <h2 id="modal-title">Escala do staff</h2>
-      <p class="muted small">Horários no fuso configurado no bot. Turnos que cruzam a meia-noite são aceitos (ex.: 22:00 → 02:00).</p>
+      <p class="muted small">Horários no fuso do bot. Turnos que cruzam a meia-noite são aceitos (ex.: 22:00 → 02:00).</p>
       <div class="field">
         <label for="staff-name">Nome do staff (opcional)</label>
         <input id="staff-name" type="text" maxlength="60" placeholder="Ex.: pedrosa17">
       </div>
-      <div id="shift-rows" class="shift-rows"></div>
+
+      <fieldset class="schedule-block">
+        <legend>
+          <label class="switch" for="weekday-enabled">
+            <input id="weekday-enabled" type="checkbox">
+            <span>Dias úteis</span>
+          </label>
+        </legend>
+        <p class="muted small block-note">Mesmo horário de segunda a sexta.</p>
+        <div class="time-row">
+          <input id="weekday-start" type="time" value="12:00" aria-label="Início dos dias úteis">
+          <span class="muted small">às</span>
+          <input id="weekday-end" type="time" value="18:00" aria-label="Fim dos dias úteis">
+        </div>
+      </fieldset>
+
+      <fieldset class="schedule-block">
+        <legend>
+          <label class="switch" for="weekend-enabled">
+            <input id="weekend-enabled" type="checkbox">
+            <span>Fim de semana</span>
+          </label>
+        </legend>
+        <div class="time-row">
+          <input id="weekend-start" type="time" value="12:00" aria-label="Início do fim de semana">
+          <span class="muted small">às</span>
+          <input id="weekend-end" type="time" value="02:00" aria-label="Fim do fim de semana">
+        </div>
+        <div class="field">
+          <label for="weekend-group">Revezamento</label>
+          <select id="weekend-group">
+            <option value="A">Fim de semana A</option>
+            <option value="B">Fim de semana B</option>
+            <option value="all">Todos os fins de semana</option>
+          </select>
+        </div>
+        <p class="muted small block-note" id="weekend-note"></p>
+      </fieldset>
+
       <div class="modal-actions">
-        <button type="button" id="add-shift" class="btn ghost">+ Adicionar turno</button>
         <span class="spacer"></span>
         <button type="button" id="cancel" class="btn ghost">Cancelar</button>
         <button type="submit" class="btn primary">Salvar escala</button>

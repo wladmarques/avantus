@@ -180,14 +180,19 @@ dialog h2 { margin: 0 0 6px; font-size: 17px; }
 dialog p { margin: 0 0 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.shift-rows { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
-.shift-row { display: grid; grid-template-columns: 1.2fr .8fr .8fr auto; gap: 8px; align-items: center; }
-.shift-row select, .shift-row input { padding: 8px 10px; font-size: 12.5px; }
-.icon-btn {
-  background: transparent; border: 1px solid var(--line); color: var(--muted);
-  border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 15px; line-height: 1;
+/* blocos da escala: dias úteis + fim de semana revezado */
+.schedule-block {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card-2);
+  padding: 12px 14px 14px; margin: 0 0 12px;
 }
-.icon-btn:hover { border-color: var(--red); color: var(--text); }
+.schedule-block legend { padding: 0 4px; }
+.schedule-block .switch { background: transparent; border: none; padding: 0; }
+.schedule-block .switch:hover { border-color: transparent; }
+.schedule-block .field { margin: 12px 0 0; }
+.schedule-block select { padding: 8px 10px; font-size: 12.5px; }
+.block-note { margin: 8px 0 0; line-height: 1.5; }
+.time-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.time-row input { padding: 8px 10px; font-size: 13px; }
 .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
 .spacer { flex: 1; }
 .sessions { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
@@ -209,6 +214,5 @@ dialog p { margin: 0 0 14px; }
 
 @media (max-width: 760px) {
   .cards { grid-template-columns: repeat(2, 1fr); }
-  .shift-row { grid-template-columns: 1fr 1fr; }
-  .shift-row .icon-btn { grid-column: 2; justify-self: end; }
+  .time-row { flex-wrap: wrap; }
 }

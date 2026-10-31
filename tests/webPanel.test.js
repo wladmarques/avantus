@@ -158,7 +158,7 @@ test('salvar escala pelo painel e refletir na API', async (t) => {
   assert.equal(row.staffName, 'pedrosa17');
   assert.equal(row.weekly.length, 7);
   const monday = row.weekly.find((day) => day.weekday === 1);
-  assert.deepEqual(monday.shifts, [{ start: '12:00', end: '18:00' }]);
+  assert.deepEqual(monday.shifts, [{ start: '12:00', end: '18:00', parity: null }]);
 
   const invalid = await panel.call(`/api/staff/${STAFF}/shifts`, {
     method: 'PUT',
@@ -634,4 +634,60 @@ test('envio automático da escala: configurar, validar e desligar pelo painel', 
   assert.equal(cleared.status, 200);
   assert.equal(cleared.json.configured, false);
   assert.equal(cleared.json.auto, false, 'sem webhook o envio automático fica desligado');
+});
+
+test('escala em dois blocos pelo painel: dias úteis + fim de semana revezado', async (t) => {
+  const env = await createTestEnv({ staff: false });
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+
+  // O que o modal envia: seg-sex iguais + sáb/dom no grupo B.
+  const shifts = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, start: '12:00', end: '20:00' }));
+  for (const weekday of [6, 0]) shifts.push({ weekday, start: '10:00', end: '16:00', parity: 'B' });
+
+  const saved = await panel.call(`/api/staff/${STAFF}/shifts`, {
+    method: 'PUT',
+    body: { staffName: 'mika', shifts },
+    token,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.shifts.length, 7);
+  const weekend = saved.json.shifts.filter((shift) => shift.weekday === 0 || shift.weekday === 6);
+  assert.deepEqual(weekend.map((shift) => shift.parity), ['B', 'B']);
+
+  const overview = await panel.call('/api/overview', { token });
+  assert.match(overview.json.weekParity, /^[AB]$/, 'painel recebe o grupo da semana');
+  const row = overview.json.staff.find((item) => item.userId === STAFF);
+  assert.equal(row.staffName, 'mika');
+  assert.equal(row.shifts.filter((shift) => shift.weekday >= 1 && shift.weekday <= 5).length, 5);
+  assert.deepEqual(
+    row.shifts.filter((shift) => shift.weekday === 6).map((shift) => shift.parity),
+    ['B'],
+  );
+
+  // Grupo inválido não passa.
+  const invalid = await panel.call(`/api/staff/${STAFF}/shifts`, {
+    method: 'PUT',
+    body: { shifts: [{ weekday: 6, start: '10:00', end: '16:00', parity: 'C' }] },
+    token,
+  });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.json.error, /Grupo de fim de semana/);
+
+  // Só dias úteis (sem fim de semana) é uma escala válida.
+  const onlyWeekdays = await panel.call(`/api/staff/${STAFF}/shifts`, {
+    method: 'PUT',
+    body: {
+      staffName: 'mika',
+      shifts: [1, 2, 3, 4, 5].map((weekday) => ({ weekday, start: '08:00', end: '14:00' })),
+    },
+    token,
+  });
+  assert.equal(onlyWeekdays.status, 200);
+  assert.equal(onlyWeekdays.json.shifts.length, 5);
 });
