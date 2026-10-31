@@ -168,6 +168,9 @@ async function main() {
     process.exit(1);
   }
 
+  // Mesmo watcher do bot: se o envio automático estiver ligado, publica a escala.
+  services.scheduleBroadcast.startWatcher(GUILD);
+
   console.log('');
   console.log(`   Painel: http://localhost:${web.port}`);
   console.log(`   Senha:  ${PASSWORD}`);

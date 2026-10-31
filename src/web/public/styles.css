@@ -148,6 +148,16 @@ tbody tr.clickable:hover { background: #15161a; }
 .webhook-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .webhook-row input { flex: 1 1 340px; min-width: 220px; }
 .webhook-row .btn { flex: 0 0 auto; }
+.webhook-auto { margin-top: 12px; }
+.webhook-auto select, .webhook-auto input[type="time"] { padding: 7px 10px; font-size: 12.5px; }
+.switch {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; font-size: 12.5px; font-weight: 600;
+}
+.switch:hover { border-color: #3a3c42; }
+.switch input { accent-color: var(--red); width: 14px; height: 14px; margin: 0; }
+.switch:has(input:checked) { border-color: var(--red); color: var(--text); }
 .status-line { font-size: 11.5px; line-height: 1.5; margin: 10px 0 0; color: var(--muted); }
 .status-line.ok { color: #8ee0a6; }
 .status-line.bad { color: #ff7a6b; }

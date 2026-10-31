@@ -570,3 +570,68 @@ test('webhook da escala: salvar, ler e enviar pelo painel', async (t) => {
   assert.equal(failed.status, 400);
   assert.ok(failed.json.error.length > 0);
 });
+
+test('envio automático da escala: configurar, validar e desligar pelo painel', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+
+  // Sem webhook salvo não dá para ativar o envio automático.
+  const noUrl = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { auto: true, day: 1, time: '09:00' },
+    token,
+  });
+  assert.equal(noUrl.status, 400);
+  assert.match(noUrl.json.error, /Cadastre a URL do webhook/);
+
+  const discordUrl = 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz0123456789';
+  const enabled = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { url: discordUrl, auto: true, day: 3, time: '18:30' },
+    token,
+  });
+  assert.equal(enabled.status, 200);
+  assert.equal(enabled.json.auto, true);
+  assert.equal(enabled.json.day, 3);
+  assert.equal(enabled.json.dayLabel, 'Quarta');
+  assert.equal(enabled.json.time, '18:30');
+
+  const current = await panel.call('/api/schedule/webhook', { token });
+  assert.equal(current.json.auto, true);
+  assert.equal(current.json.dayLabel, 'Quarta');
+  assert.equal(current.json.lastWeek, null);
+  assert.equal(current.json.lastWeekLabel, null);
+
+  // Valores inválidos são recusados sem quebrar a configuração salva.
+  const badDay = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { url: discordUrl, auto: true, day: 9, time: '18:30' },
+    token,
+  });
+  assert.equal(badDay.status, 400);
+  assert.match(badDay.json.error, /Dia da semana inválido/);
+
+  const badTime = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { url: discordUrl, auto: true, day: 3, time: '7h' },
+    token,
+  });
+  assert.equal(badTime.status, 400);
+  assert.match(badTime.json.error, /Horário inválido/);
+
+  // Remover o webhook desliga o automático.
+  const cleared = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { url: '', auto: true, day: 3, time: '18:30' },
+    token,
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.json.configured, false);
+  assert.equal(cleared.json.auto, false, 'sem webhook o envio automático fica desligado');
+});

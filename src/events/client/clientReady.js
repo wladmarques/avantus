@@ -6,6 +6,9 @@ const { formatTime } = require('../../utils/time');
 
 const logger = createLogger('ready');
 
+const SERVICE_DAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const serviceDayLabel = (weekday) => SERVICE_DAYS[Number(weekday)] ?? 'segunda';
+
 // discord.js 14.27 emite `clientReady` (o antigo `ready` será removido na v15)
 module.exports = {
   name: 'clientReady',
@@ -73,6 +76,14 @@ module.exports = {
     logger.info(
       `Banco de horas ativo • aviso ${services.hourBank.reminderMinutes} min antes do turno`,
     );
+
+    // Envio automático da escala semanal pelo webhook (ativado no painel)
+    runtime.stopScheduleBroadcastWatcher = services.scheduleBroadcast.startWatcher(guildId);
+    if (services.scheduleBroadcast.enabled) {
+      logger.info(
+        `Escala no webhook: envio automático ${serviceDayLabel(services.scheduleBroadcast.day)} às ${services.scheduleBroadcast.time}`,
+      );
+    }
 
     // Abertura/fechamento pelo horário configurado
     runtime.stopScheduleWatcher = services.schedule.startWatcher(guildId, (change) => {

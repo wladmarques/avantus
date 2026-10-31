@@ -29,6 +29,7 @@ const { StatisticsService } = require('../systems/statistics/statisticsService')
 const { EvaluationService } = require('../systems/evaluations/evaluationService');
 const { RecoveryService } = require('../systems/recovery/recoveryService');
 const { HourBankService } = require('../systems/hourbank/hourBankService');
+const { ScheduleBroadcastService } = require('../systems/hourbank/scheduleAutoSend');
 const { createLogger } = require('../utils/logger');
 
 const logger = createLogger('container');
@@ -88,6 +89,12 @@ async function createServices({ db, gateway }) {
   });
   // o painel web precisa do status atual de cada staff
   hourBankService.staff = staffService;
+
+  // Envio automático da escala semanal pelo webhook (dia/horário no painel).
+  const scheduleBroadcastService = new ScheduleBroadcastService({
+    settings,
+    hourBank: hourBankService,
+  });
 
   let panelService = null;
   const panelFacade = {
@@ -166,6 +173,7 @@ async function createServices({ db, gateway }) {
     queue: queueService,
     cooldowns: cooldownService,
     hourBank: hourBankService,
+    scheduleBroadcast: scheduleBroadcastService,
     attendance: attendanceService,
     statistics: statisticsService,
     evaluations: evaluationService,

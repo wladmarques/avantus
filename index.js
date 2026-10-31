@@ -24,6 +24,7 @@ const runtime = {
   expireTimer: null,
   stopScheduleWatcher: null,
   stopHourBankWatcher: null,
+  stopScheduleBroadcastWatcher: null,
   webServer: null,
   shuttingDown: false,
 };
@@ -108,6 +109,7 @@ async function shutdown(signal) {
     if (runtime.expireTimer) clearInterval(runtime.expireTimer);
     if (typeof runtime.stopScheduleWatcher === 'function') runtime.stopScheduleWatcher();
     if (typeof runtime.stopHourBankWatcher === 'function') runtime.stopHourBankWatcher();
+    if (typeof runtime.stopScheduleBroadcastWatcher === 'function') runtime.stopScheduleBroadcastWatcher();
     if (runtime.webServer) await runtime.webServer.close();
     for (const timer of services?.engine?.timers?.values?.() ?? []) clearTimeout(timer);
   } catch (error) {

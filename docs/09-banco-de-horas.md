@@ -70,7 +70,32 @@ Como a mensagem é montada (sem emojis, paleta VANTUS):
 - ninguém é mencionado/pingado (`allowed_mentions.parse` vazio).
 
 O webhook fica salvo na configuração `hour_bank_webhook_url` (tabela `settings`) e só é
-aceito no formato do Discord — para remover, apague o campo e salve.
+aceito no formato do Discord — para remover, apague o campo e salve (isso também desliga o
+envio automático).
+
+#### Envio automático
+
+No mesmo painel, marque **Enviar automaticamente**, escolha o **dia da semana** e o **horário**
+e clique em **Salvar**. Regras:
+
+- o envio acontece **uma vez por semana**, no dia/horário escolhidos (padrão: segunda, 09:00);
+- se o bot estiver desligado na hora exata, a escala é publicada **assim que ele voltar no
+  mesmo dia** (não fica esperando a semana seguinte);
+- reiniciar o bot **não duplica** a mensagem: a semana publicada fica gravada em
+  `hour_bank_webhook_last_week`;
+- **Enviar escala agora** também marca a semana como publicada — o automático não repete;
+- se o webhook recusar a mensagem, a semana **não** é marcada e o bot tenta de novo a cada
+  minuto (o erro aparece no log `hourbank`).
+
+Configurações relacionadas (também editáveis por `/config`):
+
+| Chave | Padrão | Para que serve |
+| --- | --- | --- |
+| `hour_bank_webhook_url` | *(vazio)* | URL do webhook do canal |
+| `hour_bank_webhook_auto` | `false` | liga o envio automático |
+| `hour_bank_webhook_day` | `1` | dia do envio (0 = domingo … 6 = sábado) |
+| `hour_bank_webhook_time` | `09:00` | horário do envio (HH:MM) |
+| `hour_bank_webhook_last_week` | — | última semana publicada (controle interno) |
 
 > Para testar sem postar em um canal real, rode o receptor local e suba o preview apontando
 > para ele: `node scripts/dev-webhook-sink.js` em um terminal e, no outro,
@@ -115,8 +140,8 @@ membro. O nome manual **nunca** é sobrescrito pela resolução automática. Tud
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end }] }` |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
-| GET | `/api/schedule/webhook` | webhook cadastrado (`{ url, configured }`) |
-| PUT | `/api/schedule/webhook` | `{ url }` — salva o webhook da escala (`""` remove) |
+| GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
+| PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
 | POST | `/api/schedule/send` | publica a escala da semana no webhook |
 | DELETE | `/api/staff/:userId/shifts` | remove a escala |
 | GET | `/api/health` | verificação de disponibilidade |
@@ -191,6 +216,7 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | Login "não aceita" e volta para a tela de senha | corrigido: token assinado em memória/hash, aceito via header, query ou cookie. Se aparecer, clique em **Recarregar** na própria tela (limpa cache do JS antigo) |
 | Entra, mas a tela de senha **continua na frente** do painel | era CSS: `.login { display: grid }` vencia o atributo `hidden`. Corrigido com `[hidden] { display: none !important }`; há teste de regressão do CSS |
 | Mensagem "unauthorized" ao errar a senha | corrigido: o login mostra o texto do servidor (**Senha incorreta.**) e o botão fica em "Entrando…" durante a requisição |
+| Escala automática não chegou | `hour_bank_webhook_auto` desligado, webhook vazio, ou o dia/horário escolhido ainda não chegou — confira o painel e o log `hourbank` |
 | Webhook recusa a escala | URL copiada incompleta, webhook apagado/canal sem permissão ou mensagem enviada por outro bot — confira a mensagem do painel (HTTP 400/404) |
 | Horas erradas após queda do bot | a sessão é fechada no limite de `hour_bank_max_session_hours`; ajuste manualmente a escala/horário pelo painel |
 

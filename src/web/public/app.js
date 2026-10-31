@@ -489,21 +489,58 @@
   /* Escala no canal (webhook)                                           */
   /* ------------------------------------------------------------------ */
 
+  // Dias na ordem da semana (segunda → domingo), como no calendário da equipe.
+  const DAY_OPTIONS = [
+    { value: 1, label: 'Segunda-feira' },
+    { value: 2, label: 'Terça-feira' },
+    { value: 3, label: 'Quarta-feira' },
+    { value: 4, label: 'Quinta-feira' },
+    { value: 5, label: 'Sexta-feira' },
+    { value: 6, label: 'Sábado' },
+    { value: 0, label: 'Domingo' },
+  ];
+
+  function fillDayOptions() {
+    const select = $('webhook-day');
+    select.innerHTML = '';
+    for (const option of DAY_OPTIONS) {
+      const node = el('option', null, option.label);
+      node.value = String(option.value);
+      select.appendChild(node);
+    }
+  }
+
+  function autoStatusText(config) {
+    if (!config.auto) return 'Envio automático desligado.';
+    const day = DAY_OPTIONS.find((option) => option.value === Number(config.day));
+    const last = config.lastWeekLabel
+      ? `Última semana publicada: ${config.lastWeekLabel}.`
+      : 'Ainda não publicado automaticamente.';
+    return `Envio automático toda ${day ? day.label.toLowerCase() : config.dayLabel} às ${config.time}. ${last}`;
+  }
+
   function webhookStatus(message, state = '') {
     const node = $('webhook-status');
     node.className = state ? `status-line ${state}` : 'status-line';
     node.textContent = message;
   }
 
+  function applyWebhookConfig(data) {
+    $('webhook-url').value = data.url || '';
+    $('webhook-auto').checked = Boolean(data.auto);
+    $('webhook-day').value = String(Number.isInteger(Number(data.day)) ? Number(data.day) : 1);
+    $('webhook-time').value = data.time || '09:00';
+    if (!data.configured) {
+      webhookStatus('Nenhum webhook salvo. Cole a URL do webhook do canal e clique em Salvar.');
+      return;
+    }
+    webhookStatus(`Webhook salvo. ${autoStatusText(data)}`);
+  }
+
   async function loadWebhook() {
     try {
       const data = await api('/api/schedule/webhook');
-      $('webhook-url').value = data.url || '';
-      webhookStatus(
-        data.configured
-          ? 'Webhook salvo. Use “Enviar escala agora” para publicar a semana.'
-          : 'Nenhum webhook salvo. Cole a URL do webhook do canal e clique em Salvar.',
-      );
+      applyWebhookConfig(data);
     } catch (error) {
       if (error.message !== 'unauthorized') webhookStatus(error.message, 'bad');
     }
@@ -517,12 +554,17 @@
     try {
       const data = await api('/api/schedule/webhook', {
         method: 'PUT',
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({
+          url,
+          auto: $('webhook-auto').checked,
+          day: Number($('webhook-day').value),
+          time: $('webhook-time').value || '09:00',
+        }),
       });
-      $('webhook-url').value = data.url || '';
+      applyWebhookConfig(data);
       webhookStatus(
         data.configured
-          ? 'Webhook salvo. Use “Enviar escala agora” para publicar a semana.'
+          ? `Webhook salvo. ${autoStatusText(data)}`
           : 'Webhook removido: o painel não publica mais a escala.',
         'ok',
       );
@@ -668,6 +710,7 @@
     submitName($('name-input').value.trim());
   });
 
+  fillDayOptions();
   $('webhook-save').addEventListener('click', saveWebhook);
   $('schedule-send').addEventListener('click', sendSchedule);
   $('webhook-url').addEventListener('keydown', (event) => {

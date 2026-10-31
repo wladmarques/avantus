@@ -104,9 +104,19 @@
         <button id="webhook-save" class="btn ghost">Salvar</button>
         <button id="schedule-send" class="btn primary">Enviar escala agora</button>
       </div>
+      <div class="webhook-row webhook-auto">
+        <label class="switch" for="webhook-auto">
+          <input id="webhook-auto" type="checkbox">
+          <span>Enviar automaticamente</span>
+        </label>
+        <select id="webhook-day" aria-label="Dia do envio automático"></select>
+        <span class="muted small">às</span>
+        <input id="webhook-time" type="time" aria-label="Horário do envio automático">
+      </div>
       <p id="webhook-status" class="status-line">Carregando…</p>
       <p class="muted small webhook-help">
         Discord: canal → Editar canal → Integrações → Webhooks → Novo webhook → Copiar URL do webhook.
+        O envio automático vale uma vez por semana; se o bot estiver desligado no horário, publica assim que voltar no mesmo dia.
       </p>
     </div>
   </section>

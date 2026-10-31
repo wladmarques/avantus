@@ -261,6 +261,34 @@ const SETTINGS = {
     // A validação completa (formato do webhook do Discord) fica no painel/módulo de envio.
     validate: (v) => v === null || v === undefined || (typeof v === 'string' && v.length <= 400),
   },
+  hour_bank_webhook_auto: {
+    default: false,
+    type: 'boolean',
+    label: 'Enviar a escala da semana automaticamente',
+    group: 'Banco de horas',
+    validate: asBool,
+  },
+  hour_bank_webhook_day: {
+    default: 1,
+    type: 'number',
+    label: 'Dia do envio automático (0 = domingo … 6 = sábado)',
+    group: 'Banco de horas',
+    validate: asInt(0, 6),
+  },
+  hour_bank_webhook_time: {
+    default: '09:00',
+    type: 'string',
+    label: 'Horário do envio automático (HH:MM)',
+    group: 'Banco de horas',
+    validate: (v) => typeof v === 'string' && /^([01]?\d|2[0-3]):[0-5]\d$/.test(v.trim()),
+  },
+  hour_bank_webhook_last_week: {
+    default: null,
+    type: 'string',
+    label: 'Última semana publicada no webhook (controle interno)',
+    group: 'Banco de horas',
+    validate: (v) => v === null || v === undefined || /^\d{4}-\d{2}-\d{2}$/.test(String(v)),
+  },
   message_closed: {
     default: 'A central de atendimento está fechada no momento. Confira os horários de funcionamento abaixo.',
     type: 'string',

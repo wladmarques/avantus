@@ -416,20 +416,33 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       }
 
       if (pathname === '/api/schedule/webhook' && req.method === 'GET') {
-        const url = getWebhookUrl(services.settings);
-        return sendJson(res, 200, { url, configured: Boolean(url) });
+        return sendJson(res, 200, services.scheduleBroadcast.getConfig());
       }
 
       if (pathname === '/api/schedule/webhook' && req.method === 'PUT') {
         const body = await readBody(req);
         try {
-          const url = await setWebhookUrl(services.settings, body.url);
+          let url = null;
+          if (body.url !== undefined) {
+            url = await setWebhookUrl(services.settings, body.url);
+            logger.info(
+              url
+                ? `Webhook da escala salvo pelo painel (${url.replace(/\/[\w-]{20,}$/, '/•••')}).`
+                : 'Webhook da escala removido pelo painel.',
+            );
+          }
+          // Sem webhook não há como enviar: o envio automático é desligado junto.
+          const config = await services.scheduleBroadcast.updateConfig({
+            auto: url === '' ? false : body.auto,
+            day: body.day,
+            time: body.time,
+          });
           logger.info(
-            url
-              ? `Webhook da escala salvo pelo painel (${url.replace(/\/[\w-]{20,}$/, '/•••')}).`
-              : 'Webhook da escala removido pelo painel.',
+            config.auto
+              ? `Envio automático da escala ativado (${config.dayLabel} às ${config.time}).`
+              : 'Envio automático da escala desligado.',
           );
-          return sendJson(res, 200, { ok: true, url, configured: Boolean(url) });
+          return sendJson(res, 200, { ok: true, ...config });
         } catch (error) {
           return sendJson(res, 400, { error: error.message });
         }

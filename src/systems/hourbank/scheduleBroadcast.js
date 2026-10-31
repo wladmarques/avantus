@@ -17,6 +17,7 @@ const { minutesToHHMM } = require('./shiftSchedule');
 const logger = createLogger('hourbank');
 
 const SETTING_KEY = 'hour_bank_webhook_url';
+const LAST_WEEK_KEY = 'hour_bank_webhook_last_week';
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // segunda → domingo
 const WEEKDAY_LABELS = {
   0: 'Domingo',
@@ -199,6 +200,8 @@ async function sendWeeklySchedule({ settings, hourBank, guildId, timeZone = unde
 
   const built = buildWeeklySchedule({ hourBank, guildId, timeZone, now });
   await postWebhook(url, built.payload);
+  // Registra a semana publicada — evita repetir a mesma escala (manual ou automática).
+  await settings.set(LAST_WEEK_KEY, built.week.startKey);
   logger.info(
     `Escala da semana enviada pelo webhook (${built.staffCount} staff, ${built.shiftCount} turno(s)).`,
   );
@@ -213,6 +216,7 @@ async function sendWeeklySchedule({ settings, hourBank, guildId, timeZone = unde
 
 module.exports = {
   SETTING_KEY,
+  LAST_WEEK_KEY,
   isValidWebhookUrl,
   getWebhookUrl,
   setWebhookUrl,
