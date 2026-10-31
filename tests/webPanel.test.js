@@ -72,7 +72,8 @@ test('API exige login (401 sem sessão)', async (t) => {
 
   const response = await panel.call('/api/overview');
   assert.equal(response.status, 401);
-  assert.match(response.json.error, /Sessão expirada/);
+  assert.match(response.json.error, /Sessão inválida/);
+  assert.equal(response.json.reason, 'sem_token');
 });
 
 test('senha errada e senha correta', async (t) => {
@@ -270,4 +271,70 @@ test('painel pode ser embutido em iframe (sem X-Frame-Options)', async (t) => {
   assert.equal(page.headers.get('x-frame-options'), null, 'X-Frame-Options removido');
   assert.match(String(page.headers.get('content-security-policy')), /frame-ancestors/);
   assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
+});
+
+test('token sobrevive ao reinício do servidor (sessão assinada)', async (t) => {
+  const env = await createTestEnv();
+  const first = await startPanel(env);
+  const { token } = await first.login();
+  assert.ok(token);
+  await first.close();
+
+  // Novo processo/servidor: sessões em memória são perdidas, a assinatura não.
+  const second = await startPanel(env);
+  t.after(async () => {
+    await second.close();
+    await env.cleanup();
+  });
+
+  const overview = await second.call('/api/overview', { token });
+  assert.equal(overview.status, 200, 'token continua válido após reiniciar');
+});
+
+test('token aceito pela query (?auth=) para proxies que removem headers', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+  const response = await panel.call(`/api/overview?auth=${encodeURIComponent(token)}`);
+  assert.equal(response.status, 200);
+});
+
+test('token adulterado é recusado', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { token } = await panel.login();
+  const [payload] = token.split('.');
+  const forged = `${payload}.assinaturafalsa`;
+  const response = await panel.call('/api/overview', { token: forged });
+  assert.equal(response.status, 401);
+
+  // Senha diferente ⇒ nova chave de assinatura ⇒ token antigo inválido.
+  const other = await startPanel(env, { password: 'outra-senha' });
+  t.after(() => other.close());
+  const wrongKey = await other.call('/api/overview', { token });
+  assert.equal(wrongKey.status, 401);
+});
+
+test('HTML serve os assets com versão e sem cache', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const page = await panel.call('/');
+  assert.match(page.text, /app\.js\?v=/, 'script com versão (fura cache antigo)');
+  assert.match(page.text, /styles\.css\?v=/);
+  assert.match(String(page.headers.get('cache-control')), /no-store/);
 });

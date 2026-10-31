@@ -79,10 +79,25 @@ cookie `HttpOnly` (`SameSite=Lax` em HTTP, `SameSite=None; Secure` quando acessa
 
 ### Acesso dentro de iframe / proxy (preview)
 
-O painel é servido sem `X-Frame-Options` e com `Content-Security-Policy: frame-ancestors *`,
-então funciona embutido em painéis de preview e proxies. Como navegadores bloqueiam cookies de
-terceiros nesses contextos, o login também devolve um **token** e o cliente o envia em
-`Authorization: Bearer <token>` — a sessão funciona mesmo com cookies bloqueados.
+Em iframes de terceiros o navegador bloqueia **cookies** e **sessionStorage**, o que derrubava o
+login com "Sessão expirada" logo após autenticar. O painel resolve isso em camadas:
+
+| Camada | Quando é usada |
+| --- | --- |
+| Token em memória | sempre (mesma aba, enquanto a página estiver aberta) |
+| `sessionStorage` | navegador normal (com storage liberado) |
+| Token assinado no **hash da URL** (`#auth=…`) | quando o storage está bloqueado — sobrevive ao reload |
+
+O token é **assinado com HMAC** derivado da senha (`WEB_PANEL_PASSWORD`), então continua válido
+mesmo que o processo reinicie — e passa a ser inválido se a senha mudar. A autenticação chega ao
+servidor por `Authorization: Bearer`, por `?auth=` ou por cookie (`SameSite=None; Secure` em HTTPS).
+O logout revoga o token imediatamente.
+
+O painel também é servido sem `X-Frame-Options` e com `Content-Security-Policy: frame-ancestors *`,
+e os assets saem com `no-store` + versão (`app.js?v=…`) para nunca rodar um JS antigo em cache.
+
+> Como o token pode ir no hash da URL em modo de contingência, evite compartilhar o link do painel
+> enquanto estiver logado; ao sair (**Sair**) ele é removido.
 
 ## Comandos no Discord
 
@@ -124,7 +139,7 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | Atraso zerado | o staff entrou **antes** ou exatamente no início do turno, ou não havia turno naquele horário |
 | Painel não abre | `WEB_PANEL_PASSWORD` vazio (painel desligado) ou porta bloqueada — veja o log `web` do bot |
 | Tela em branco no preview/iframe | era bloqueio de `X-Frame-Options` — corrigido; se persistir, rode `LOG_LEVEL=debug` e confira `GET /` no log |
-| Login "não aceita" e volta para a tela de senha | cookie bloqueado no contexto (iframe). O painel usa token em `sessionStorage` automaticamente |
+| Login "não aceita" e volta para a tela de senha | corrigido: token assinado em memória/hash, aceito via header, query ou cookie. Se aparecer, clique em **Recarregar** na própria tela (limpa cache do JS antigo) |
 | Horas erradas após queda do bot | a sessão é fechada no limite de `hour_bank_max_session_hours`; ajuste manualmente a escala/horário pelo painel |
 
 ## Log do painel

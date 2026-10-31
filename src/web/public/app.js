@@ -37,7 +37,15 @@
 
   const TOKEN_KEY = 'vantus_token';
 
-  const getToken = () => {
+  // Persistência do token, em três níveis (o primeiro disponível vence):
+  //   1. memória   — sempre funciona;
+  //   2. sessionStorage — navegador normal;
+  //   3. hash da URL (#auth=…) — iframe de preview, onde storage e cookie de
+  //      terceiros são bloqueados. Sem isso, cada reload derrubava a sessão
+  //      ("Sessão expirada") logo depois do login.
+  let memoryToken = '';
+
+  const readStorage = () => {
     try {
       return sessionStorage.getItem(TOKEN_KEY) || '';
     } catch {
@@ -45,18 +53,59 @@
     }
   };
 
+  const readHash = () => {
+    const match = /(?:^#|&)auth=([^&]+)/.exec(window.location.hash || '');
+    return match ? decodeURIComponent(match[1]) : '';
+  };
+
+  const writeHash = (token) => {
+    try {
+      const url = new URL(window.location.href);
+      if (token) url.hash = `auth=${encodeURIComponent(token)}`;
+      else url.hash = '';
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      /* history indisponível: segue só com memória */
+    }
+  };
+
+  const storageWorks = (() => {
+    try {
+      sessionStorage.setItem(`${TOKEN_KEY}_probe`, '1');
+      sessionStorage.removeItem(`${TOKEN_KEY}_probe`);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  const getToken = () => memoryToken || readStorage() || readHash();
+
   const setToken = (token) => {
+    memoryToken = token || '';
     try {
       if (token) sessionStorage.setItem(TOKEN_KEY, token);
       else sessionStorage.removeItem(TOKEN_KEY);
     } catch {
-      /* sessionStorage indisponível (modo restrito): segue só com cookie */
+      /* sem armazenamento: o hash (ou a memória) resolve */
     }
+    if (!storageWorks) writeHash(token);
+    else writeHash('');
+  };
+
+  // Recupera a sessão de um reload anterior antes da primeira requisição.
+  if (!memoryToken) memoryToken = readStorage() || readHash();
+
+  /** Envia o token no header e, como reforço, na query (proxies que filtram headers). */
+  const withToken = (path, token) => {
+    if (!token) return path;
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}auth=${encodeURIComponent(token)}`;
   };
 
   async function api(path, options = {}) {
     const token = getToken();
-    const response = await fetch(path, {
+    const response = await fetch(withToken(path, token), {
       credentials: 'same-origin',
       headers: {
         'content-type': 'application/json',
@@ -65,8 +114,13 @@
       ...options,
     });
     if (response.status === 401) {
+      const hadToken = Boolean(token);
       setToken('');
-      showLogin('Sessão expirada. Entre novamente.');
+      showLogin(
+        hadToken
+          ? 'Sessão expirada. Entre novamente.'
+          : 'A sessão não foi mantida pelo navegador. Entre novamente.',
+      );
       throw new Error('unauthorized');
     }
     const data = await response.json().catch(() => ({}));
@@ -87,10 +141,15 @@
   function showLogin(message) {
     $('app').hidden = true;
     $('login').hidden = false;
+    const hint = $('login-hint');
     if (message) {
       const error = $('login-error');
       error.textContent = message;
       error.hidden = false;
+      hint.hidden = false;
+    } else {
+      $('login-error').hidden = true;
+      hint.hidden = true;
     }
     clearInterval(state.timer);
   }
@@ -423,7 +482,10 @@
         body: JSON.stringify({ password: $('password').value }),
       });
       // Guarda o token: em iframe/preview o cookie pode ser bloqueado pelo navegador.
-      if (data.token) setToken(data.token);
+      if (!data.token) {
+        throw new Error('O servidor não devolveu a sessão. Verifique se o painel está atualizado.');
+      }
+      setToken(data.token);
       $('password').value = '';
       showApp();
       setPeriod(6);
@@ -452,6 +514,11 @@
   $('apply').addEventListener('click', () => refresh());
   $('export').addEventListener('click', exportCsv);
   $('add-shift').addEventListener('click', () => $('shift-rows').appendChild(shiftRow()));
+  $('force-reload').addEventListener('click', () => {
+    setToken('');
+    // Recarrega ignorando o cache do navegador.
+    window.location.reload();
+  });
   $('cancel').addEventListener('click', () => $('modal').close());
   $('sessions-close').addEventListener('click', () => $('sessions-modal').close());
   $('schedule-form').addEventListener('submit', saveSchedule);

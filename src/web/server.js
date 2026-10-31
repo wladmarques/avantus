@@ -38,6 +38,16 @@ const MIME = {
 };
 
 const SESSION_COOKIE = 'vantus_session';
+
+/** Versão dos assets (muda a cada carregamento do processo) — invalida o cache do navegador. */
+const ASSET_VERSION = (() => {
+  try {
+    const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'));
+    return crypto.createHash('sha1').update(app).digest('hex').slice(0, 8);
+  } catch {
+    return String(Date.now());
+  }
+})();
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
@@ -111,32 +121,74 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
   const attempts = new Map();
   const secret = password || env.webPanelPassword || null;
   const secretHash = secret ? sha256(secret) : null;
+  // Chave de assinatura derivada da senha: os tokens continuam válidos mesmo se o
+  // processo reiniciar (o preview e a SquareCloud reiniciam com frequência).
+  const signingKey = secretHash ? crypto.createHmac('sha256', secretHash).update('vantus-web-panel').digest() : null;
+  const revoked = new Set();
 
   const resolveGuildId = () => guildId ?? services.settings.get('guild_id') ?? env.guildId ?? null;
 
+  function sign(payload) {
+    return crypto.createHmac('sha256', signingKey).update(payload).digest('base64url');
+  }
+
+  /** Token assinado (stateless): `base64url({exp,iat}).assinatura`. */
   function createSession() {
-    const token = crypto.randomBytes(32).toString('hex');
+    const payload = Buffer.from(
+      JSON.stringify({ iat: Date.now(), exp: Date.now() + SESSION_TTL_MS, jti: crypto.randomUUID() }),
+    ).toString('base64url');
+    const token = `${payload}.${sign(payload)}`;
     sessions.set(token, { createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
     return token;
   }
 
-  /** Token da sessão: cookie (navegador normal) ou Authorization: Bearer (iframe/terceiros). */
-  function tokenFrom(req) {
+  /** @returns {{ok: boolean, reason: string|null}} */
+  function verifyToken(token) {
+    if (!token) return { ok: false, reason: 'sem_token' };
+    if (revoked.has(token)) return { ok: false, reason: 'token_desconhecido' };
+
+    const [payload, signature] = String(token).split('.');
+    if (!payload || !signature) return { ok: false, reason: 'token_desconhecido' };
+
+    const expected = sign(payload);
+    const left = Buffer.from(signature);
+    const right = Buffer.from(expected);
+    if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) {
+      return { ok: false, reason: 'token_desconhecido' };
+    }
+
+    let data = null;
+    try {
+      data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    } catch {
+      return { ok: false, reason: 'token_desconhecido' };
+    }
+    if (!data?.exp || data.exp < Date.now()) return { ok: false, reason: 'expirado' };
+    return { ok: true, reason: null };
+  }
+
+  /**
+   * Token da sessão, na ordem: Authorization: Bearer (iframe/terceiros) →
+   * query `auth` (proxies que removem headers) → cookie (navegador normal).
+   */
+  function tokenFrom(req, url = null) {
     const header = String(req.headers.authorization || '');
-    if (header.toLowerCase().startsWith('bearer ')) return header.slice(7).trim();
+    if (header.toLowerCase().startsWith('bearer ')) {
+      const value = header.slice(7).trim();
+      if (value) return value;
+    }
+    const queryToken = url?.searchParams?.get('auth');
+    if (queryToken) return queryToken;
     return parseCookies(req.headers.cookie)[SESSION_COOKIE] || null;
   }
 
-  function isAuthed(req) {
-    const token = tokenFrom(req);
-    if (!token) return false;
-    const session = sessions.get(token);
-    if (!session) return false;
-    if (session.expiresAt < Date.now()) {
-      sessions.delete(token);
-      return false;
-    }
-    return true;
+  /** @returns {{ok: boolean, reason: string|null}} */
+  function checkSession(req, url = null) {
+    return verifyToken(tokenFrom(req, url));
+  }
+
+  function isAuthed(req, url = null) {
+    return checkSession(req, url).ok;
   }
 
   /**
@@ -180,14 +232,31 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, {
+
+    // Nunca servir cache antigo: durante o desenvolvimento/atualizações o
+    // navegador mantinha o JS velho e o login parecia "expirado".
+    const headers = {
       'content-type': MIME[ext] ?? 'application/octet-stream',
-      'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=300',
+      'cache-control': 'no-store, no-cache, must-revalidate',
+      'pragma': 'no-cache',
       'x-content-type-options': 'nosniff',
       // O painel também é exibido dentro de iframes (preview/proxy): sem
       // X-Frame-Options e com frame-ancestors liberado, senão a tela fica em branco.
       'content-security-policy': "frame-ancestors *",
-    });
+    };
+
+    if (ext === '.html') {
+      // Injeta a versão dos assets para furar qualquer cache intermediário.
+      const html = fs.readFileSync(filePath, 'utf8');
+      const body = html
+        .replace(/href="styles\.css(\?[^"]*)?"/, `href="styles.css?v=${ASSET_VERSION}"`)
+        .replace(/src="app\.js(\?[^"]*)?"/, `src="app.js?v=${ASSET_VERSION}"`);
+      res.writeHead(200, { ...headers, 'content-length': Buffer.byteLength(body) });
+      res.end(body);
+      return;
+    }
+
+    res.writeHead(200, headers);
     fs.createReadStream(filePath).pipe(res);
   }
 
@@ -230,8 +299,11 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       }
 
       if (pathname === '/api/logout' && req.method === 'POST') {
-        const token = tokenFrom(req);
-        if (token) sessions.delete(token);
+        const token = tokenFrom(req, url);
+        if (token) {
+          sessions.delete(token);
+          revoked.add(token);
+        }
         return sendJson(res, 200, { ok: true }, {
           'set-cookie': sessionCookie(req, '', 0),
         });
@@ -239,7 +311,20 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
 
       // A partir daqui tudo exige sessão.
       if (pathname.startsWith('/api/')) {
-        if (!isAuthed(req)) return sendJson(res, 401, { error: 'Sessão expirada. Entre novamente.' });
+        const check = checkSession(req, url);
+        if (!check.ok) {
+          logger.warn(
+            `Acesso negado em ${pathname} (${check.reason}) • cookie: ${
+              req.headers.cookie ? 'sim' : 'não'
+            } • bearer: ${req.headers.authorization ? 'sim' : 'não'} • query: ${
+              url.searchParams.get('auth') ? 'sim' : 'não'
+            }`,
+          );
+          return sendJson(res, 401, {
+            error: check.reason === 'expirado' ? 'Sessão expirada. Entre novamente.' : 'Sessão inválida. Entre novamente.',
+            reason: check.reason,
+          });
+        }
         prune();
       }
 
@@ -363,4 +448,4 @@ function startWebServer({ services, env = {}, logger: customLogger = logger }) {
   });
 }
 
-module.exports = { createWebServer, startWebServer, PUBLIC_DIR, SESSION_COOKIE, SESSION_TTL_MS };
+module.exports = { createWebServer, startWebServer, PUBLIC_DIR, SESSION_COOKIE, SESSION_TTL_MS, ASSET_VERSION };
