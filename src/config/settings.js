@@ -253,6 +253,14 @@ const SETTINGS = {
     group: 'Banco de horas',
     validate: asInt(1, 48),
   },
+  hour_bank_webhook_url: {
+    default: null,
+    type: 'string',
+    label: 'Webhook que recebe a escala da semana (vazio desliga)',
+    group: 'Banco de horas',
+    // A validação completa (formato do webhook do Discord) fica no painel/módulo de envio.
+    validate: (v) => v === null || v === undefined || (typeof v === 'string' && v.length <= 400),
+  },
   message_closed: {
     default: 'A central de atendimento está fechada no momento. Confira os horários de funcionamento abaixo.',
     type: 'string',

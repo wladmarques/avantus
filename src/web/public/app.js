@@ -486,6 +486,74 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Escala no canal (webhook)                                           */
+  /* ------------------------------------------------------------------ */
+
+  function webhookStatus(message, state = '') {
+    const node = $('webhook-status');
+    node.className = state ? `status-line ${state}` : 'status-line';
+    node.textContent = message;
+  }
+
+  async function loadWebhook() {
+    try {
+      const data = await api('/api/schedule/webhook');
+      $('webhook-url').value = data.url || '';
+      webhookStatus(
+        data.configured
+          ? 'Webhook salvo. Use “Enviar escala agora” para publicar a semana.'
+          : 'Nenhum webhook salvo. Cole a URL do webhook do canal e clique em Salvar.',
+      );
+    } catch (error) {
+      if (error.message !== 'unauthorized') webhookStatus(error.message, 'bad');
+    }
+  }
+
+  async function saveWebhook() {
+    const button = $('webhook-save');
+    const url = $('webhook-url').value.trim();
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      const data = await api('/api/schedule/webhook', {
+        method: 'PUT',
+        body: JSON.stringify({ url }),
+      });
+      $('webhook-url').value = data.url || '';
+      webhookStatus(
+        data.configured
+          ? 'Webhook salvo. Use “Enviar escala agora” para publicar a semana.'
+          : 'Webhook removido: o painel não publica mais a escala.',
+        'ok',
+      );
+      toast(data.configured ? 'Webhook salvo.' : 'Webhook removido.');
+    } catch (error) {
+      webhookStatus(error.message, 'bad');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar';
+    }
+  }
+
+  async function sendSchedule() {
+    const button = $('schedule-send');
+    button.disabled = true;
+    button.textContent = 'Enviando…';
+    try {
+      const data = await api('/api/schedule/send', { method: 'POST' });
+      const staff = data.staffCount === 1 ? '1 staff' : `${data.staffCount} staff`;
+      const shifts = data.shiftCount === 1 ? '1 turno' : `${data.shiftCount} turnos`;
+      webhookStatus(`Escala de ${data.week.startLabel} a ${data.week.endLabel} enviada (${staff}, ${shifts}).`, 'ok');
+      toast('Escala enviada no canal.');
+    } catch (error) {
+      webhookStatus(error.message, 'bad');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Enviar escala agora';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* CSV                                                                 */
   /* ------------------------------------------------------------------ */
 
@@ -550,6 +618,7 @@
       showApp();
       setPeriod(6);
       await refresh({ silent: true });
+      await loadWebhook();
       clearInterval(state.timer);
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch (requestError) {
@@ -598,6 +667,15 @@
     event.preventDefault();
     submitName($('name-input').value.trim());
   });
+
+  $('webhook-save').addEventListener('click', saveWebhook);
+  $('schedule-send').addEventListener('click', sendSchedule);
+  $('webhook-url').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveWebhook();
+    }
+  });
   $('name-cancel').addEventListener('click', () => $('name-modal').close());
   $('name-discord').addEventListener('click', () => submitName(''));
 
@@ -611,6 +689,7 @@
       renderStats(overview);
       renderStaff(overview);
       renderScheduleList(overview.staff);
+      await loadWebhook();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch {
       showLogin();

@@ -143,6 +143,15 @@ tbody tr.clickable:hover { background: #15161a; }
 
 /* ---------------- escala ---------------- */
 .schedule-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 14px; }
+
+/* ---------------- webhook da escala ---------------- */
+.webhook-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.webhook-row input { flex: 1 1 340px; min-width: 220px; }
+.webhook-row .btn { flex: 0 0 auto; }
+.status-line { font-size: 11.5px; line-height: 1.5; margin: 10px 0 0; color: var(--muted); }
+.status-line.ok { color: #8ee0a6; }
+.status-line.bad { color: #ff7a6b; }
+.webhook-help { margin: 4px 0 12px; }
 .schedule-card { background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .schedule-card h3 { margin: 0 0 8px; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .schedule-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

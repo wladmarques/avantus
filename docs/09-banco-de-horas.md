@@ -49,6 +49,33 @@ WEB_PANEL_HOST=0.0.0.0
 - **Período**: hoje, 7 dias, 30 dias ou intervalo personalizado.
 - **CSV**: exporta o relatório do período (horas, sessões, entrada, saída, atrasos).
 
+### Escala no canal (webhook)
+
+O painel publica a **escala da semana** (segunda a domingo) no canal do webhook informado.
+
+1. No Discord: canal → **Editar canal** → **Integrações** → **Webhooks** → **Novo webhook** →
+   **Copiar URL do webhook**.
+2. No painel, em **Escala no canal**, cole a URL e clique em **Salvar**.
+3. Clique em **Enviar escala agora** — a mensagem é publicada na hora.
+
+Como a mensagem é montada (sem emojis, paleta VANTUS):
+
+- embed com barra vermelha `#ff2200`, título `ESCALA DA SEMANA` e a semana
+  (`26/10 a 01/11`);
+- **um campo por dia** da semana, com a data e uma linha por staff:
+  `pedrosa17 — 12:00–02:00 (+1 dia)`;
+- staffs ordenados pelo horário de início (e pelo nome em caso de empate);
+- dia sem ninguém escalado aparece como `—`;
+- rodapé `VANTUS • Banco de horas`;
+- ninguém é mencionado/pingado (`allowed_mentions.parse` vazio).
+
+O webhook fica salvo na configuração `hour_bank_webhook_url` (tabela `settings`) e só é
+aceito no formato do Discord — para remover, apague o campo e salve.
+
+> Para testar sem postar em um canal real, rode o receptor local e suba o preview apontando
+> para ele: `node scripts/dev-webhook-sink.js` em um terminal e, no outro,
+> `PREVIEW_WEBHOOK_URL=http://127.0.0.1:8099/hook npm run preview:web`.
+
 ### Nome do staff
 
 Cada staff aparece pelo **nome cadastrado**. A ordem usada pelo painel é:
@@ -88,6 +115,9 @@ membro. O nome manual **nunca** é sobrescrito pela resolução automática. Tud
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end }] }` |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
+| GET | `/api/schedule/webhook` | webhook cadastrado (`{ url, configured }`) |
+| PUT | `/api/schedule/webhook` | `{ url }` — salva o webhook da escala (`""` remove) |
+| POST | `/api/schedule/send` | publica a escala da semana no webhook |
 | DELETE | `/api/staff/:userId/shifts` | remove a escala |
 | GET | `/api/health` | verificação de disponibilidade |
 
@@ -161,6 +191,7 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | Login "não aceita" e volta para a tela de senha | corrigido: token assinado em memória/hash, aceito via header, query ou cookie. Se aparecer, clique em **Recarregar** na própria tela (limpa cache do JS antigo) |
 | Entra, mas a tela de senha **continua na frente** do painel | era CSS: `.login { display: grid }` vencia o atributo `hidden`. Corrigido com `[hidden] { display: none !important }`; há teste de regressão do CSS |
 | Mensagem "unauthorized" ao errar a senha | corrigido: o login mostra o texto do servidor (**Senha incorreta.**) e o botão fica em "Entrando…" durante a requisição |
+| Webhook recusa a escala | URL copiada incompleta, webhook apagado/canal sem permissão ou mensagem enviada por outro bot — confira a mensagem do painel (HTTP 400/404) |
 | Horas erradas após queda do bot | a sessão é fechada no limite de `hour_bank_max_session_hours`; ajuste manualmente a escala/horário pelo painel |
 
 ## Log do painel

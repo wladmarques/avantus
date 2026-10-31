@@ -23,6 +23,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createLogger } = require('../utils/logger');
+const {
+  getWebhookUrl,
+  setWebhookUrl,
+  sendWeeklySchedule,
+} = require('../systems/hourbank/scheduleBroadcast');
 
 const logger = createLogger('web');
 
@@ -408,6 +413,41 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           to: url.searchParams.get('to'),
         });
         return sendJson(res, 200, { sessions: sessionsList });
+      }
+
+      if (pathname === '/api/schedule/webhook' && req.method === 'GET') {
+        const url = getWebhookUrl(services.settings);
+        return sendJson(res, 200, { url, configured: Boolean(url) });
+      }
+
+      if (pathname === '/api/schedule/webhook' && req.method === 'PUT') {
+        const body = await readBody(req);
+        try {
+          const url = await setWebhookUrl(services.settings, body.url);
+          logger.info(
+            url
+              ? `Webhook da escala salvo pelo painel (${url.replace(/\/[\w-]{20,}$/, '/•••')}).`
+              : 'Webhook da escala removido pelo painel.',
+          );
+          return sendJson(res, 200, { ok: true, url, configured: Boolean(url) });
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      if (pathname === '/api/schedule/send' && req.method === 'POST') {
+        try {
+          const result = await sendWeeklySchedule({
+            settings: services.settings,
+            hourBank: services.hourBank,
+            guildId: currentGuildId,
+            timeZone: env.timezone,
+          });
+          return sendJson(res, 200, result);
+        } catch (error) {
+          logger.warn(`Falha ao enviar a escala pelo webhook: ${error.message}`);
+          return sendJson(res, 400, { error: error.message });
+        }
       }
 
       const nameMatch = /^\/api\/staff\/(\d{5,25})\/name$/.exec(pathname);

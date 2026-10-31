@@ -484,3 +484,89 @@ test('todo id usado pelo app.js existe no HTML (nada quebra ao carregar o painel
   const missing = [...ids].filter((id) => !new RegExp(`id="${id}"`).test(page.text));
   assert.deepEqual(missing, [], `ids ausentes no index.html: ${missing.join(', ')}`);
 });
+
+test('webhook da escala: salvar, ler e enviar pelo painel', async (t) => {
+  const http = require('node:http');
+  const { SETTING_KEY } = require('../src/systems/hourbank/scheduleBroadcast');
+
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+
+  const received = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', () => {
+      received.push(JSON.parse(body));
+      res.writeHead(204);
+      res.end();
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+  t.after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    await panel.close();
+    await env.cleanup();
+  });
+
+  await env.services.hourBank.setSchedule({
+    guildId: env.guildId,
+    userId: STAFF,
+    staffName: 'pedrosa17',
+    shifts: [{ weekday: 1, start: '12:00', end: '18:00' }],
+  });
+
+  const { token } = await panel.login();
+
+  // Rotas exigem sessão.
+  assert.equal((await panel.call('/api/schedule/webhook')).status, 401);
+  assert.equal(
+    (await panel.call('/api/schedule/webhook', { method: 'PUT', body: { url: 'https://discord.com/api/webhooks/1/x' } })).status,
+    401,
+  );
+  assert.equal((await panel.call('/api/schedule/send', { method: 'POST' })).status, 401);
+
+  // Endereço inválido é recusado com mensagem clara.
+  const invalid = await panel.call('/api/schedule/webhook', {
+    method: 'PUT',
+    body: { url: 'https://exemplo.com/hook' },
+    token,
+  });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.json.error, /Webhook inválido/);
+
+  // Enviar sem webhook configurado.
+  const notConfigured = await panel.call('/api/schedule/send', { method: 'POST', token });
+  assert.equal(notConfigured.status, 400);
+  assert.match(notConfigured.json.error, /Nenhum webhook cadastrado/);
+
+  // Webhook válido é salvo e devolvido.
+  const discordUrl = 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz0123456789';
+  const saved = await panel.call('/api/schedule/webhook', { method: 'PUT', body: { url: discordUrl }, token });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.configured, true);
+  const current = await panel.call('/api/schedule/webhook', { token });
+  assert.equal(current.json.url, discordUrl);
+
+  // Envio real (webhook apontando para o servidor local de teste).
+  const localUrl = `http://127.0.0.1:${server.address().port}/webhooks/1/token`;
+  await env.services.settings.set(SETTING_KEY, localUrl);
+  const sent = await panel.call('/api/schedule/send', { method: 'POST', token });
+  assert.equal(sent.status, 200);
+  assert.equal(sent.json.ok, true);
+  assert.equal(sent.json.staffCount, 1);
+  assert.equal(sent.json.shiftCount, 1);
+  assert.match(sent.json.week.startKey, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(received.length, 1);
+  assert.equal(received[0].embeds[0].title, 'ESCALA DA SEMANA');
+  assert.match(received[0].embeds[0].fields[0].value, /pedrosa17/);
+
+  // Falha do Discord vira mensagem no painel (não 500).
+  await env.services.settings.set(SETTING_KEY, 'http://127.0.0.1:1/webhooks/1/token');
+  const failed = await panel.call('/api/schedule/send', { method: 'POST', token });
+  assert.equal(failed.status, 400);
+  assert.ok(failed.json.error.length > 0);
+});

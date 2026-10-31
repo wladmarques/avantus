@@ -61,6 +61,12 @@ async function main() {
     wait_channel_id: '200000000000000001',
   });
 
+  // Teste local do webhook da escala: aponte para um receptor seu, por exemplo
+  //   PREVIEW_WEBHOOK_URL=http://127.0.0.1:8099/hook npm run preview:web
+  if (process.env.PREVIEW_WEBHOOK_URL) {
+    await services.settings.set('hour_bank_webhook_url', process.env.PREVIEW_WEBHOOK_URL);
+  }
+
   // Silencia o log enquanto os dados de exemplo são criados.
   const desiredLevel = process.env.LOG_LEVEL || 'warn';
   setLevel('warn');

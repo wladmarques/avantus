@@ -93,6 +93,22 @@
       </div>
       <div id="schedule-list" class="schedule-list"></div>
     </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Escala no canal</h2>
+        <span class="muted small">Publica a escala da semana (segunda a domingo) pelo webhook do canal.</span>
+      </div>
+      <div class="webhook-row">
+        <input id="webhook-url" type="url" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" spellcheck="false" aria-label="URL do webhook">
+        <button id="webhook-save" class="btn ghost">Salvar</button>
+        <button id="schedule-send" class="btn primary">Enviar escala agora</button>
+      </div>
+      <p id="webhook-status" class="status-line">Carregando…</p>
+      <p class="muted small webhook-help">
+        Discord: canal → Editar canal → Integrações → Webhooks → Novo webhook → Copiar URL do webhook.
+      </p>
+    </div>
   </section>
 
   <!-- Modal: escala -->
