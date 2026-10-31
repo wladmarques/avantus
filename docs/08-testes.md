@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 96 testes (node:test), sem token e sem internet
+npm test             # 117 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -18,6 +18,8 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/queue.test.js` | entrada, protocolo/posição, duplicidade, central fechada, desistência, saída do servidor, chamada sem voz, **duas chamadas simultâneas**, staff ocupado, fila vazia |
 | `tests/attendance.test.js` | chamada + movimentação, presença, finalização + avaliação, avaliação única, devolução à fila, políticas de pulo, motivo obrigatório, não compareceu, staff saiu, limpeza de fila |
 | `tests/voice.test.js` | presença por evento de voz, desconexão com tolerância, staff conectado/desconectado, staff que não retorna, jogador sai da espera |
+| `tests/hourBank.test.js` | escala (substituição, turno noturno, validação), sessão aberta/fechada pelo status, atendimento mantendo a contagem, atraso, relatório, resumo, aviso de 5 min sem duplicar, fechamento de sessão esquecida e desligamento do módulo |
+| `tests/webPanel.test.js` | autenticação do painel (401, senha errada, sessão, logout), painel desligado sem senha, salvar/remover escala pela API, relatório e sessões, assets estáticos |
 | `tests/availability.test.js` | entrada na fila só com staff disponível e central aberta: botão desabilitado (V2 e clássico), recusa com `SEM_STAFF`, staff ocupado, liberação imediata, entrada por voz bloqueada |
 | `tests/voiceAutoJoin.test.js` | fluxo real do evento `voiceStateUpdate` (entra na fila ao entrar no canal de espera), servidor divergente, entrada automática desligada, canal de espera ausente, outro canal de voz, fila cheia com aviso ao jogador, bloqueio de reentrada, membro fora do cache, saída do canal tirando da fila (evento) |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |

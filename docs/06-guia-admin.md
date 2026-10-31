@@ -77,6 +77,23 @@ Toda ação exige motivo/justificativa (quando aplicável) e gera log com o resp
 Status: `DISPONIVEL`, `EM_ATENDIMENTO`, `AUSENTE`, `INDISPONIVEL`.
 Admins também podem alterar o status de qualquer membro; staffs alteram apenas o próprio.
 
+## Banco de horas
+
+1. Abra o **painel web** (endereço do app + senha `WEB_PANEL_PASSWORD`).
+2. Em **Equipe**, clique em **Editar escala** na linha do staff e cadastre os turnos da semana.
+   Turnos que cruzam a meia-noite são aceitos (`22:00` → `02:00`).
+3. As horas passam a contar sozinhas quando o staff fica **Disponível**.
+4. Em **Sessões** (clique na linha) você vê entrada, saída, duração e atrasos de cada dia.
+5. Use **CSV** para exportar o período e fechar a folha de horas.
+
+```bash
+/banco equipe                                  # resumo dos últimos 7 dias
+/banco escala membro:@x dia:Sábado inicio:20:00 fim:02:00
+/banco limpar membro:@x
+```
+
+Detalhes técnicos e solução de problemas: [09-banco-de-horas.md](09-banco-de-horas.md).
+
 ## Relatórios
 
 ```

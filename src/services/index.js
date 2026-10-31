@@ -13,6 +13,7 @@ const { EvaluationRepository } = require('../database/repositories/evaluationRep
 const { AuditRepository } = require('../database/repositories/auditRepository');
 const { PanelRepository } = require('../database/repositories/panelRepository');
 const { CooldownRepository } = require('../database/repositories/cooldownRepository');
+const { HourBankRepository } = require('../database/repositories/hourBankRepository');
 
 const { NotificationService } = require('../systems/notifications/notificationService');
 const { AuditService } = require('../systems/logs/auditService');
@@ -27,6 +28,7 @@ const { PanelService } = require('../systems/panels/panelService');
 const { StatisticsService } = require('../systems/statistics/statisticsService');
 const { EvaluationService } = require('../systems/evaluations/evaluationService');
 const { RecoveryService } = require('../systems/recovery/recoveryService');
+const { HourBankService } = require('../systems/hourbank/hourBankService');
 const { createLogger } = require('../utils/logger');
 
 const logger = createLogger('container');
@@ -41,6 +43,7 @@ async function createServices({ db, gateway }) {
     audit: new AuditRepository(db),
     panels: new PanelRepository(db),
     cooldowns: new CooldownRepository(db),
+    hourBank: new HourBankRepository(db),
   };
 
   await db.transaction(async () => {
@@ -67,7 +70,24 @@ async function createServices({ db, gateway }) {
   });
 
   const scheduleService = new ScheduleService({ settings, logger });
-  const staffService = new StaffService({ db, repo: repositories.staff, gateway });
+
+  // Banco de horas: conta o tempo em serviço, controla escala e avisos de turno.
+  const hourBankService = new HourBankService({
+    db,
+    repo: repositories.hourBank,
+    settings,
+    gateway,
+    notifications: notificationService,
+  });
+
+  const staffService = new StaffService({
+    db,
+    repo: repositories.staff,
+    gateway,
+    hourBank: hourBankService,
+  });
+  // o painel web precisa do status atual de cada staff
+  hourBankService.staff = staffService;
 
   let panelService = null;
   const panelFacade = {
@@ -145,6 +165,7 @@ async function createServices({ db, gateway }) {
     central: centralService,
     queue: queueService,
     cooldowns: cooldownService,
+    hourBank: hourBankService,
     attendance: attendanceService,
     statistics: statisticsService,
     evaluations: evaluationService,

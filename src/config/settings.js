@@ -232,6 +232,27 @@ const SETTINGS = {
     group: 'Mensagens',
     validate: (v) => typeof v === 'string' && v.length > 0 && v.length <= 120,
   },
+  hour_bank_enabled: {
+    default: true,
+    type: 'boolean',
+    label: 'Contar horas do staff em serviço (banco de horas)',
+    group: 'Banco de horas',
+    validate: asBool,
+  },
+  hour_bank_reminder_minutes: {
+    default: 5,
+    type: 'number',
+    label: 'Aviso por DM (minutos antes do turno; 0 desliga)',
+    group: 'Banco de horas',
+    validate: asInt(0, 120),
+  },
+  hour_bank_max_session_hours: {
+    default: 12,
+    type: 'number',
+    label: 'Fechamento automático de sessões longas (horas)',
+    group: 'Banco de horas',
+    validate: asInt(1, 48),
+  },
   message_closed: {
     default: 'A central de atendimento está fechada no momento. Confira os horários de funcionamento abaixo.',
     type: 'string',

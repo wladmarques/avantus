@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VANTUS • Banco de horas</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+  <!-- Login -->
+  <section id="login" class="login">
+    <div class="login-card">
+      <div class="brand"><span class="brand-bar"></span> VANTUS <span class="brand-tag">BANCO DE HORAS</span></div>
+      <h1>Painel da equipe</h1>
+      <p class="muted">Acesso restrito à administração. Informe a senha configurada em <code>WEB_PANEL_PASSWORD</code>.</p>
+      <form id="login-form" autocomplete="on">
+        <label for="password">Senha</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button type="submit" class="btn primary">Entrar</button>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Painel -->
+  <section id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="brand-bar"></span> VANTUS <span class="brand-tag">BANCO DE HORAS</span></div>
+      <div class="topbar-actions">
+        <span id="guild" class="muted small"></span>
+        <button id="logout" class="btn ghost">Sair</button>
+      </div>
+    </header>
+
+    <div class="period">
+      <div class="period-buttons" id="period-buttons">
+        <button data-days="0" class="chip active">Hoje</button>
+        <button data-days="6" class="chip">7 dias</button>
+        <button data-days="29" class="chip">30 dias</button>
+      </div>
+      <div class="period-custom">
+        <input type="date" id="from" aria-label="Data inicial">
+        <span class="muted">até</span>
+        <input type="date" id="to" aria-label="Data final">
+        <button id="apply" class="btn ghost">Aplicar</button>
+        <button id="export" class="btn ghost">CSV</button>
+      </div>
+      <span id="updated" class="muted small"></span>
+    </div>
+
+    <div class="cards">
+      <div class="stat"><span class="stat-label">Staff cadastrados</span><strong id="stat-staff">—</strong></div>
+      <div class="stat"><span class="stat-label">Em serviço agora</span><strong id="stat-online">—</strong></div>
+      <div class="stat"><span class="stat-label">Horas no período</span><strong id="stat-hours">—</strong></div>
+      <div class="stat"><span class="stat-label">Atrasos</span><strong id="stat-late">—</strong></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Equipe</h2>
+        <span class="muted small">Clique em uma linha para ver as sessões do período.</span>
+      </div>
+      <div class="table-wrap">
+        <table id="staff-table">
+          <thead>
+            <tr>
+              <th>Staff</th>
+              <th>Status</th>
+              <th>Turno de hoje</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+              <th class="num">Horas</th>
+              <th class="num">Atrasos</th>
+              <th class="num">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="staff-body">
+            <tr><td colspan="8" class="empty">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Escala cadastrada</h2>
+        <span class="muted small">Defina o horário de atendimento de cada staff. O aviso por DM é enviado antes do início.</span>
+      </div>
+      <div id="schedule-list" class="schedule-list"></div>
+    </div>
+  </section>
+
+  <!-- Modal: escala -->
+  <dialog id="modal">
+    <form id="schedule-form" method="dialog">
+      <h2 id="modal-title">Escala do staff</h2>
+      <p class="muted small">Horários no fuso configurado no bot. Turnos que cruzam a meia-noite são aceitos (ex.: 22:00 → 02:00).</p>
+      <div class="field">
+        <label for="staff-name">Nome do staff (opcional)</label>
+        <input id="staff-name" type="text" maxlength="60" placeholder="Ex.: pedrosa17">
+      </div>
+      <div id="shift-rows" class="shift-rows"></div>
+      <div class="modal-actions">
+        <button type="button" id="add-shift" class="btn ghost">+ Adicionar turno</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" class="btn primary">Salvar escala</button>
+      </div>
+      <p id="modal-error" class="error" hidden></p>
+    </form>
+  </dialog>
+
+  <!-- Modal: sessões -->
+  <dialog id="sessions-modal">
+    <h2 id="sessions-title">Sessões</h2>
+    <div id="sessions-body" class="sessions"></div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button type="button" id="sessions-close" class="btn ghost">Fechar</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

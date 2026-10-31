@@ -20,6 +20,7 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 | [docs/06-guia-admin.md](docs/06-guia-admin.md) | Guia administrativo (comandos e configurações) |
 | [docs/07-arquitetura.md](docs/07-arquitetura.md) | Arquitetura, modelo de dados e fluxos |
 | [docs/08-testes.md](docs/08-testes.md) | Testes automatizados e checklist de QA |
+| [docs/09-banco-de-horas.md](docs/09-banco-de-horas.md) | Banco de horas: escala, painel web e relatórios |
 
 ---
 
@@ -58,12 +59,22 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 - Estatísticas por hoje/7 dias/30 dias/mês/período total, ranking de produtividade e avaliações.
 - Recuperação completa do estado após reinício: fila, atendimentos, painéis e timers.
 
+**Banco de horas**
+- Escala semanal por staff (turnos que cruzam a madrugada suportados), cadastrada no **painel web**
+  ou por `/banco escala`.
+- As horas contam automaticamente enquanto o staff está **em serviço** (disponível ou em
+  atendimento) e param ao ficar ausente/indisponível.
+- **Aviso por DM 5 minutos antes** do turno começar (configurável, sem duplicidade).
+- Painel web (HTTP nativo, autenticado) com: entrada, saída, horas do período, atrasos, saídas
+  antecipadas, sessões detalhadas, edição de escala e exportação CSV.
+- `/banco ver|staff|equipe` para consultas rápidas no Discord.
+
 **Técnico**
 - SQLite via `sql.js` (WebAssembly): sem módulo nativo, sem serviço externo, gravação atômica.
 - Transações serializadas por mutex → operações críticas atômicas.
 - Painéis persistentes: a referência da mensagem fica no banco, nunca duplica.
 - Tratamento global de erros, logs estruturados e encerramento gracioso (SIGINT/SIGTERM).
-- 52 testes automatizados cobrindo fila, concorrência, voz, painéis, persistência, relatórios e UI.
+- 117 testes automatizados cobrindo fila, concorrência, voz, painéis, banco de horas, painel web, persistência e UI.
 
 ---
 
@@ -73,7 +84,7 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
 git clone <seu-repositorio> && cd avantus
 npm install
 cp .env.example .env      # preencha DISCORD_TOKEN e GUILD_ID
-npm start
+npm start                 # bot + painel web (se WEB_PANEL_PASSWORD estiver definido)
 ```
 
 No Discord, como administrador:
@@ -97,17 +108,18 @@ src/
   commands/
     admin/                painel, central, config, horario, staff, fila, estatisticas,
                           avaliacoes, historico, diagnostico, setup
-    staff/                chamar, finalizar, devolver, pular, status
+    staff/                chamar, finalizar, devolver, pular, status, banco
     player/               entrar, sair, posicao, protocolo, ajuda
   config/                 env, settings (editáveis), permissions, theme
   database/
     connection.js         SQLite (sql.js), transações e persistência atômica
     migrations.js         schema versionado
-    repositories/         settings, attendance, staff, evaluations, audit, panels, counters
+    repositories/         settings, attendance, staff, evaluations, audit, panels, counters, cooldowns, hourBank
   systems/
     queue/                fachada da fila
     attendance/           motor de atendimento (regras, timers, recuperação)
     staff/                disponibilidade da equipe
+    hourbank/             banco de horas (sessões, atrasos, escala, avisos)
     statistics/           relatórios e ranking
     evaluations/          avaliações pós-atendimento
     notifications/        mensagens privadas e avisos
@@ -119,6 +131,7 @@ src/
     panels/               layout dos painéis público e staff
     embeds/               cards e mensagens
     components/           botões, selects e IDs persistentes
+  web/                    painel web do banco de horas (HTTP + API + interface)
   interactions/           routers, botões, selects e modais
   events/                 client, members, voice
   handlers/               carregamento de comandos/eventos, respostas, registro
@@ -155,6 +168,8 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 | Staff | `/devolver [motivo]` | Devolve o jogador ao final da fila |
 | Staff | `/pular jogador motivo` | Pula um jogador (motivo obrigatório) |
 | Staff | `/status situacao` | Define sua disponibilidade |
+| Staff | `/banco ver\|staff` | Suas horas, escala, atrasos e próximo turno |
+| Admin | `/banco equipe\|escala\|limpar` | Relatório da equipe e cadastro de turnos |
 | Admin | `/painel publicar\|atualizar\|reconstruir` | Gerencia os painéis |
 | Admin | `/central abrir\|fechar\|alternar\|status` | Controla a central |
 | Admin | `/config ver\|definir` | Edita qualquer configuração |
@@ -173,12 +188,13 @@ data/                     banco SQLite (apenas .gitkeep é versionado)
 
 ```bash
 npm start                 # inicia o bot
-npm test                  # roda os 96 testes
+npm test                  # roda os 117 testes
 npm run lint              # checagem de sintaxe de todo o projeto
 npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
 npm run package           # gera o .zip de deploy para a SquareCloud
 npm run preview           # gera preview/panel.html e preview/staff.html (layout e cores reais)
+npm run preview:web       # sobe o painel web do banco de horas com dados de exemplo (senha: vantus)
 ```
 
 O pacote gerado (`entrega/vantus-atendimento-squarecloud.zip`) já sai sem `node_modules`, `tests`,

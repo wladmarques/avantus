@@ -33,6 +33,10 @@ const env = {
   panelRefreshSeconds: int('PANEL_REFRESH_SECONDS', 30),
   backupRetention: int('BACKUP_RETENTION', 10),
   isProduction: (required('NODE_ENV') || 'production') === 'production',
+  // Painel web do banco de horas
+  webPanelPassword: required('WEB_PANEL_PASSWORD'),
+  webPanelPort: int('WEB_PANEL_PORT', 8080),
+  webPanelHost: required('WEB_PANEL_HOST') || '0.0.0.0',
 };
 
 /** Valida as variáveis obrigatórias e devolve a lista de erros. */

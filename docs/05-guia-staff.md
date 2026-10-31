@@ -72,3 +72,23 @@ Ao finalizar, você volta para 🟢 DISPONÍVEL — **exceto** se você mesmo de
 - Use **Chamar específico** apenas em situações justificadas — o log registra quem alterou a ordem e por quê.
 - Não remova jogadores sem justificativa real: toda ação fica no histórico administrativo.
 - Deixe a disponibilidade em ⚫ INDISPONÍVEL ao sair de serviço, para não distorcer a espera média.
+
+## Banco de horas
+
+Enquanto você estiver **em serviço**, o bot conta o seu tempo automaticamente:
+
+- ficar **Disponível** (`/status`) abre a sessão; entrar **Em atendimento** mantém a contagem;
+- ficar **Ausente** ou **Indisponível** (ou sair do canal) encerra a sessão;
+- **5 minutos antes** do turno cadastrado na sua escala você recebe uma **DM de aviso**;
+- atrasos são medidos em relação ao início do turno cadastrado.
+
+Consulte a qualquer momento:
+
+```bash
+/banco ver
+```
+
+Para ver as horas de um colega (equipe): `/banco staff membro:@fulano`.
+
+O painel web mostra o detalhamento completo (entrada, saída, horas por dia, atrasos e sessões).
+Se a sua escala estiver errada, peça à administração para ajustar em `/banco escala` ou no painel.

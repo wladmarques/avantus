@@ -14,6 +14,7 @@ const { createServices } = require('./src/services');
 const { DiscordGateway } = require('./src/services/discordGateway');
 const { loadCommands } = require('./src/handlers/commandHandler');
 const { loadEvents } = require('./src/handlers/eventHandler');
+const { startWebServer } = require('./src/web/server');
 
 const logger = createLogger('boot');
 setLevel(env.logLevel);
@@ -22,6 +23,8 @@ const runtime = {
   panelTimer: null,
   expireTimer: null,
   stopScheduleWatcher: null,
+  stopHourBankWatcher: null,
+  webServer: null,
   shuttingDown: false,
 };
 
@@ -54,6 +57,13 @@ async function main() {
 
   const gateway = new DiscordGateway(client, { settings: null });
   services = await createServices({ db, gateway });
+
+  // Painel web do banco de horas (independe do Discord: sobe antes do login)
+  runtime.webServer = await startWebServer({ services, env, logger });
+  services.webPanel = runtime.webServer
+    ? { enabled: true, port: runtime.webServer.port }
+    : { enabled: false, port: null };
+  if (runtime.webServer) logger.info(`Banco de horas disponível na porta ${runtime.webServer.port}`);
 
   client.commands = loadCommands();
   logger.info(`${client.commands.size} comandos carregados`);
@@ -97,6 +107,8 @@ async function shutdown(signal) {
     if (runtime.panelTimer) clearInterval(runtime.panelTimer);
     if (runtime.expireTimer) clearInterval(runtime.expireTimer);
     if (typeof runtime.stopScheduleWatcher === 'function') runtime.stopScheduleWatcher();
+    if (typeof runtime.stopHourBankWatcher === 'function') runtime.stopHourBankWatcher();
+    if (runtime.webServer) await runtime.webServer.close();
     for (const timer of services?.engine?.timers?.values?.() ?? []) clearTimeout(timer);
   } catch (error) {
     logger.warn(`Falha ao limpar timers: ${error.message}`);

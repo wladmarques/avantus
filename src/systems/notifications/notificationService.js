@@ -203,6 +203,22 @@ class NotificationService {
     );
   }
 
+  /** Aviso ao staff antes do início do turno (banco de horas). */
+  shiftReminder({ guildId, userId, shift, startsAt, minutesAhead }) {
+    const embed = card({
+      title: '⏰ Seu turno começa em breve',
+      description: [
+        `**Turno:** ${shift.weekdayLabel} • ${shift.start} às ${shift.end}`,
+        `**Início:** ${formatTime(new Date(startsAt))} (em ${minutesAhead} minuto(s))`,
+        '',
+        'Entre no canal de voz de atendimento e fique **disponível** para começar a contar as suas horas.',
+        'Se não puder comparecer, avise a administração.',
+      ].join('\n'),
+      color: COLORS.WARNING,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
   /** Aviso ao jogador quando a entrada automática pela voz não deu certo. */
   voiceJoinFailed({ guildId, userId, reason }) {
     const embed = card({

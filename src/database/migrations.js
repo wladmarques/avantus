@@ -167,6 +167,70 @@ const migrations = [
       `);
     },
   },
+  {
+    version: 5,
+    name: 'banco_de_horas',
+    up(db) {
+      db.exec(`
+        -- Escala semanal de cada staff (horário em que ele deve estar em serviço).
+        -- weekday: 0 = domingo ... 6 = sábado (fuso configurado).
+        -- start_minutes/end_minutes: minutos desde 00:00; end <= start vira o dia.
+        CREATE TABLE IF NOT EXISTS staff_shifts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          staff_name TEXT,
+          weekday INTEGER NOT NULL,
+          start_minutes INTEGER NOT NULL,
+          end_minutes INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_staff_shifts_user
+          ON staff_shifts(guild_id, user_id, weekday);
+
+        CREATE INDEX IF NOT EXISTS ix_staff_shifts_weekday
+          ON staff_shifts(guild_id, weekday, start_minutes);
+
+        -- Sessões de trabalho: abertas quando o staff fica DISPONÍVEL e fechadas
+        -- quando ele sai de serviço (ausente/indisponível) ou no fechamento automático.
+        CREATE TABLE IF NOT EXISTS staff_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          staff_name TEXT,
+          started_at INTEGER NOT NULL,
+          ended_at INTEGER,
+          minutes INTEGER,
+          source TEXT,
+          shift_id INTEGER,
+          scheduled_start INTEGER,
+          scheduled_end INTEGER,
+          late_minutes INTEGER NOT NULL DEFAULT 0,
+          early_leave_minutes INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_staff_sessions_open
+          ON staff_sessions(guild_id, user_id, ended_at);
+
+        CREATE INDEX IF NOT EXISTS ix_staff_sessions_period
+          ON staff_sessions(guild_id, started_at, ended_at);
+
+        -- Controle dos avisos enviados antes do turno (evita DM duplicada).
+        CREATE TABLE IF NOT EXISTS staff_shift_reminders (
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          shift_id INTEGER NOT NULL,
+          shift_day TEXT NOT NULL,
+          sent_at INTEGER NOT NULL,
+          PRIMARY KEY (guild_id, user_id, shift_id, shift_day)
+        );
+      `);
+    },
+  },
 ];
 
 /**

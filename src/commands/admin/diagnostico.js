@@ -104,6 +104,24 @@ module.exports = {
       push(false, 'Jogadores em bloqueio', `${blocked.length} aguardando liberar`);
     }
 
+    // ---- banco de horas ----
+    const openSessions = services.repositories.hourBank.listOpenSync(guildId).length;
+    const scheduledStaff = new Set(services.hourBank.listShifts(guildId).map((shift) => shift.userId)).size;
+    push(
+      services.hourBank.enabled,
+      'Banco de horas',
+      services.hourBank.enabled
+        ? `${openSessions} sessão(ões) aberta(s) • ${scheduledStaff} staff(s) com escala • aviso ${services.hourBank.reminderMinutes} min antes`
+        : 'desligado',
+    );
+    push(
+      Boolean(services.webPanel?.enabled ?? null),
+      'Painel web do banco de horas',
+      services.webPanel?.enabled
+        ? `ativo na porta ${services.webPanel.port}`
+        : 'desligado (defina WEB_PANEL_PASSWORD no .env)',
+    );
+
     push(settings.staff_role_ids.length > 0, 'Cargos de staff', `${settings.staff_role_ids.length} configurado(s)`);
     push(settings.admin_role_ids.length > 0, 'Cargos administrativos', `${settings.admin_role_ids.length} configurado(s)`);
 

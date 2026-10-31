@@ -8,27 +8,42 @@ const { STAFF_STATUS, STAFF_STATUS_META } = require('../../config/theme');
  * - EM_ATENDIMENTO é aplicado automaticamente pelo sistema (manual = 0).
  */
 class StaffService {
-  constructor({ db, repo, gateway }) {
+  constructor({ db, repo, gateway, hourBank = null }) {
     this.db = db;
     this.repo = repo;
     this.gateway = gateway;
+    this.hourBank = hourBank;
+  }
+
+  /** Mantém o banco de horas alinhado com o status (nunca lança erro). */
+  async _syncHourBank(guildId, userId, status) {
+    if (!this.hourBank?.syncStatus) return null;
+    try {
+      return await this.hourBank.syncStatus({ guildId, userId, status });
+    } catch {
+      return null;
+    }
   }
 
   async setStatus({ guildId, userId, status, updatedBy = null, manual = true }) {
     if (!STAFF_STATUS_META[status]) throw new Error(`Status inválido: ${status}`);
-    return this.db.transaction(async () =>
+    const row = await this.db.transaction(async () =>
       this.repo.upsertSync(guildId, userId, { status, manual: manual ? 1 : 0, updatedBy }),
     );
+    await this._syncHourBank(guildId, userId, status);
+    return row;
   }
 
   async markBusy(guildId, userId) {
-    return this.db.transaction(async () =>
+    const row = await this.db.transaction(async () =>
       this.repo.upsertSync(guildId, userId, {
         status: STAFF_STATUS.EM_ATENDIMENTO,
         manual: 0,
         updatedBy: 'sistema',
       }),
     );
+    await this._syncHourBank(guildId, userId, STAFF_STATUS.EM_ATENDIMENTO);
+    return row;
   }
 
   /** Libera o staff após um atendimento, respeitando status manual. */
@@ -39,25 +54,29 @@ class StaffService {
     if (current && current.manual === 1 && current.status !== STAFF_STATUS.EM_ATENDIMENTO) {
       return current;
     }
-    return this.db.transaction(async () =>
+    const row = await this.db.transaction(async () =>
       this.repo.upsertSync(guildId, userId, {
         status: STAFF_STATUS.DISPONIVEL,
         manual: 0,
         updatedBy: 'sistema',
       }),
     );
+    await this._syncHourBank(guildId, userId, STAFF_STATUS.DISPONIVEL);
+    return row;
   }
 
   async markUnavailableFromVoice(guildId, userId) {
     const current = this.repo.getSync(guildId, userId);
     if (current && current.status === STAFF_STATUS.AUSENTE) return current;
-    return this.db.transaction(async () =>
+    const row = await this.db.transaction(async () =>
       this.repo.upsertSync(guildId, userId, {
         status: STAFF_STATUS.INDISPONIVEL,
         manual: 0,
         updatedBy: 'sistema',
       }),
     );
+    await this._syncHourBank(guildId, userId, STAFF_STATUS.INDISPONIVEL);
+    return row;
   }
 
   get(guildId, userId) {
@@ -98,7 +117,10 @@ class StaffService {
   }
 
   async setManualStatusForAll(guildId, status, updatedBy) {
-    return this.db.transaction(async () => this.repo.resetAllToSync(guildId, status, updatedBy));
+    const userIds = this.repo.listSync(guildId).map((row) => row.user_id);
+    const result = await this.db.transaction(async () => this.repo.resetAllToSync(guildId, status, updatedBy));
+    for (const userId of userIds) await this._syncHourBank(guildId, userId, status);
+    return result;
   }
 }
 

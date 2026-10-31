@@ -17,6 +17,7 @@
     "package": "node scripts/package.js",
     "preview:panel": "node scripts/preview-panel.js",
     "preview:staff": "node scripts/preview-staff.js",
+    "preview:web": "node scripts/preview-web.js",
     "preview": "npm run preview:panel && npm run preview:staff"
   },
   "keywords": [

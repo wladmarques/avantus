@@ -114,3 +114,16 @@ waiting ──► serving ──► finished
 - Erros inesperados são logados e, no máximo a cada 30s, enviados ao canal de logs.
 - Handlers globais: `unhandledRejection` e `uncaughtException` não derrubam o processo;
   `AUTORESTART=true` cobre falhas reais.
+
+## Banco de horas (módulo `hourbank` + `web`)
+
+- `src/systems/hourbank/hourBankService.js` — abre/fecha sessões conforme o status do staff,
+  calcula atraso e saída antecipada, gera relatórios e dispara os avisos de turno.
+- `src/systems/hourbank/shiftSchedule.js` — álgebra da escala (turnos que viram o dia, próxima
+  ocorrência, dia da semana no fuso configurado).
+- `src/database/repositories/hourBankRepository.js` — tabelas `staff_shifts`, `staff_sessions`
+  e `staff_shift_reminders` (migração v5).
+- `src/web/` — servidor HTTP nativo com autenticação por senha, API JSON e interface estática.
+  Sobe antes do login no Discord e é encerrado no shutdown gracioso.
+- O relógio das sessões usa o fuso `TIMEZONE`; sessões esquecidas são fechadas no limite
+  `hour_bank_max_session_hours`.

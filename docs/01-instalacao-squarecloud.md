@@ -132,3 +132,13 @@ O `/setup` cria:
 | Comandos não aparecem | registro falhou | `npm run deploy:commands` ou reinicie |
 | Bot não move jogadores | sem **Mover membros** | revise [03-permissoes-discord.md](03-permissoes-discord.md) |
 | Fila não abre | horário fechado | `/central abrir` ou `/horario definir` |
+
+## Painel web do banco de horas (opcional)
+
+O painel sobe junto com o bot e permite cadastrar a escala da equipe e ver as horas trabalhadas.
+
+1. No `.env`, defina `WEB_PANEL_PASSWORD` com uma senha forte.
+2. Localmente, acesse `http://localhost:8080`.
+3. Na SquareCloud, o painel é exposto como site: mantenha o app do tipo **Site** e use
+   `WEB_PANEL_PORT=80`. Se não quiser expor nada, deixe `WEB_PANEL_PASSWORD` vazio.
+4. Guia completo: [09-banco-de-horas.md](09-banco-de-horas.md).

@@ -68,6 +68,12 @@ module.exports = {
     expireTimer.unref?.();
     runtime.expireTimer = expireTimer;
 
+    // Banco de horas: aviso 5 min antes do turno + fechamento de sessões esquecidas
+    runtime.stopHourBankWatcher = services.hourBank.startWatcher(guildId);
+    logger.info(
+      `Banco de horas ativo • aviso ${services.hourBank.reminderMinutes} min antes do turno`,
+    );
+
     // Abertura/fechamento pelo horário configurado
     runtime.stopScheduleWatcher = services.schedule.startWatcher(guildId, (change) => {
       services.central
