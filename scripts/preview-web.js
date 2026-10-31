@@ -18,7 +18,8 @@ const { startWebServer } = require('../src/web/server');
 const { createLogger, setLevel } = require('../src/utils/logger');
 const { startOfDay } = require('../src/utils/time');
 
-setLevel('warn');
+// LOG_LEVEL=debug mostra cada requisição do painel no console.
+setLevel(process.env.LOG_LEVEL || 'warn');
 const logger = createLogger('preview-web');
 
 const root = path.join(__dirname, '..');
@@ -55,6 +56,10 @@ async function main() {
     central_manual: 'open',
     wait_channel_id: '200000000000000001',
   });
+
+  // Silencia o log enquanto os dados de exemplo são criados.
+  const desiredLevel = process.env.LOG_LEVEL || 'warn';
+  setLevel('warn');
 
   // Escala de exemplo para todos os dias (o turno da madrugada vira o dia).
   const schedules = [
@@ -110,11 +115,14 @@ async function main() {
     ]);
   }
 
+  setLevel(desiredLevel);
+
   const web = await startWebServer({
     services,
     env: { webPanelPassword: PASSWORD, webPanelPort: PORT, timezone: 'America/Sao_Paulo', guildId: GUILD },
     logger: {
       info: (message) => console.log(`✔ ${message}`),
+      debug: () => {},
       warn: (message) => console.log(`⚠ ${message}`),
       error: (message) => console.log(`✖ ${message}`),
     },

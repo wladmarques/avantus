@@ -120,8 +120,15 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
     return token;
   }
 
+  /** Token da sessão: cookie (navegador normal) ou Authorization: Bearer (iframe/terceiros). */
+  function tokenFrom(req) {
+    const header = String(req.headers.authorization || '');
+    if (header.toLowerCase().startsWith('bearer ')) return header.slice(7).trim();
+    return parseCookies(req.headers.cookie)[SESSION_COOKIE] || null;
+  }
+
   function isAuthed(req) {
-    const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+    const token = tokenFrom(req);
     if (!token) return false;
     const session = sessions.get(token);
     if (!session) return false;
@@ -130,6 +137,21 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       return false;
     }
     return true;
+  }
+
+  /**
+   * Cookie da sessão.
+   * Em contextos de terceiros (iframe do painel de preview, proxy https) o
+   * navegador só aceita `SameSite=None; Secure` — por isso o atributo é
+   * decidido pela origem da requisição, e o token também é devolvido no corpo
+   * do login (o cliente pode usar Authorization: Bearer).
+   */
+  function sessionCookie(req, token, maxAgeSeconds) {
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const host = String(req.headers.host || '');
+    const isHttps = forwardedProto.includes('https') || /:(443)$/.test(host);
+    const sameSite = isHttps ? 'None; Secure' : 'Lax';
+    return `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${maxAgeSeconds}`;
   }
 
   function prune() {
@@ -162,14 +184,24 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       'content-type': MIME[ext] ?? 'application/octet-stream',
       'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=300',
       'x-content-type-options': 'nosniff',
-      'x-frame-options': 'SAMEORIGIN',
+      // O painel também é exibido dentro de iframes (preview/proxy): sem
+      // X-Frame-Options e com frame-ancestors liberado, senão a tela fica em branco.
+      'content-security-policy': "frame-ancestors *",
     });
     fs.createReadStream(filePath).pipe(res);
   }
 
   const server = http.createServer(async (req, res) => {
+    const startedAt = Date.now();
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
+
+    res.on('finish', () => {
+      const line = `${req.method} ${pathname} → ${res.statusCode} (${Date.now() - startedAt}ms)`;
+      if (res.statusCode >= 500) logger.error(line);
+      else if (res.statusCode >= 400) logger.warn(line);
+      else logger.debug(line);
+    });
 
     try {
       if (pathname === '/api/health') {
@@ -189,24 +221,19 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           return sendJson(res, 401, { error: 'Senha incorreta.' });
         }
         const token = createSession();
-        const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
         return sendJson(
           res,
           200,
-          { ok: true },
-          {
-            'set-cookie': `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${
-              SESSION_TTL_MS / 1000
-            }${secure}`,
-          },
+          { ok: true, token, expiresIn: SESSION_TTL_MS / 1000 },
+          { 'set-cookie': sessionCookie(req, token, SESSION_TTL_MS / 1000) },
         );
       }
 
       if (pathname === '/api/logout' && req.method === 'POST') {
-        const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+        const token = tokenFrom(req);
         if (token) sessions.delete(token);
         return sendJson(res, 200, { ok: true }, {
-          'set-cookie': `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
+          'set-cookie': sessionCookie(req, '', 0),
         });
       }
 

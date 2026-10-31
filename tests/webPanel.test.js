@@ -22,12 +22,14 @@ async function startPanel(env, { password = PASSWORD } = {}) {
   const { port } = server.address();
   const base = `http://127.0.0.1:${port}`;
 
-  const call = async (path, { method = 'GET', body, cookie } = {}) => {
+  const call = async (path, { method = 'GET', body, cookie, token, headers: extra = {} } = {}) => {
     const response = await fetch(`${base}${path}`, {
       method,
       headers: {
         'content-type': 'application/json',
         ...(cookie ? { cookie } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...extra,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -48,7 +50,8 @@ async function startPanel(env, { password = PASSWORD } = {}) {
       body: JSON.stringify({ password }),
     });
     const cookie = String(response.headers.get('set-cookie') || '').split(';')[0];
-    return { status: response.status, cookie };
+    const payload = await response.json().catch(() => ({}));
+    return { status: response.status, cookie, token: payload.token, setCookie: response.headers.get('set-cookie') };
   };
 
   return {
@@ -220,4 +223,51 @@ test('interface e assets são servidos para usuários autenticados', async (t) =
   const health = await panel.call('/api/health');
   assert.equal(health.status, 200);
   assert.equal(health.json.ok, true);
+});
+
+test('cookie e token funcionam em proxy https (iframe de preview)', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  // Login vindo de um proxy https (como o preview do Arena) → SameSite=None; Secure
+  const response = await fetch(`${panel.base}/api/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-proto': 'https', host: 'abc-8080.exemplo.app' },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  const payload = await response.json();
+  const setCookie = String(response.headers.get('set-cookie') || '');
+
+  assert.equal(response.status, 200);
+  assert.ok(payload.token, 'token devolvido no corpo para uso em Bearer');
+  assert.match(setCookie, /SameSite=None/, 'cookie compatível com contexto de terceiros');
+  assert.match(setCookie, /Secure/);
+
+  // Autenticação por Authorization (navegador pode bloquear o cookie no iframe)
+  const overview = await panel.call('/api/overview', { token: payload.token });
+  assert.equal(overview.status, 200);
+  assert.ok(Array.isArray(overview.json.staff));
+
+  const logout = await panel.call('/api/logout', { method: 'POST', token: payload.token });
+  assert.equal(logout.status, 200);
+  const after = await panel.call('/api/overview', { token: payload.token });
+  assert.equal(after.status, 401, 'token invalidado no logout');
+});
+
+test('painel pode ser embutido em iframe (sem X-Frame-Options)', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const page = await panel.call('/');
+  assert.equal(page.headers.get('x-frame-options'), null, 'X-Frame-Options removido');
+  assert.match(String(page.headers.get('content-security-policy')), /frame-ancestors/);
+  assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
 });

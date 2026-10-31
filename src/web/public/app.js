@@ -35,13 +35,37 @@
     return local.toISOString().slice(0, 10);
   };
 
+  const TOKEN_KEY = 'vantus_token';
+
+  const getToken = () => {
+    try {
+      return sessionStorage.getItem(TOKEN_KEY) || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const setToken = (token) => {
+    try {
+      if (token) sessionStorage.setItem(TOKEN_KEY, token);
+      else sessionStorage.removeItem(TOKEN_KEY);
+    } catch {
+      /* sessionStorage indisponível (modo restrito): segue só com cookie */
+    }
+  };
+
   async function api(path, options = {}) {
+    const token = getToken();
     const response = await fetch(path, {
       credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
       ...options,
     });
     if (response.status === 401) {
+      setToken('');
       showLogin('Sessão expirada. Entre novamente.');
       throw new Error('unauthorized');
     }
@@ -394,7 +418,12 @@
     const error = $('login-error');
     error.hidden = true;
     try {
-      await api('/api/login', { method: 'POST', body: JSON.stringify({ password: $('password').value }) });
+      const data = await api('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ password: $('password').value }),
+      });
+      // Guarda o token: em iframe/preview o cookie pode ser bloqueado pelo navegador.
+      if (data.token) setToken(data.token);
       $('password').value = '';
       showApp();
       setPeriod(6);
@@ -409,6 +438,7 @@
 
   $('logout').addEventListener('click', async () => {
     await api('/api/logout', { method: 'POST' }).catch(() => null);
+    setToken('');
     showLogin();
   });
 

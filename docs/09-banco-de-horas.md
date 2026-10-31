@@ -74,8 +74,15 @@ WEB_PANEL_HOST=0.0.0.0
 | GET | `/api/health` | verificação de disponibilidade |
 
 Proteções: senha comparada em tempo constante, limite de 8 tentativas por IP a cada 5 minutos,
-cookie `HttpOnly` + `SameSite=Strict`, `Cache-Control: no-store` nas respostas da API e
-`X-Frame-Options: SAMEORIGIN`.
+cookie `HttpOnly` (`SameSite=Lax` em HTTP, `SameSite=None; Secure` quando acessado por HTTPS/proxy),
+`Cache-Control: no-store` nas respostas da API.
+
+### Acesso dentro de iframe / proxy (preview)
+
+O painel é servido sem `X-Frame-Options` e com `Content-Security-Policy: frame-ancestors *`,
+então funciona embutido em painéis de preview e proxies. Como navegadores bloqueiam cookies de
+terceiros nesses contextos, o login também devolve um **token** e o cliente o envia em
+`Authorization: Bearer <token>` — a sessão funciona mesmo com cookies bloqueados.
 
 ## Comandos no Discord
 
@@ -116,7 +123,22 @@ O script usa um banco separado (`data/preview-web.sqlite`) — nenhum dado real 
 | DM de aviso não chega | staff com DM fechada; `hour_bank_reminder_minutes` igual a `0`; turno cadastrado para outro dia |
 | Atraso zerado | o staff entrou **antes** ou exatamente no início do turno, ou não havia turno naquele horário |
 | Painel não abre | `WEB_PANEL_PASSWORD` vazio (painel desligado) ou porta bloqueada — veja o log `web` do bot |
+| Tela em branco no preview/iframe | era bloqueio de `X-Frame-Options` — corrigido; se persistir, rode `LOG_LEVEL=debug` e confira `GET /` no log |
+| Login "não aceita" e volta para a tela de senha | cookie bloqueado no contexto (iframe). O painel usa token em `sessionStorage` automaticamente |
 | Horas erradas após queda do bot | a sessão é fechada no limite de `hour_bank_max_session_hours`; ajuste manualmente a escala/horário pelo painel |
+
+## Log do painel
+
+Cada requisição é registrada com escopo `web`:
+
+```
+[DEBUG] [web] GET / → 200 (2ms)
+[DEBUG] [web] GET /api/overview → 200 (3ms)
+[WARN]  [web] GET /api/overview → 401 (0ms)     ← sem sessão (normal antes do login)
+[ERROR] [web] GET /api/overview → 500 (12ms)    ← erro real, com stack no log
+```
+
+Para ver tudo: `LOG_LEVEL=debug npm start` (ou `LOG_LEVEL=debug npm run preview:web`).
 
 ## Estrutura no código
 
