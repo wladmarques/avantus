@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+tests
+docs
+.env
+data
+*.sqlite
+*.sqlite.bak
+*.sqlite.tmp
+*.md
+!README.md
