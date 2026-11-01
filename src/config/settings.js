@@ -55,13 +55,13 @@ const SETTINGS = {
   category_id: {
     default: null,
     type: 'string',
-    label: 'Categoria CENTRAL DE ATENDIMENTO',
+    label: 'Categoria 🎧・central de atendimento',
     group: 'Canais',
   },
   wait_channel_id: {
     default: null,
     type: 'string',
-    label: 'Canal de voz AGUARDANDO ATENDIMENTO',
+    label: 'Canal de voz ⏳・aguardando-atendimento',
     group: 'Canais',
   },
   attendance_channel_ids: {

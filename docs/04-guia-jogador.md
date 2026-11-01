@@ -5,7 +5,7 @@
 Existem dois caminhos — os dois funcionam:
 
 **Opção A — pelo painel**
-1. Entre no canal de voz **🔊 AGUARDANDO ATENDIMENTO**.
+1. Entre no canal de voz **⏳・aguardando-atendimento**.
 2. Vá até o canal **#central-atendimento** e clique em **🎫 ENTRAR NA FILA**.
 3. Você é colocado na fila e confirmado no canal de espera.
 
@@ -13,7 +13,7 @@ Existem dois caminhos — os dois funcionam:
 > qual canal entrar e não coloca você na fila. O mesmo vale para `/entrar`.
 
 **Opção B — só entrando no canal de voz**
-1. Entre direto no canal **🔊 AGUARDANDO ATENDIMENTO**.
+1. Entre direto no canal **⏳・aguardando-atendimento**.
 2. O bot **te coloca na fila automaticamente**: você recebe o protocolo e a posição no privado.
 
 Em qualquer caso: quando um staff te chamar, você recebe uma mensagem privada e é movido

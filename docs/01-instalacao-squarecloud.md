@@ -109,8 +109,8 @@ Como administrador do servidor:
 
 O `/setup` cria:
 
-- Categoria **CENTRAL DE ATENDIMENTO**
-- Voz **AGUARDANDO ATENDIMENTO**, **ATENDIMENTO 01**, **ATENDIMENTO 02**, **ATENDIMENTO 03**
+- Categoria **🎧・central de atendimento**
+- Voz **⏳・aguardando-atendimento**, **🔉・suporte¹**, **🔉・suporte²**, **🔉・suporte³**
 - Texto **central-atendimento** (painel público), **painel-staff**, **logs-atendimento**
 - Cargos **Staff VANTUS** e **Admin VANTUS** (opcional)
 - Publica os dois painéis e salva todos os IDs

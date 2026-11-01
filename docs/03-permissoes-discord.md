@@ -39,7 +39,7 @@ Valor numérico das permissões acima: `286346256`.
 
 - **Painéis** (`central-atendimento`, `painel-staff`): o bot precisa de *Ver canal*, *Enviar mensagens*,
   *Inserir links* e *Ler histórico*. No canal da staff, restrinja *Ver canal* aos cargos de equipe.
-- **Canal de espera** (`AGUARDANDO ATENDIMENTO`): permita *Conectar* para `@everyone`.
+- **Canal de espera** (`⏳・aguardando-atendimento`): permita *Conectar* para `@everyone`.
 - **Canais de atendimento**: negue *Conectar* para `@everyone`; o bot libera o acesso individual
   quando chama o jogador e revoga ao finalizar.
 - **Canal de logs**: restrinja a leitura aos cargos administrativos.

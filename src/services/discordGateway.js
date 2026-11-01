@@ -9,6 +9,21 @@ const { createLogger } = require('../utils/logger');
 
 const logger = createLogger('gateway');
 
+/**
+ * Nome "limpo" do canal: sem caixa, sem acento e sem o prefixo de emoji/símbolo
+ * usado no servidor ("🎧・Central de Atendimento" → "central de atendimento").
+ */
+function normalizeChannelName(name) {
+  return String(name ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/^[^a-z0-9]+/u, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 class DiscordGateway {
   constructor(client, { settings }) {
     this.client = client;
@@ -183,31 +198,54 @@ class DiscordGateway {
   /* Estrutura do servidor (usada pelo /setup)                           */
   /* ------------------------------------------------------------------ */
 
+  /** Encontra um canal pelo nome, ignorando caixa e o prefixo de emoji ("🎧・"). */
+  _findChannel(guild, name, type) {
+    const wanted = normalizeChannelName(name);
+    return (
+      guild.channels.cache.find(
+        (channel) => channel.type === type && normalizeChannelName(channel.name) === wanted,
+      ) ?? null
+    );
+  }
+
   async ensureCategory(guildId, name) {
     const guild = this._guild(guildId);
-    const existing = guild.channels.cache.find(
-      (channel) => channel.type === 4 && channel.name.toLowerCase() === name.toLowerCase(),
-    );
+    const existing = this._findChannel(guild, name, 4);
     if (existing) return existing;
     return guild.channels.create({ name, type: 4 });
   }
 
   async ensureVoiceChannel(guildId, name, categoryId) {
     const guild = this._guild(guildId);
-    const existing = guild.channels.cache.find(
-      (channel) => channel.type === 2 && channel.name.toLowerCase() === name.toLowerCase(),
-    );
+    const existing = this._findChannel(guild, name, 2);
     if (existing) return existing;
     return guild.channels.create({ name, type: 2, parent: categoryId });
   }
 
   async ensureTextChannel(guildId, name, categoryId) {
     const guild = this._guild(guildId);
-    const existing = guild.channels.cache.find(
-      (channel) => channel.type === 0 && channel.name.toLowerCase() === name.toLowerCase(),
-    );
+    const existing = this._findChannel(guild, name, 0);
     if (existing) return existing;
     return guild.channels.create({ name, type: 0, parent: categoryId });
+  }
+
+  /** Procura um canal pelo nome (sem caixa/emoji/separador). */
+  async findChannelByName(guildId, name, type) {
+    const guild = this._guild(guildId);
+    return this._findChannel(guild, name, type);
+  }
+
+  /**
+   * Renomeia um canal que já existe (usado quando o nome padrão muda).
+   * Sem canal encontrado devolve `null` — quem chamou cria o novo.
+   */
+  async renameChannel(guildId, channelId, name) {
+    const guild = this._guild(guildId);
+    const channel = guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
+    if (!channel) return null;
+    if (channel.name === name) return channel;
+    logger.info(`Canal "${channel.name}" renomeado para "${name}".`);
+    return channel.setName(name, 'Estrutura padrão do VANTUS atualizada');
   }
 
   async findRoleByName(guildId, name) {
@@ -307,19 +345,50 @@ class MemoryGateway {
   }
 
   /* Estrutura do servidor (simulada) */
-  async ensureCategory(guildId, name) {
+  /** Canais simulados (Map id → { id, name, type }). */
+  get channelStore() {
+    if (!this.channels) this.channels = new Map();
+    return this.channels;
+  }
+
+  _createChannel(name, type) {
     this.channelSeq = (this.channelSeq ?? 0) + 1;
-    return { id: `cat-${this.channelSeq}`, name, type: 4 };
+    const prefix = type === 4 ? 'cat' : type === 2 ? 'voice' : 'text';
+    return { id: `${prefix}-${this.channelSeq}`, name, type };
+  }
+
+  async ensureCategory(guildId, name) {
+    const channel = this._createChannel(name, 4);
+    this.channelStore.set(channel.id, channel);
+    return channel;
   }
 
   async ensureVoiceChannel(guildId, name) {
-    this.channelSeq = (this.channelSeq ?? 0) + 1;
-    return { id: `voice-${this.channelSeq}`, name, type: 2 };
+    const channel = this._createChannel(name, 2);
+    this.channelStore.set(channel.id, channel);
+    return channel;
   }
 
   async ensureTextChannel(guildId, name) {
-    this.channelSeq = (this.channelSeq ?? 0) + 1;
-    return { id: `text-${this.channelSeq}`, name, type: 0 };
+    const channel = this._createChannel(name, 0);
+    this.channelStore.set(channel.id, channel);
+    return channel;
+  }
+
+  async findChannelByName(guildId, name, type) {
+    const wanted = normalizeChannelName(name);
+    return (
+      [...this.channelStore.values()].find(
+        (channel) => channel.type === type && normalizeChannelName(channel.name) === wanted,
+      ) ?? null
+    );
+  }
+
+  async renameChannel(guildId, channelId, name) {
+    const channel = this.channelStore.get(channelId);
+    if (!channel) return null;
+    channel.name = name;
+    return channel;
   }
 
   async fetchChannel(guildId, channelId) {
@@ -346,4 +415,4 @@ class MemoryGateway {
   }
 }
 
-module.exports = { DiscordGateway, MemoryGateway };
+module.exports = { DiscordGateway, MemoryGateway, normalizeChannelName };

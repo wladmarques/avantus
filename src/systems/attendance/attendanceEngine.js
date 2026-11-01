@@ -237,7 +237,7 @@ class AttendanceEngine {
         note:
           inWaitVoice || !settings.wait_channel_id
             ? null
-            : 'Entre no canal de voz **AGUARDANDO ATENDIMENTO** para ser atendido pela equipe.',
+            : 'Entre no canal de voz **⏳・aguardando-atendimento** para ser atendido pela equipe.',
       }),
     );
 

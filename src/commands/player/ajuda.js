@@ -21,7 +21,7 @@ module.exports = {
             description: [
               '**Como pedir ajuda**',
               '1. Vá até o canal do painel de atendimento e clique em **🎫 ENTRAR NA FILA**.',
-              '2. Entre no canal de voz **AGUARDANDO ATENDIMENTO**.',
+              '2. Entre no canal de voz **⏳・aguardando-atendimento**.',
               '3. Aguarde: você receberá uma mensagem privada quando um staff te chamar.',
               '4. Compareça ao canal de voz indicado para o atendimento.',
               '',

@@ -4,7 +4,7 @@ O painel da equipe fica em **#painel-staff** e é atualizado automaticamente.
 
 ## Antes de atender
 
-1. Entre em um dos canais **🔊 ATENDIMENTO 01/02/03**.
+1. Entre em um dos canais **🔉・suporte¹**, **🔉・suporte²** ou **🔉・suporte³**.
 2. Confirme seu status com **🟢 MEU STATUS** → *Disponível* (ou `/status situacao:Disponível`).
 
 > **Regra de ouro:** o bot só permite chamar um jogador se você estiver conectado a um canal

@@ -11,8 +11,8 @@ e `/config definir` para alterar. As chaves abaixo são as mesmas usadas no banc
 | `public_channel_id` | Canal de texto do painel público | `300000000000000001` |
 | `staff_channel_id` | Canal de texto do painel da staff | `300000000000000002` |
 | `log_channel_id` | Canal de logs administrativos | `300000000000000003` |
-| `category_id` | Categoria CENTRAL DE ATENDIMENTO | `400000000000000001` |
-| `wait_channel_id` | Canal de voz AGUARDANDO ATENDIMENTO | `200000000000000001` |
+| `category_id` | Categoria 🎧・central de atendimento | `400000000000000001` |
+| `wait_channel_id` | Canal de voz ⏳・aguardando-atendimento | `200000000000000001` |
 | `attendance_channel_ids` | Canais de voz de atendimento | `["200...002","200...003"]` |
 
 ```bash
@@ -74,7 +74,7 @@ Regras:
 
 > O bot nunca move alguém para um canal sem a pessoa estar conectada em voz: se o jogador
 > clicar em **Entrar na fila** sem estar em nenhum canal, ele recebe a instrução no privado para
-> entrar em **AGUARDANDO ATENDIMENTO** (e entra na fila assim que entrar no canal).
+> entrar em **⏳・aguardando-atendimento** (e entra na fila assim que entrar no canal).
 
 ### Quando a entrada na fila é liberada
 
@@ -96,7 +96,7 @@ e o painel é atualizado na hora (o botão volta a funcionar na mesma hora).
 
 ### Saída do canal de espera (regra fixa)
 
-Sair do canal **AGUARDANDO ATENDIMENTO** remove o jogador da fila imediatamente — não existe
+Sair do canal **⏳・aguardando-atendimento** remove o jogador da fila imediatamente — não existe
 configuração para manter alguém na fila fora do canal. Vale para:
 
 - desconexão voluntária, quedas de conexão e remoções feitas pela moderação;
@@ -112,7 +112,7 @@ registra o motivo no log (`[voz] …`) e o `/diagnostico` mostra o estado de cad
 
 | Condição | Como conferir / corrigir |
 | --- | --- |
-| `wait_channel_id` aponta para o canal **AGUARDANDO ATENDIMENTO** | `/diagnostico` → *Canal de espera*; refaça com `/setup` se o canal foi recriado |
+| `wait_channel_id` aponta para o canal **⏳・aguardando-atendimento** | `/diagnostico` → *Canal de espera*; refaça com `/setup` se o canal foi recriado |
 | O jogador entrou **nesse** canal (não em outro de voz) | log `[voz] … entrou no canal X; canal de espera configurado: Y` |
 | `auto_queue_on_voice_join` está ligado | `/diagnostico` → *Entrada automática pelo canal de espera*; `/config definir chave:auto_queue_on_voice_join valor:true` |
 | A central está **aberta** no horário configurado | o jogador recebe DM de central fechada |

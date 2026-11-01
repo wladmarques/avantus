@@ -5,7 +5,71 @@ const { respond, respondError, ephemeral } = require('../../handlers/respond');
 const { card } = require('../../dashboard/embeds/cards');
 const { COLORS } = require('../../config/theme');
 
-const VOICE_ATTENDANCE = ['ATENDIMENTO 01', 'ATENDIMENTO 02', 'ATENDIMENTO 03'];
+/**
+ * Nomes padrão criados pelo /setup (identidade VANTUS: emoji + separador "・").
+ * Os nomes anteriores são aceitos como apelido para não duplicar canais.
+ */
+const TEXT = {
+  public: 'central-atendimento',
+  publicLegacy: ['💬・central-atendimento'],
+  staff: 'painel-staff',
+  staffLegacy: ['💼・painel-staff'],
+  log: 'logs-atendimento',
+  logLegacy: ['📋・logs-atendimento'],
+};
+
+const STRUCTURE = {
+  category: { name: '🎧・central de atendimento', legacy: ['CENTRAL DE ATENDIMENTO'] },
+  wait: { name: '⏳・aguardando-atendimento', legacy: ['AGUARDANDO ATENDIMENTO'] },
+  attendance: [
+    { name: '🔉・suporte¹', legacy: ['ATENDIMENTO 01'] },
+    { name: '🔉・suporte²', legacy: ['ATENDIMENTO 02'] },
+    { name: '🔉・suporte³', legacy: ['ATENDIMENTO 03'] },
+  ],
+};
+
+const CHANNEL_TYPE_ID = { category: 4, voice: 2, text: 0 };
+
+/**
+ * Garante o canal com o **nome novo** e devolve `{ channel, renamed }`.
+ *
+ * Se o canal já existe com o nome novo (ou com um nome equivalente, sem o
+ * prefixo de emoji), ele é reaproveitado. Se existir apenas com um nome antigo
+ * (`AGUARDANDO ATENDIMENTO`, `ATENDIMENTO 01`…), o canal é **renomeado** — assim
+ * rodar o `/setup` de novo atualiza o servidor sem criar duplicatas.
+ */
+async function ensureChannel(gateway, { guildId, name, legacy = [], type, categoryId = null }) {
+  const typeId = CHANNEL_TYPE_ID[type];
+  const create = () =>
+    type === 'category'
+      ? gateway.ensureCategory(guildId, name, categoryId)
+      : type === 'text'
+        ? gateway.ensureTextChannel(guildId, name, categoryId)
+        : gateway.ensureVoiceChannel(guildId, name, categoryId);
+
+  const find = async (value) =>
+    typeof gateway.findChannelByName === 'function'
+      ? gateway.findChannelByName(guildId, value, typeId)
+      : null;
+
+  // Já existe com o nome atual?
+  const current = await find(name);
+  if (current) {
+    if (current.name === name) return { channel: current, renamed: false };
+    const renamed = await gateway.renameChannel(guildId, current.id, name);
+    return { channel: renamed ?? current, renamed: Boolean(renamed) };
+  }
+
+  // Existe com algum nome anterior? Reaproveita e renomeia.
+  for (const oldName of legacy) {
+    const old = await find(oldName);
+    if (!old) continue;
+    const renamed = await gateway.renameChannel(guildId, old.id, name);
+    if (renamed) return { channel: renamed, renamed: true };
+  }
+
+  return { channel: await create(), renamed: false };
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,22 +93,61 @@ module.exports = {
       const gateway = services.gateway;
       const created = [];
 
-      const category = await gateway.ensureCategory(guildId, 'CENTRAL DE ATENDIMENTO');
+      const renamed = [];
+
+      const categoryResult = await ensureChannel(gateway, {
+        guildId,
+        name: STRUCTURE.category.name,
+        legacy: STRUCTURE.category.legacy,
+        type: 'category',
+      });
+      const category = categoryResult.channel;
+      if (categoryResult.renamed) renamed.push(category.name);
       created.push(`📁 Categoria: **${category.name}**`);
 
-      const waitChannel = await gateway.ensureVoiceChannel(guildId, 'AGUARDANDO ATENDIMENTO', category.id);
+      const waitResult = await ensureChannel(gateway, {
+        guildId,
+        name: STRUCTURE.wait.name,
+        legacy: STRUCTURE.wait.legacy,
+        type: 'voice',
+        categoryId: category.id,
+      });
+      const waitChannel = waitResult.channel;
+      if (waitResult.renamed) renamed.push(waitChannel.name);
       created.push(`🔊 Voz: **${waitChannel.name}**`);
 
       const attendanceChannels = [];
-      for (const name of VOICE_ATTENDANCE) {
-        const channel = await gateway.ensureVoiceChannel(guildId, name, category.id);
-        attendanceChannels.push(channel.id);
-        created.push(`🔊 Voz: **${channel.name}**`);
+      for (const entry of STRUCTURE.attendance) {
+        const result = await ensureChannel(gateway, {
+          guildId,
+          name: entry.name,
+          legacy: entry.legacy,
+          type: 'voice',
+          categoryId: category.id,
+        });
+        attendanceChannels.push(result.channel.id);
+        if (result.renamed) renamed.push(result.channel.name);
+        created.push(`🔊 Voz: **${result.channel.name}**`);
       }
 
-      const publicChannel = await gateway.ensureTextChannel(guildId, 'central-atendimento', null);
-      const staffChannel = await gateway.ensureTextChannel(guildId, 'painel-staff', null);
-      const logChannel = await gateway.ensureTextChannel(guildId, 'logs-atendimento', null);
+      const publicChannel = (await ensureChannel(gateway, {
+        guildId,
+        name: TEXT.public,
+        legacy: TEXT.publicLegacy,
+        type: 'text',
+      })).channel;
+      const staffChannel = (await ensureChannel(gateway, {
+        guildId,
+        name: TEXT.staff,
+        legacy: TEXT.staffLegacy,
+        type: 'text',
+      })).channel;
+      const logChannel = (await ensureChannel(gateway, {
+        guildId,
+        name: TEXT.log,
+        legacy: TEXT.logLegacy,
+        type: 'text',
+      })).channel;
       created.push(`💬 Texto: **${publicChannel.name}**, **${staffChannel.name}**, **${logChannel.name}**`);
 
       const updates = {
@@ -84,6 +187,9 @@ module.exports = {
       }
       if ((services.settings.get('admin_role_ids') || []).length === 0) {
         warnings.push('⚠️ Nenhum **cargo administrativo** configurado.');
+      }
+      if (renamed.length > 0) {
+        created.push('', `♻️ Canais atualizados para o padrão novo: ${renamed.map((name) => `**${name}**`).join(', ')}`);
       }
       if (warnings.length > 0) {
         created.push('', ...warnings);
