@@ -161,3 +161,61 @@ test('painel clássico também desabilita o botão de entrada', async (t) => {
   assert.equal(joinButtonPayload.disabled, true);
   assert.deepEqual(panelButtonIds(payload).length, 3, 'layout clássico mantém os três botões');
 });
+
+test('entrada manual (botão/comando) só vale para quem está no canal de espera', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  // Fora da call: recusado com a instrução do canal.
+  addMember(env.gateway, PLAYER, { voiceChannelId: null });
+  await assert.rejects(
+    () =>
+      env.services.queue.join({
+        guildId: env.guildId,
+        userId: PLAYER,
+        displayName: 'Fora da call',
+        requireWaitChannel: true,
+      }),
+    (error) => {
+      assert.equal(error.code, 'FORA_DO_CANAL_ESPERA');
+      assert.match(error.userMessage, /canal de voz/i);
+      assert.equal(error.meta.waitChannelId, env.waitChannelId);
+      return true;
+    },
+  );
+
+  // Em outro canal: também recusado.
+  addMember(env.gateway, PLAYER, { voiceChannelId: '999999999999999999' });
+  await assert.rejects(
+    () =>
+      env.services.queue.join({
+        guildId: env.guildId,
+        userId: PLAYER,
+        displayName: 'Outro canal',
+        requireWaitChannel: true,
+      }),
+    (error) => error.code === 'FORA_DO_CANAL_ESPERA',
+  );
+
+  // Na call de espera: entra.
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+  const joined = await env.services.queue.join({
+    guildId: env.guildId,
+    userId: PLAYER,
+    displayName: 'Na call',
+    requireWaitChannel: true,
+  });
+  assert.equal(joined.position, 1);
+
+  // A entrada automática pela call continua funcionando sem a checagem extra
+  // (usada pelo handler de voz, onde a pessoa acabou de entrar no canal).
+  const other = '900000000000000777';
+  addMember(env.gateway, other, { voiceChannelId: env.waitChannelId });
+  const auto = await env.services.queue.join({
+    guildId: env.guildId,
+    userId: other,
+    displayName: 'Auto',
+    source: 'canal de voz de espera',
+  });
+  assert.equal(auto.position, 2);
+});

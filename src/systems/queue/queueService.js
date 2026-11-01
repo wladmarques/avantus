@@ -8,8 +8,8 @@ class QueueService {
     this.engine = engine;
   }
 
-  join({ guildId, userId, displayName, source }) {
-    return this.engine.joinQueue({ guildId, userId, displayName, source });
+  join({ guildId, userId, displayName, source, requireWaitChannel = false }) {
+    return this.engine.joinQueue({ guildId, userId, displayName, source, requireWaitChannel });
   }
 
   leave({ guildId, userId, actorId, reason, outcome, silent }) {

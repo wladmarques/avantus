@@ -124,7 +124,27 @@ class AttendanceEngine {
     return { available: true, reason: null, availableStaff, nextOpen: null };
   }
 
-  async joinQueue({ guildId, userId, displayName = null, source = 'painel' }) {
+  /**
+   * Entrar na fila exige estar no **canal de voz de espera**.
+   *
+   * Vale para as entradas manuais (botão do painel e `/entrar`). A entrada
+   * automática de quem acabou de entrar no canal de voz não passa por aqui —
+   * nesse caso a pessoa já está no canal certo.
+   */
+  assertInWaitChannel(guildId, member) {
+    const waitChannelId = this.settings.get('wait_channel_id');
+    if (!waitChannelId) return; // sem canal configurado, não bloqueia ninguém
+    if (member?.voiceChannelId === waitChannelId) return;
+
+    throw new AppError(
+      ERRORS.FORA_DO_CANAL_ESPERA,
+      `Entre no canal de voz <#${waitChannelId}> para entrar na fila. ` +
+        'A entrada só é liberada para quem está aguardando na call.',
+      { waitChannelId },
+    );
+  }
+
+  async joinQueue({ guildId, userId, displayName = null, source = 'painel', requireWaitChannel = false }) {
     // Quem saiu da fila antes de ser chamado precisa aguardar o bloqueio.
     this.cooldowns?.assertAllowed(guildId, userId);
 
@@ -149,6 +169,9 @@ class AttendanceEngine {
     if (!member || !member.inGuild) {
       throw new AppError(ERRORS.JOGADOR_NAO_ENCONTRADO, 'Não encontrei seu cadastro no servidor da VANTUS.');
     }
+
+    // Botão do painel e /entrar: só entra quem está na call de espera.
+    if (requireWaitChannel) this.assertInWaitChannel(guildId, member);
 
     const settings = this.settings.getAll();
     const waitingBefore = this.repos.attendance.countByStatusSync(guildId, ATTENDANCE_STATUS.WAITING);

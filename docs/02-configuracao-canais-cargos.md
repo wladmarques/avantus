@@ -199,10 +199,12 @@ O painel público usa **Components V2** (`panel_style=modern`) num único card e
 - cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS**, sem avatar e **sem texto de descrição**;
 - bloco de status minimalista: apenas a manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL** com a
   nota de apoio (sem o rótulo "STATUS DA CENTRAL" e sem emoji);
-- indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO • ESPERA MÉDIA**, sem emojis;
+- indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO**, sem emojis (a espera média saiu do
+  painel — os números seguem disponíveis em `/estatisticas`);
 - faixa **HORÁRIO DE ATENDIMENTO** com as janelas agrupadas por dia;
 - divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita
-  (superfície escura neutra da paleta, ícone 🎟️);
+  (superfície escura neutra da paleta, ícone 🎟️) — o botão só entra na fila para quem está no
+  canal de voz de espera;
 - os comandos `/sair` e `/posicao` aparecem como dica discreta (sem botões extras).
 
 > **Limitação da API do Discord:** containers não podem ser aninhados nem organizados em colunas.

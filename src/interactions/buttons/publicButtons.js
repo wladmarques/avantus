@@ -16,6 +16,8 @@ async function handleJoin(interaction, { services }) {
       userId: interaction.user.id,
       displayName: interaction.member?.displayName || interaction.user.username,
       source: 'painel público',
+      // Só entra na fila quem está na call de espera.
+      requireWaitChannel: true,
     });
 
     return respond(
@@ -30,7 +32,7 @@ async function handleJoin(interaction, { services }) {
               `**Protocolo:** \`#${String(result.protocol).padStart(4, '0')}\``,
               `**Posição na fila:** ${result.position}º`,
               '',
-              'Aguarde no canal de voz de espera. Você receberá uma mensagem privada quando for chamado.',
+              'Continue no canal de voz de espera. Você receberá uma mensagem privada quando for chamado.',
             ].join('\n'),
             color: COLORS.ORANGE,
           }),

@@ -76,28 +76,20 @@ function buildModel(scenario) {
       { label: 'NA FILA', value: String(state.waiting.length) },
       { label: 'STAFFS DISPONÍVEIS', value: String(available) },
       { label: 'EM ANDAMENTO', value: String(state.serving.length) },
-      { label: 'ESPERA MÉDIA', value: formatEstimate(state.estimateWaitSeconds) },
     ],
     schedule: scheduleEntries.map((entry) => `${entry.range}: ${entry.label}`),
     footerTitle: 'Fila por canal de voz',
     footerText:
-      'Entre no canal AGUARDANDO ATENDIMENTO para aguardar: você será movido automaticamente ' +
-      'quando houver staff disponível. ' +
+      'Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. ' +
       (Number(settings.rejoin_cooldown_minutes) > 0
         ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
         : 'Sair da espera remove você da fila.'),
     canJoin,
     unavailableNote,
-    hints: 'Use /sair para desistir da fila e /posicao para ver a sua posição.',
+    hints:
+      'Só é possível entrar na fila estando no canal de voz de espera. /sair desiste da fila e ' +
+      '/posicao mostra a sua posição.',
   };
-}
-
-function formatEstimate(seconds) {
-  const value = Number(seconds) || 0;
-  if (value <= 0) return '0 min';
-  if (value < 60) return `${value} seg`;
-  const minutes = Math.round(value / 60);
-  return `${minutes} min`;
 }
 
 const models = Object.fromEntries(

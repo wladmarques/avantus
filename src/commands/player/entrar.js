@@ -17,6 +17,8 @@ module.exports = {
         userId: interaction.user.id,
         displayName: interaction.member?.displayName || interaction.user.username,
         source: 'comando /entrar',
+        // Mesma regra do botão: é preciso estar na call de espera.
+        requireWaitChannel: true,
       });
       return respond(
         interaction,
@@ -28,7 +30,7 @@ module.exports = {
                 `**Protocolo:** \`#${String(result.protocol).padStart(4, '0')}\``,
                 `**Posição:** ${result.position}º`,
                 '',
-                'Aguarde no canal de voz de espera. Você será avisado no privado quando for chamado.',
+                'Continue no canal de voz de espera. Você será avisado no privado quando for chamado.',
               ].join('\n'),
               color: COLORS.ORANGE,
             }),

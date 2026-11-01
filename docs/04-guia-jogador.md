@@ -5,10 +5,12 @@
 Existem dois caminhos — os dois funcionam:
 
 **Opção A — pelo painel**
-1. Vá até o canal **#central-atendimento**.
-2. Clique em **🎫 ENTRAR NA FILA**.
-3. Você é colocado na fila e **movido automaticamente** para **🔊 AGUARDANDO ATENDIMENTO**.
-   (Se você não estiver em nenhum canal de voz, entre nele — não é preciso clicar de novo.)
+1. Entre no canal de voz **🔊 AGUARDANDO ATENDIMENTO**.
+2. Vá até o canal **#central-atendimento** e clique em **🎫 ENTRAR NA FILA**.
+3. Você é colocado na fila e confirmado no canal de espera.
+
+> **O botão só funciona para quem está na call de espera.** Se você clicar fora dela, o bot avisa
+> qual canal entrar e não coloca você na fila. O mesmo vale para `/entrar`.
 
 **Opção B — só entrando no canal de voz**
 1. Entre direto no canal **🔊 AGUARDANDO ATENDIMENTO**.

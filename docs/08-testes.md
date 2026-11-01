@@ -63,7 +63,7 @@ Resultado esperado:
 - [ ] Movimentação para canal fora da central é bloqueada
 
 **Painéis**
-- [ ] Painel público atualiza sozinho (fila, staffs, atendimentos, espera média)
+- [ ] Painel público atualiza sozinho (fila, staffs, atendimentos)
 - [ ] Painel staff lista jogadores, tempos e status
 - [ ] Botões funcionam após reiniciar o bot
 - [ ] `/painel reconstruir` não deixa mensagens duplicadas

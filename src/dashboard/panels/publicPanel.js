@@ -45,25 +45,16 @@ function titleWithIcon(title) {
   return startsWithEmoji ? value : `🎧 ${value}`;
 }
 
-/** Espera média no formato curto usado no painel: "0 min", "8 min", "45s". */
-function formatEstimate(seconds) {
-  const value = Math.max(0, Math.round(Number(seconds) || 0));
-  if (value === 0) return '0 min';
-  if (value < 60) return `${value}s`;
-  return `${Math.round(value / 60)} min`;
-}
-
 /**
  * Indicadores em uma linha compacta: rótulo em negrito + valor.
  * Sem emojis e sem etiquetas de código — segue o visual minimalista.
  */
-function statLine(state, available, estimate) {
+function statLine(state, available) {
   const item = (label, value) => `**${label}** ${value}`;
   return [
     item('NA FILA', state.waiting.length),
     item('STAFFS DISPONÍVEIS', available),
     item('EM ANDAMENTO', state.serving.length),
-    item('ESPERA MÉDIA', formatEstimate(estimate)),
   ].join('  •  ');
 }
 
@@ -127,7 +118,6 @@ function statusInfo({ open, availableStaff, nextOpen }) {
 function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
-  const estimate = settings.estimateWaitSeconds ?? 0;
   const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
   // Entrar na fila só é possível com a central aberta E com staff disponível.
   const canJoin = Boolean(open) && available > 0;
@@ -137,9 +127,10 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
       : 'central fechada'
     : 'sem staff em serviço';
 
+  // A entrada na fila exige estar no canal de voz de espera.
   const waitChannel = settings.wait_channel_id
-    ? `Entre em <#${settings.wait_channel_id}> para aguardar atendimento. `
-    : 'Entre no canal de voz de espera. ';
+    ? `Entre em <#${settings.wait_channel_id}> e clique no botão para entrar na fila. `
+    : 'Entre no canal de voz de espera e clique no botão para entrar na fila. ';
   const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
   const exitNote =
     cooldownMinutes > 0
@@ -159,7 +150,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     text([`## ${status.headline}`, `-# ${status.note}`].join('\n')),
 
     // Indicadores (rótulos sem emoji)
-    text(statLine(state, available, estimate)),
+    text(statLine(state, available)),
 
     // Faixa de horário
     text(['-# **HORÁRIO DE ATENDIMENTO:**', ...scheduleLines].join('\n')),
@@ -179,7 +170,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     },
     text(
       canJoin
-        ? '-# Use `/sair` para desistir da fila e `/posicao` para ver a sua posição.'
+        ? '-# Só é possível entrar na fila estando no canal de voz de espera. `/sair` desiste da fila e `/posicao` mostra a sua posição.'
         : `-# Entrada na fila indisponível: ${unavailableNote}.`,
     ),
   ];
@@ -200,7 +191,6 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
 function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now = new Date() }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
-  const estimate = settings.estimateWaitSeconds ?? 0;
   const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
 
   const fields = [
@@ -208,7 +198,6 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
     { name: 'NA FILA', value: `**${state.waiting.length}**`, inline: true },
     { name: 'STAFFS DISPONÍVEIS', value: `**${available}**`, inline: true },
     { name: 'EM ANDAMENTO', value: `**${state.serving.length}**`, inline: true },
-    { name: 'ESPERA MÉDIA', value: `**${formatEstimate(estimate)}**`, inline: true },
     { name: 'HORÁRIO DE ATENDIMENTO', value: `**${todayWindow?.text ?? '—'}**`, inline: false },
   ];
 
@@ -246,5 +235,4 @@ module.exports = {
   statLine,
   statusInfo,
   titleWithIcon,
-  formatEstimate,
 };

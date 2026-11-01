@@ -29,7 +29,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.match(text, /NA FILA/);
   assert.match(text, /STAFFS DISPONÍVEIS/);
   assert.match(text, /EM ANDAMENTO/);
-  assert.match(text, /ESPERA MÉDIA/);
+  assert.ok(!text.includes('ESPERA MÉDIA'), 'indicador de espera média removido do painel');
   assert.match(text, /HORÁRIO DE ATENDIMENTO/);
   assert.match(text, /Seg–Sex/);
   assert.match(text, /12:00 às 02:00/);
@@ -70,7 +70,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   );
   assert.ok(stats, 'linha de indicadores');
   assert.match(stats.content, /\*\*STAFFS DISPONÍVEIS\*\*/);
-  assert.match(stats.content, /\*\*ESPERA MÉDIA\*\*/);
+  assert.ok(!stats.content.includes('ESPERA MÉDIA'), 'sem espera média');
   assert.ok(!stats.content.includes('`'), 'sem etiquetas de código');
   assert.ok(!/[🎫🛡️📞⏳]/u.test(stats.content), 'sem emojis nos indicadores');
 

@@ -173,3 +173,34 @@ test('painéis publicados usam IDs persistentes reconhecidos pelo router', async
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
   assert.deepEqual(panelButtonIds(payload), ['pub:join']);
 });
+
+test('botão Entrar na Fila exige estar na call de espera', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  // Fora do canal de voz: entrada recusada com instrução clara.
+  addMember(env.gateway, PLAYER, { voiceChannelId: null });
+  const denied = { ...baseInteraction({ userId: PLAYER, guildId: env.guildId }), customId: 'pub:join' };
+  await handleInteraction(denied, context(env));
+
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0, 'não entrou na fila');
+  const deniedText = JSON.stringify(denied.responses[0]);
+  assert.match(deniedText, /canal de voz/i);
+  assert.match(deniedText, new RegExp(env.waitChannelId));
+
+  // Em outro canal de voz (não o de espera): também recusado.
+  addMember(env.gateway, PLAYER, { voiceChannelId: '999999999999999999' });
+  const wrongChannel = { ...baseInteraction({ userId: PLAYER, guildId: env.guildId }), customId: 'pub:join' };
+  await handleInteraction(wrongChannel, context(env));
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
+
+  // Dentro do canal de espera: entra normalmente.
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+  const allowed = { ...baseInteraction({ userId: PLAYER, guildId: env.guildId }), customId: 'pub:join' };
+  await handleInteraction(allowed, context(env));
+
+  const state = env.services.engine.getState(env.guildId);
+  assert.equal(state.waiting.length, 1, 'entrou na fila estando na call');
+  assert.equal(state.waiting[0].user_id, PLAYER);
+  assert.match(JSON.stringify(allowed.responses.at(-1)), /0001/);
+});
