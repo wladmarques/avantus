@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VANTUS • Painel de atendimento</title>
+<style>
+  :root {
+    --page: #090a0b;
+    --panel-outer: #000000;
+    --panel-inner: #0b0c0d;
+    --card: #1a1b1d;
+    --card-2: #141517;
+    --line: #252629;
+    --text: #e6e6e6;
+    --muted: #acaeb1;
+    --dim: #7c8085;
+    --accent: #ff2200;
+    --accent-deep: #d31e03;
+    --green: #3ba55d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); }
+  body {
+    color: var(--text);
+    font-family: "gg sans", "Inter", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding: 26px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 660px; margin: 0 auto; }
+
+  .links { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .links a {
+    color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 600;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px;
+  }
+  .links a.active { color: var(--text); border-color: var(--accent); }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar button {
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: .15s ease;
+  }
+  .toolbar button:hover { color: var(--text); }
+  .toolbar button.active { background: #23252c; color: var(--text); border-color: var(--accent); }
+
+  /* Mensagem do Discord */
+  .message { display: block; }
+  .message-body { min-width: 0; }
+  .author { font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .bot-tag { background: #5865f2; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
+  .timestamp { color: var(--dim); font-size: 11.5px; font-weight: 400; }
+
+  /* Container principal: fundo preto + barra na cor da marca (#ff2200) */
+  .container {
+    margin-top: 9px;
+    background: var(--panel-outer);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+
+  /* Cabeçalho */
+  .head h1 {
+    margin: 0; font-size: 25px; line-height: 1.15; font-weight: 800;
+    letter-spacing: .2px; text-transform: uppercase;
+  }
+  .head h1 .icon { color: var(--accent); font-weight: 400; margin-right: 8px; }
+
+  /* Painel de status (interno) */
+  .panel {
+    margin-top: 16px;
+    background: var(--panel-inner);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .status-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card-2);
+    border-radius: 8px;
+    padding: 13px 16px;
+  }
+  .dot {
+    width: 11px; height: 11px; border-radius: 50%; flex: 0 0 11px;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(59, 165, 93, .14);
+  }
+  .dot.off { background: var(--accent); box-shadow: 0 0 0 3px rgba(255, 34, 0, .16); }
+  .dot.wait { background: #e0b23a; box-shadow: 0 0 0 3px rgba(224, 178, 58, .14); }
+  .status-text { min-width: 0; }
+  .status-headline { font-size: 20px; font-weight: 800; letter-spacing: .2px; margin-top: 3px; }
+  .status-note { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+
+  /* Quatro cards */
+  .cards {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 10px; margin-top: 10px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 11px 13px 13px;
+  }
+  .card-bar {
+    width: 26px; height: 3px; border-radius: 2px;
+    background: var(--accent); margin-bottom: 10px;
+  }
+  .card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); line-height: 1.25;
+  }
+  .card-value { font-size: 26px; font-weight: 800; line-height: 1.15; margin-top: 6px; white-space: nowrap; }
+
+  /* Faixa de horário */
+  .schedule {
+    margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: var(--card-2);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .schedule-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--accent); white-space: nowrap;
+  }
+  .schedule-values { text-align: right; font-size: 11.5px; color: var(--muted); line-height: 1.55; white-space: nowrap; }
+
+  /* Divisor */
+  .divider { height: 1px; background: var(--line); margin: 15px 0 13px; }
+
+  /* Rodapé */
+  .footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+  .footer-left { min-width: 0; }
+  .footer-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .footer-text { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.55; max-width: 46ch; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; font-weight: 700;
+    cursor: default; white-space: nowrap; flex: 0 0 auto;
+  }
+  .btn.disabled { opacity: .45; cursor: not-allowed; }
+  .hints { margin-top: 12px; font-size: 10.5px; color: var(--dim); }
+  .hints code { background: var(--card-2); border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
+
+  .note {
+    margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line);
+    color: var(--dim); font-size: 11.5px; line-height: 1.6;
+  }
+
+  @media (max-width: 560px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .footer { flex-direction: column; align-items: stretch; }
+    .btn { justify-content: center; }
+    .schedule { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .schedule-values { text-align: left; }
+    .head h1 { font-size: 21px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="links">
+    <a href="panel.html" class="active">Painel público</a>
+    <a href="staff.html">Painel da equipe</a>
+  </div>
+  <div class="toolbar" id="toolbar"></div>
+
+  <div class="message">
+    <div class="message-body">
+      <div class="author">VANTUS ATENDIMENTO <span class="bot-tag">APP</span>
+        <span class="timestamp" id="clock"></span>
+      </div>
+
+      <div class="container" id="container">
+        <div class="head">
+          <h1><span class="icon">🎧</span><span id="title"></span></h1>
+        </div>
+
+        <div class="panel">
+          <div class="status-card">
+            <span class="dot" id="dot"></span>
+            <div class="status-text">
+              <div class="status-headline" id="headline"></div>
+              <div class="status-note" id="statusNote"></div>
+            </div>
+          </div>
+
+          <div class="cards" id="cards"></div>
+
+          <div class="schedule">
+            <div class="schedule-label">Horário de atendimento:</div>
+            <div class="schedule-values" id="schedule"></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="footer">
+          <div class="footer-left">
+            <div class="footer-title"><span>🎧</span><span id="footerTitle"></span></div>
+            <p class="footer-text" id="footerText"></p>
+          </div>
+          <button class="btn" type="button" id="joinBtn"><span>🎟️</span><span>Entrar na Fila</span></button>
+        </div>
+
+        <div class="hints" id="hints"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    Reprodução do layout de referência da VANTUS. No Discord, o painel é publicado em
+    <strong>Components V2</strong> na forma compacta equivalente: a API não permite containers
+    aninhados nem cards em colunas. Todos os valores exibidos vêm do sistema real
+    (fila, staffs, atendimentos, espera e agenda configurada).
+  </div>
+</div>
+<script>
+const MODELS = {"disponivel":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"1 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"1"},{"label":"EM ANDAMENTO","value":"0"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Só é possível entrar na fila estando no canal de voz de espera. /sair desiste da fila e /posicao mostra a sua posição."},"fila":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟢","headline":"ATENDIMENTO DISPONÍVEL","note":"2 staff(s) disponível(is) para atender"},"cards":[{"label":"NA FILA","value":"3"},{"label":"STAFFS DISPONÍVEIS","value":"2"},{"label":"EM ANDAMENTO","value":"1"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":true,"unavailableNote":"sem staff em serviço","hints":"Só é possível entrar na fila estando no canal de voz de espera. /sair desiste da fila e /posicao mostra a sua posição."},"sem_staff":{"title":"ATENDIMENTO | VANTUS","open":true,"status":{"indicator":"🟡","headline":"ATENDIMENTO INDISPONÍVEL","note":"Fila aberta • aguardando staff disponível"},"cards":[{"label":"NA FILA","value":"1"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"sem staff em serviço","hints":"Só é possível entrar na fila estando no canal de voz de espera. /sair desiste da fila e /posicao mostra a sua posição."},"fechada":{"title":"ATENDIMENTO | VANTUS","open":false,"status":{"indicator":"🔴","headline":"ATENDIMENTO INDISPONÍVEL","note":"Central fechada • reabre amanhã às 12:00"},"cards":[{"label":"NA FILA","value":"0"},{"label":"STAFFS DISPONÍVEIS","value":"0"},{"label":"EM ANDAMENTO","value":"0"}],"schedule":["Seg–Sex: 12:00 às 02:00","Sáb–Dom: 12:00 às 00:00"],"footerTitle":"Fila por canal de voz","footerText":"Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. Sair da espera remove você da fila e bloqueia a reentrada por 10 min.","canJoin":false,"unavailableNote":"central fechada • reabre amanhã às 12:00","hints":"Só é possível entrar na fila estando no canal de voz de espera. /sair desiste da fila e /posicao mostra a sua posição."}};
+const ORDER = ["disponivel","fila","sem_staff","fechada"];
+const LABELS = {"disponivel":"Atendimento disponível","fila":"Fila em andamento","sem_staff":"Sem staff","fechada":"Central fechada"};
+
+function esc(value) {
+  return String(value).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function render(key) {
+  const model = MODELS[key];
+  if (!model) return;
+
+  document.getElementById('title').textContent = model.title;
+  document.getElementById('headline').textContent = model.status.headline;
+  document.getElementById('statusNote').textContent = model.status.note;
+
+  const dot = document.getElementById('dot');
+  dot.className = 'dot' + (model.status.indicator === '🟢' ? '' : model.status.indicator === '🟡' ? ' wait' : ' off');
+
+  document.getElementById('cards').innerHTML = model.cards
+    .map(
+      (card) =>
+        '<div class="card">' +
+        '<div class="card-bar"></div>' +
+        '<div class="card-label">' + esc(card.label) + '</div>' +
+        '<div class="card-value">' + esc(card.value) + '</div>' +
+        '</div>',
+    )
+    .join('');
+
+  document.getElementById('schedule').innerHTML = model.schedule.map(esc).join('<br>');
+  document.getElementById('footerTitle').textContent = model.footerTitle;
+  document.getElementById('footerText').textContent = model.footerText;
+  const joinBtn = document.getElementById('joinBtn');
+  joinBtn.disabled = !model.canJoin;
+  joinBtn.classList.toggle('disabled', !model.canJoin);
+
+  document.getElementById('hints').innerHTML = model.canJoin
+    ? 'Use <code>/sair</code> para desistir da fila e <code>/posicao</code> para ver a sua posição.'
+    : 'Entrada na fila indisponível: ' + esc(model.unavailableNote) + '.';
+
+  document.querySelectorAll('[data-scenario]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.scenario === key);
+  });
+}
+
+const toolbar = document.getElementById('toolbar');
+toolbar.innerHTML = ORDER.map(
+  (key) => '<button data-scenario="' + key + '">' + esc(LABELS[key]) + '</button>',
+).join('');
+toolbar.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-scenario]');
+  if (button) render(button.dataset.scenario);
+});
+
+const now = new Date();
+document.getElementById('clock').textContent =
+  'hoje às ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+render('disponivel');
+</script>
+</body>
+</html>

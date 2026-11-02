@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VANTUS • Painel da equipe</title>
+<style>
+  :root {
+    --page: #090a0b;
+    --container: #000000;
+    --surface: #1a1b1d;
+    --line: #252629;
+    --text: #e6e6e6;
+    --muted: #acaeb1;
+    --accent: #ff2200;
+    --accent-deep: #d31e03;
+    --dim: #7c8085;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); }
+  body {
+    color: var(--text);
+    font-family: "gg sans", "Inter", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding: 26px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  .links { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .links a {
+    color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px;
+  }
+  .links a.active { color: var(--text); border-color: var(--accent); }
+  .author { font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .bot-tag { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
+  .timestamp { color: var(--dim); font-size: 11.5px; font-weight: 400; }
+  .embed {
+    margin-top: 9px;
+    background: var(--container);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+  .embed-title { font-size: 16.5px; font-weight: 800; letter-spacing: .2px; }
+  .embed-desc {
+    margin-top: 10px; font-size: 13.5px; line-height: 1.62; color: #dcdddf;
+    white-space: pre-wrap;
+  }
+  .embed-desc strong { color: var(--text); font-weight: 700; }
+  .embed-desc em { color: var(--muted); }
+  .embed-desc code, .field-value code {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 4px;
+    padding: 0 4px; font-size: 12px;
+  }
+  .mention {
+    background: rgba(255, 34, 0, .16); color: #ff8f7a;
+    border-radius: 4px; padding: 0 3px; font-weight: 600;
+  }
+  .fields {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px 10px; margin-top: 16px;
+    border-top: 1px solid var(--line); padding-top: 14px;
+  }
+  .field-name { font-size: 11.5px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .field-value { margin-top: 3px; font-size: 14px; font-weight: 700; color: var(--text); }
+  .embed-footer { margin-top: 14px; font-size: 11.5px; color: var(--muted); }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .row:first-of-type { margin-top: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 14px; font-size: 12.5px; font-weight: 700; letter-spacing: .01em;
+    font-family: inherit; cursor: default;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.disabled { opacity: .45; }
+  .btn-emoji { font-size: 13.5px; }
+  .note {
+    margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 11.5px; line-height: 1.6;
+  }
+  .note code { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; }
+  @media (max-width: 560px) {
+    .fields { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="links">
+    <a href="panel.html">Painel público</a>
+    <a href="staff.html" class="active">Painel da equipe</a>
+  </div>
+
+  <div class="author">VANTUS ATENDIMENTO <span class="bot-tag">APP</span>
+    <span class="timestamp">hoje às 19:18</span>
+  </div>
+
+  <div class="embed" style="border-left-color:#ff2200"><div class="embed-title">PAINEL DA EQUIPE | VANTUS</div><div class="embed-desc"><strong>CENTRAL ABERTA</strong> • 16:18 • Hoje: 12:00 às 02:00
+
+<strong>FILA DE ESPERA</strong>
+<strong>#01 — pedrosa17</strong>
+Protocolo: <code>#0023</code> • Entrada: 16:06
+Espera: 12 minutos • Status: AGUARDANDO
+
+<strong>#02 — gabriel_tt</strong>
+Protocolo: <code>#0024</code> • Entrada: 16:11
+Espera: 7 minutos • Status: AGUARDANDO
+
+<strong>#03 — lucas.v</strong>
+Protocolo: <code>#0025</code> • Entrada: 16:15
+Espera: 3 minutos • Status: AGUARDANDO • fora da ordem
+
+<strong>EM ATENDIMENTO</strong>
+<strong>caiozin</strong> — protocolo <code>#0022</code>
+Staff: <span class="mention">@900000000000000001</span> • Início: 16:09 • Duração: 9 minutos
+Presença: confirmada no canal
+
+<strong>PENDENTES</strong>
+<strong>mika</strong> • <code>#0021</code> • não respondeu à chamada
+
+<strong>EQUIPE</strong>
+<span class="mention">@900000000000000001</span> — <strong>EM ATENDIMENTO</strong>
+<span class="mention">@900000000000000002</span> — <strong>DISPONÍVEL</strong></div><div class="fields"><div class="field"><div class="field-name">Aguardando</div><div class="field-value"><strong>3</strong></div></div><div class="field"><div class="field-name">Em atendimento</div><div class="field-value"><strong>1</strong></div></div><div class="field"><div class="field-name">Disponíveis</div><div class="field-value"><strong>1</strong></div></div><div class="field"><div class="field-name">Ocupados</div><div class="field-value"><strong>1</strong></div></div><div class="field"><div class="field-name">Espera média</div><div class="field-value"><strong>7 minutos</strong></div></div><div class="field"><div class="field-name">Atendimento médio</div><div class="field-value"><strong>11 minutos</strong></div></div><div class="field"><div class="field-name">Hoje</div><div class="field-value"><strong>7</strong> concluído(s)</div></div><div class="field"><div class="field-name">Avaliação</div><div class="field-value"><strong>3.40/4</strong></div></div><div class="field"><div class="field-name">Pendentes</div><div class="field-value"><strong>1</strong></div></div></div><div class="embed-footer">VANTUS • Central de Atendimento • Painel restrito à equipe • Atualização automática</div></div>
+  <div class="row"><button type="button" class="btn"><span>CHAMAR PRÓXIMO</span></button><button type="button" class="btn"><span>CHAMAR ESPECÍFICO</span></button><button type="button" class="btn"><span>PULAR JOGADOR</span></button></div><div class="row"><button type="button" class="btn"><span>DEVOLVER À FILA</span></button><button type="button" class="btn"><span>FINALIZAR</span></button><button type="button" class="btn"><span>REMOVER DA FILA</span></button></div><div class="row"><button type="button" class="btn"><span>MEU STATUS</span></button><button type="button" class="btn"><span>REATIVAR PENDENTE</span></button><button type="button" class="btn"><span>ATUALIZAR PAINEL</span></button></div>
+
+  <div class="note">
+    Renderização fiel do payload real de <code>buildStaffPanel</code>: embed com barra de destaque
+    <strong>#ff2200</strong>, campos e botões. No Discord os botões usam a superfície neutra
+    (estilo <em>Secondary</em>) porque a API não aceita cor personalizada — o destaque da marca fica no
+    ícone e na barra do embed.
+  </div>
+</div>
+</body>
+</html>
