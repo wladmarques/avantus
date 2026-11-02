@@ -11,7 +11,8 @@ module.exports = {
     .setName('diagnostico')
     .setDescription('Verifica a configuração, canais e permissões do bot'),
 
-  async execute({ interaction, services, client }) {
+  async execute({ interaction, services, client, env }) {
+    const context_env_client_id = () => env?.clientId ?? null;
     const guildId = interaction.guildId;
     const discord = client ?? interaction.client;
     const guild = discord?.guilds?.cache?.get(guildId);
@@ -21,6 +22,19 @@ module.exports = {
     const push = (ok, label, detail = '') => checks.push(`${ok ? '✅' : '⚠️'} **${label}**${detail ? ` — ${detail}` : ''}`);
 
     push(Boolean(settings.guild_id), 'Servidor configurado', settings.guild_id ?? 'use /config definir');
+
+    // Bot conectado × CLIENT_ID configurado (troca de bot).
+    const botUser = discord?.user;
+    if (botUser) {
+      const expected = (context_env_client_id() || '').trim();
+      const matches = !expected || expected === botUser.id;
+      push(
+        matches,
+        'Bot conectado',
+        `${botUser.tag ?? botUser.username} (${botUser.id})` +
+          (matches ? '' : ` — CLIENT_ID configurado é ${expected}, o token é de outro bot`),
+      );
+    }
 
     const channelCheck = async (id, name, expectedType) => {
       if (!id) return push(false, name, 'não configurado');

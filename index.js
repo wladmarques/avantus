@@ -97,6 +97,16 @@ async function main() {
   });
 
   await client.login(env.token);
+
+  // Troca de bot: o token precisa pertencer ao CLIENT_ID configurado, senão os
+  // slash commands seriam registrados no bot errado.
+  if (env.clientId && client.user?.id !== env.clientId) {
+    logger.warn(
+      `O token conectou o bot ${client.user?.tag ?? '?'} (${client.user?.id}), ` +
+        `mas CLIENT_ID está configurado como ${env.clientId}. ` +
+        'Atualize o DISCORD_TOKEN ou o CLIENT_ID no .env.',
+    );
+  }
 }
 
 async function shutdown(signal) {

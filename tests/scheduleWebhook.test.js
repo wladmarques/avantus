@@ -419,15 +419,21 @@ test('configuração do envio automático é validada e devolvida ao painel', as
   await assert.rejects(() => broadcast.updateConfig({ auto: true }), /Cadastre a URL do webhook/);
 });
 
-test('startWatcher envia no tick e stopWatcher para de rodar', async (t) => {
+test('startWatcher roda o tick e stopWatcher encerra o timer', async (t) => {
   const { env, receiver, broadcast } = await autoEnv(t);
+  const { tzParts } = require('../src/utils/time');
+  const today = tzParts(new Date(), 'America/Sao_Paulo').weekday;
+
+  // Dia diferente de hoje: o tick roda, mas não é hora de enviar (teste estável
+  // independente do dia da semana em que a suíte é executada).
+  await env.services.settings.set(DAY_KEY, (today + 3) % 7);
+
   const stop = broadcast.startWatcher(env.guildId, { intervalMs: 60000 });
   await delay(120);
   stop();
   broadcast.stopWatcher();
 
-  // O relógio real não é segunda 09:00 — nada é enviado, mas o watcher rodou sem erro.
-  assert.equal(receiver.received.length, 0);
+  assert.equal(receiver.received.length, 0, 'não envia fora do dia configurado');
   assert.equal(broadcast.timer, null, 'timer encerrado');
 });
 

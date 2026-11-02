@@ -11,6 +11,7 @@
     "start": "node index.js",
     "dev": "node --trace-warnings index.js",
     "deploy:commands": "node scripts/deploy-commands.js",
+    "invite": "node scripts/invite-link.js",
     "test": "node --test tests/*.test.js",
     "lint": "node scripts/check-syntax.js",
     "check:tracked": "node scripts/check-tracked.js",

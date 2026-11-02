@@ -9,6 +9,9 @@
 ## 2. Criar a aplicação no Discord
 
 1. Developer Portal → **New Application** → aba **Bot** → **Reset Token** (guarde o token).
+
+> **Bot atual da VANTUS:** Application ID `1200967871480737912`.
+> O token desse bot vai no `.env` (nunca no chat/git) — veja a seção **Troca de bot** no fim.
 2. Ainda em **Bot**, ative:
    - **SERVER MEMBERS INTENT** (obrigatório — o bot precisa ver cargos e entradas/saídas)
    - *Message Content* **não** é necessário.
@@ -16,7 +19,14 @@
 4. Permissões mínimas (veja [03-permissoes-discord.md](03-permissoes-discord.md)):
 
 ```
-https://discord.com/api/oauth2/authorize?client_id=SEU_CLIENT_ID&permissions=286346256&scope=bot%20applications.commands
+https://discord.com/api/oauth2/authorize?client_id=1200967871480737912&permissions=286346256&scope=bot%20applications.commands
+```
+
+Para gerar o link de outra aplicação (ou confirmar as permissões):
+
+```bash
+npm run invite                          # usa o CLIENT_ID do .env
+npm run invite -- 1200967871480737912   # ou informe direto
 ```
 
 5. Copie o **Application ID** (Client ID) e o **GUILD_ID** do servidor
@@ -33,6 +43,7 @@ Edite o `.env`:
 
 ```env
 DISCORD_TOKEN=seu_token_aqui
+CLIENT_ID=1200967871480737912
 GUILD_ID=123456789012345678
 DB_PATH=./data/vantus.sqlite
 TIMEZONE=America/Sao_Paulo
@@ -46,7 +57,7 @@ LOG_LEVEL=info
 Teste localmente:
 
 ```bash
-npm test      # 52 testes, nenhum token necessário
+npm test      # 166 testes, nenhum token necessário
 npm start     # conecta o bot
 ```
 
@@ -132,6 +143,28 @@ O `/setup` cria:
 | Comandos não aparecem | registro falhou | `npm run deploy:commands` ou reinicie |
 | Bot não move jogadores | sem **Mover membros** | revise [03-permissoes-discord.md](03-permissoes-discord.md) |
 | Fila não abre | horário fechado | `/central abrir` ou `/horario definir` |
+
+## 10. Troca de bot (nova aplicação)
+
+Ao migrar para outra aplicação do Discord (outro Application ID/token):
+
+1. **Developer Portal (aplicação nova) → Bot → Reset Token** e copie o token.
+2. No `.env` (ou nas variáveis da SquareCloud), troque:
+   ```env
+   DISCORD_TOKEN=token_do_bot_novo
+   CLIENT_ID=1200967871480737912
+   ```
+3. Convide o bot novo no servidor: `npm run invite` (usa o `CLIENT_ID`) ou
+   `npm run invite -- 1200967871480737912`.
+4. Confira permissões no servidor: o bot precisa gerenciar canais/cargos e mover membros.
+5. **Remova o bot antigo** do servidor para os dois não disputarem os mesmos painéis.
+6. Reinicie o bot e rode `/setup` (recria/renomeia canais e publica os painéis) e
+   `npm run deploy:commands` se os comandos não aparecerem.
+7. `/diagnostico` mostra o **bot conectado** e avisa se o token é de um bot diferente do
+   `CLIENT_ID` — assim uma troca pela metade não passa batido.
+
+> O `data/vantus.sqlite` (escala, horas, configurações) continua o mesmo: a troca de bot não
+> afeta os dados. As mensagens dos painéis antigos são substituídas na republicação.
 
 ## Painel web do banco de horas (opcional)
 

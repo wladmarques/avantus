@@ -24,6 +24,9 @@ function int(name, fallback) {
 
 const env = {
   token: required('DISCORD_TOKEN'),
+  // Application ID (Developer Portal → General Information). Opcional: só serve
+  // para gerar o link de convite e avisar quando o token é de outro bot.
+  clientId: required('CLIENT_ID'),
   guildId: required('GUILD_ID'),
   dbPath: required('DB_PATH') || path.resolve(process.cwd(), 'data', 'vantus.sqlite'),
   logLevel: (required('LOG_LEVEL') || 'info').toLowerCase(),
