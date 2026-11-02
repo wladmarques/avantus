@@ -257,3 +257,58 @@ test('senha errada mostra a mensagem do servidor e mantém o login', async (t) =
   assert.equal(page.doc.getElementById('login').hidden, true);
   assert.equal(error.hidden, true, 'erro anterior limpo');
 });
+
+test('botão "Tirar de serviço" encerra a sessão sem sair da tela', async (t) => {
+  const harness = await createHarness(t);
+  const STAFF_ID = '900000000000000777';
+
+  await harness.env.services.staff.setStatus({
+    guildId: harness.env.guildId,
+    userId: STAFF_ID,
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: false,
+  });
+  await harness.env.services.hourBank.setDisplayName({
+    guildId: harness.env.guildId,
+    userId: STAFF_ID,
+    staffName: 'esquecido',
+  });
+
+  const login = await harness.browserFetch('/api/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  const { token } = await login.json();
+  const page = harness.load({ hash: `#auth=${token}` });
+  await wait(250);
+
+  // Encontra a linha do staff e o botão de ação.
+  assert.equal(page.doc.getElementById('app').hidden, false, 'painel aberto');
+  assert.notEqual(page.doc.getElementById('stat-staff').textContent, '', 'dados carregados');
+  const rows = page.doc.getElementById('staff-body').children;
+  const nameOf = (tr) => tr.children[0]?.children[0]?.children[0]?.textContent;
+  const row = rows.find((tr) => nameOf(tr) === 'esquecido');
+  assert.ok(
+    row,
+    `staff aparece na tabela (linhas: ${rows.map((tr) => nameOf(tr)).join(', ') || 'nenhuma'})`,
+  );
+
+  const actions = row.children[row.children.length - 1];
+  const button = actions.children.find((node) => node.textContent === 'Tirar de serviço');
+  assert.ok(button, 'botão "Tirar de serviço" disponível para quem está em serviço');
+
+  button.listeners.click[0]();
+  const modal = page.doc.getElementById('off-modal');
+  assert.equal(modal.open, true, 'modal de confirmação aberto');
+  assert.match(page.doc.getElementById('off-text').textContent, /Sessão aberta desde/);
+
+  await page.doc.getElementById('off-form').listeners.submit[0]({ preventDefault() {} });
+  await wait(300);
+
+  assert.equal(modal.open, false, 'modal fecha depois da ação');
+  assert.equal(harness.env.services.staff.get(harness.env.guildId, STAFF_ID).status, 'INDISPONIVEL');
+  assert.equal(harness.env.services.hourBank.activeSession(harness.env.guildId, STAFF_ID), null);
+  assert.match(page.doc.getElementById('toast').textContent, /fora de serviço/);
+});

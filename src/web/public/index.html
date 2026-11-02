@@ -207,6 +207,28 @@
     </div>
   </dialog>
 
+  <!-- Modal: tirar de serviço -->
+  <dialog id="off-modal">
+    <form id="off-form" method="dialog">
+      <h2 id="off-title">Tirar de serviço</h2>
+      <p id="off-text" class="muted small"></p>
+      <label class="switch" for="off-voice">
+        <input id="off-voice" type="checkbox" checked>
+        <span>Desconectar do canal de voz</span>
+      </label>
+      <p class="muted small">
+        A sessão do banco de horas é encerrada agora e o staff fica
+        <strong>indisponível</strong> até marcar <code>/status disponível</code> (ou você reativar).
+      </p>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button type="button" id="off-cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" id="off-confirm" class="btn primary">Tirar de serviço</button>
+      </div>
+      <p id="off-error" class="error" hidden></p>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
 </div>
 <script src="app.js"></script>

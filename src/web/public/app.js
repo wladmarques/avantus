@@ -10,6 +10,7 @@
     period: { from: '', to: '' },
     editing: null,
     renaming: null,
+    offService: null,
     timer: null,
     // Grupo do revezamento da semana (A/B) — vem do /api/overview.
     weekParity: null,
@@ -278,6 +279,12 @@
       const edit = el('button', 'btn tiny', 'Editar escala');
       edit.addEventListener('click', () => openSchedule(row));
       actions.append(rename, edit);
+      // Só faz sentido quando o staff está em serviço (sessão aberta ou disponível).
+      if (row.session || row.available) {
+        const off = el('button', 'btn tiny', 'Tirar de serviço');
+        off.addEventListener('click', () => openOffService(row));
+        actions.appendChild(off);
+      }
 
       for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
       body.appendChild(tr);
@@ -494,6 +501,49 @@
       const node = $('name-error');
       node.textContent = error.message;
       node.hidden = false;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Modal: tirar de serviço                                             */
+  /* ------------------------------------------------------------------ */
+
+  function openOffService(row) {
+    state.offService = row;
+    $('off-title').textContent = `Tirar de serviço • ${row.staffName || row.userId}`;
+    const parts = [];
+    if (row.session) parts.push(`Sessão aberta desde ${row.session.entry}.`);
+    parts.push(`Status atual: ${row.statusLabel}.`);
+    parts.push('A sessão será encerrada agora e as horas ficam registradas no banco.');
+    $('off-text').textContent = parts.join(' ');
+    $('off-voice').checked = true;
+    $('off-error').hidden = true;
+    $('off-modal').showModal();
+  }
+
+  async function submitOffService(event) {
+    event.preventDefault();
+    const row = state.offService;
+    if (!row) return;
+    const button = $('off-confirm');
+    button.disabled = true;
+    button.textContent = 'Encerrando…';
+    try {
+      const data = await api(`/api/staff/${row.userId}/off-service`, {
+        method: 'POST',
+        body: JSON.stringify({ disconnectVoice: $('off-voice').checked }),
+      });
+      $('off-modal').close();
+      const ended = data.endedSession ? ` Sessão de ${data.endedSession.label} encerrada.` : '';
+      toast(`${row.staffName || row.userId} fora de serviço.${ended}`);
+      await refresh({ silent: true });
+    } catch (error) {
+      const node = $('off-error');
+      node.textContent = error.message;
+      node.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Tirar de serviço';
     }
   }
 
@@ -774,6 +824,8 @@
     }
   });
   $('name-cancel').addEventListener('click', () => $('name-modal').close());
+  $('off-form').addEventListener('submit', submitOffService);
+  $('off-cancel').addEventListener('click', () => $('off-modal').close());
   $('name-discord').addEventListener('click', () => submitName(''));
 
   // Sessão existente? Abre direto no painel.
