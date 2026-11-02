@@ -1,7 +1,10 @@
 name: Deploy SquareCloud
 
-# Todo push na main (ou merge de PR) publica o bot na SquareCloud.
-# Também pode ser disparado à mão em Actions → Deploy SquareCloud → Run workflow.
+# Publica o bot na SquareCloud pela API oficial.
+#
+# Só roda quando os secrets estiverem cadastrados; sem eles o workflow termina
+# em verde com um aviso (o deploy normal continua sendo o da integração GitHub
+# do painel, que lê a branch main).
 on:
   push:
     branches: [main]
@@ -26,18 +29,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Conferir secrets
+        id: check
+        env:
+          TOKEN: ${{ secrets.SQUARECLOUD_TOKEN }}
+          APP_ID: ${{ secrets.SQUARECLOUD_APP_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$APP_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy pela API desativado: cadastre SQUARECLOUD_TOKEN e SQUARECLOUD_APP_ID nos secrets do repositório. O deploy continua sendo feito pela integração GitHub do painel (branch main)."
+          fi
+
       - uses: actions/setup-node@v4
+        if: steps.check.outputs.enabled == 'true'
         with:
           node-version: '20'
           cache: npm
 
       - name: Instalar dependências
+        if: steps.check.outputs.enabled == 'true'
         run: npm ci --omit=dev || npm install --omit=dev
 
       - name: Gerar pacote de deploy
+        if: steps.check.outputs.enabled == 'true'
         run: npm run package
 
       - name: Publicar na SquareCloud
+        if: steps.check.outputs.enabled == 'true'
         env:
           SQUARECLOUD_TOKEN: ${{ secrets.SQUARECLOUD_TOKEN }}
           SQUARECLOUD_APP_ID: ${{ secrets.SQUARECLOUD_APP_ID }}

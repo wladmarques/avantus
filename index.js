@@ -41,7 +41,10 @@ async function main() {
     process.exit(1);
   }
 
-  logger.info('Iniciando VANTUS Atendimento...');
+  const { version } = require('./package.json');
+  // Marca o build para conferir no painel qual versão subiu (integração via GitHub).
+  const build = (process.env.BUILD_COMMIT || process.env.GITHUB_SHA || '').slice(0, 7) || 'local';
+  logger.info(`Iniciando VANTUS Atendimento v${version} (build ${build})...`);
 
   db = await openDatabase({ filePath: env.dbPath });
   const migration = await runMigrations(db);
