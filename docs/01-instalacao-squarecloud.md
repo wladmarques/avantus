@@ -210,6 +210,17 @@ O log do boot sempre informa a aplicação do token:
 Se o bot não estiver no servidor, o VANTUS **não tenta registrar comandos** (era daí que vinha o
 `Missing Access`) e sobe a central sozinho assim que o convite for aceito — sem reiniciar.
 
+**Servidor salvo que não existe mais** (banco de teste, servidor antigo, bot removido do servidor):
+o boot passa a **adotar o `GUILD_ID` (ou `DEV_GUILD_ID`) do ambiente** e corrige o `guild_id` no
+banco automaticamente:
+
+```text
+[ready] Servidor salvo (440265886302076928) não está disponível para o bot;
+        usando 1200967871480737912 de GUILD_ID. Configuração do banco atualizada.
+```
+
+Assim não é mais preciso apagar o banco nem usar `DEV_GUILD_ID` para trocar de servidor.
+
 > O `data/vantus.sqlite` (escala, horas, configurações) continua o mesmo: a troca de bot não
 > afeta os dados. As mensagens dos painéis antigos são substituídas na republicação.
 

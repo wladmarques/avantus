@@ -1,7 +1,7 @@
 'use strict';
 
 const { createLogger } = require('../../utils/logger');
-const { startGuild } = require('../../handlers/guildStart');
+const { startGuild, resolveGuildId } = require('../../handlers/guildStart');
 const { inviteUrl, isValidClientId } = require('../../utils/invite');
 
 const logger = createLogger('ready');
@@ -40,13 +40,24 @@ module.exports = {
     );
     warnIfWrongBot(client, env);
 
-    const guildId = services.settings.get('guild_id') || env.guildId;
+    const { guildId, previous, switched, source } = resolveGuildId({ client, services, env });
     if (!guildId) {
       logger.error('GUILD_ID não configurado: o bot não sabe em qual servidor operar.');
       return;
     }
-    if (!services.settings.get('guild_id')) {
+
+    if (switched) {
+      // O servidor salvo no banco não existe mais: adota o do ambiente e
+      // corrige o banco, senão o bot ficaria preso no servidor fantasma.
       await services.settings.set('guild_id', guildId);
+      logger.warn(
+        `Servidor salvo (${previous ?? 'nenhum'}) não está disponível para o bot; ` +
+          `usando ${guildId} de ${source === 'dev' ? 'DEV_GUILD_ID' : 'GUILD_ID'}. ` +
+          'Configuração do banco atualizada.',
+      );
+    } else if (!services.settings.get('guild_id')) {
+      await services.settings.set('guild_id', guildId);
+      logger.info(`Servidor adotado: ${guildId} (${source === 'dev' ? 'DEV_GUILD_ID' : 'GUILD_ID'}).`);
     }
 
     const guild = client.guilds.cache.get(guildId);

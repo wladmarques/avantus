@@ -9,6 +9,41 @@ const SERVICE_DAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta
 const serviceDayLabel = (weekday) => SERVICE_DAYS[Number(weekday)] ?? 'segunda';
 
 /**
+ * Decide em qual servidor o bot opera.
+ *
+ * Ordem: `guild_id` salvo no banco, `GUILD_ID` e `DEV_GUILD_ID` do ambiente —
+ * sempre preferindo um servidor em que o bot realmente está. Se o servidor
+ * salvo sumiu (banco de teste, servidor antigo, bot removido), o ambiente
+ * assume e o banco é corrigido: sem isso o bot ficava preso em "servidor não
+ * encontrado" mesmo com o GUILD_ID certo configurado.
+ *
+ * @returns {{guildId: string|null, source: 'settings'|'env'|'dev'|'settings-unavailable', previous: string|null, switched: boolean}}
+ */
+function resolveGuildId({ client, services, env = {} }) {
+  const saved = services.settings.get('guild_id') || null;
+  const fromEnv = (env.guildId || '').trim() || null;
+  const fromDev = (env.devGuildId || '').trim() || null;
+  const has = (id) => Boolean(id) && client.guilds.cache.has(id);
+
+  if (has(saved)) return { guildId: saved, source: 'settings', previous: saved, switched: false };
+
+  // Servidor salvo não existe mais (ou o bot não está nele): tenta o ambiente.
+  for (const [source, candidate] of [
+    ['env', fromEnv],
+    ['dev', fromDev],
+  ]) {
+    if (has(candidate)) return { guildId: candidate, source, previous: saved, switched: true };
+  }
+
+  return {
+    guildId: saved || fromEnv || fromDev,
+    source: saved ? 'settings-unavailable' : fromEnv ? 'env' : 'dev',
+    previous: saved,
+    switched: false,
+  };
+}
+
+/**
  * Sobe tudo que depende de um servidor específico: recuperação de estado,
  * painéis, expiração da fila, banco de horas, webhook da escala e horário.
  *
@@ -102,4 +137,4 @@ async function startGuild({ client, context, guildId }) {
   return true;
 }
 
-module.exports = { startGuild };
+module.exports = { startGuild, resolveGuildId };
