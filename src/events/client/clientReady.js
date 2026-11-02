@@ -1,13 +1,31 @@
 'use strict';
 
 const { createLogger } = require('../../utils/logger');
-const { registerCommands } = require('../../handlers/registerCommands');
-const { formatTime } = require('../../utils/time');
+const { startGuild } = require('../../handlers/guildStart');
+const { inviteUrl, isValidClientId } = require('../../utils/invite');
 
 const logger = createLogger('ready');
 
-const SERVICE_DAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const serviceDayLabel = (weekday) => SERVICE_DAYS[Number(weekday)] ?? 'segunda';
+/** Application ID do bot conectado (o mesmo que aparece na URL da API). */
+const applicationIdOf = (client) => client.application?.id ?? client.user?.id ?? null;
+
+/** Link de convite para o bot conectado (usado nas mensagens de erro). */
+function joinLink(client) {
+  const id = applicationIdOf(client);
+  return isValidClientId(id) ? inviteUrl(id) : null;
+}
+
+/** Avisa (no log) quando o token conectou um bot diferente do CLIENT_ID configurado. */
+function warnIfWrongBot(client, env) {
+  const appId = applicationIdOf(client);
+  const configured = (env.clientId || '').trim();
+  if (!configured || !appId || configured === appId) return;
+  logger.warn(
+    `O token conectou o bot ${client.user?.tag ?? '?'} (aplicação ${appId}), ` +
+      `mas CLIENT_ID está configurado como ${configured}. ` +
+      'Use o link de convite da aplicação do token e corrija o CLIENT_ID no .env.',
+  );
+}
 
 // discord.js 14.27 emite `clientReady` (o antigo `ready` será removido na v15)
 module.exports = {
@@ -15,7 +33,12 @@ module.exports = {
   once: true,
   async execute(client, context) {
     const { services, env, runtime } = context;
-    logger.info(`Conectado como ${client.user.tag} (${client.guilds.cache.size} servidor(es))`);
+    const appId = applicationIdOf(client);
+
+    logger.info(
+      `Conectado como ${client.user.tag} (aplicação ${appId}, ${client.guilds.cache.size} servidor(es))`,
+    );
+    warnIfWrongBot(client, env);
 
     const guildId = services.settings.get('guild_id') || env.guildId;
     if (!guildId) {
@@ -26,91 +49,25 @@ module.exports = {
       await services.settings.set('guild_id', guildId);
     }
 
-    if (env.autoRegisterCommands) {
-      try {
-        await registerCommands({
-          client,
-          token: env.token,
-          guildId: env.devGuildId || guildId,
-          commands: client.commands,
-        });
-      } catch (error) {
-        logger.error('Falha ao registrar comandos', error);
-      }
-    }
-
     const guild = client.guilds.cache.get(guildId);
     if (!guild) {
-      logger.error(`O bot não está no servidor ${guildId}.`);
+      // Sem o servidor no cache, o registro de comandos e os painéis falhariam
+      // com "Missing Access" (50001) — avisamos com o link certo e esperamos.
+      runtime.awaitingGuild = guildId;
+      const link = joinLink(client);
+      const joined = [...client.guilds.cache.values()].map((item) => `${item.name} (${item.id})`);
+      logger.error(
+        `O bot ${client.user.tag} não está no servidor configurado (${guildId}). ` +
+          (joined.length ? `Servidores atuais: ${joined.join(', ')}. ` : 'Ele não está em nenhum servidor. ') +
+          (link
+            ? `Convide com: ${link}`
+            : 'Gere o convite com `npm run invite` usando o CLIENT_ID do bot.'),
+      );
+      logger.warn('Comandos e painéis serão configurados assim que o bot entrar no servidor.');
       return;
     }
 
-    await services.recovery.run(guildId).catch((error) => logger.error('Recuperação falhou', error));
-
-    // Atualização automática dos painéis
-    const startPanels = () => {
-      const seconds = services.settings.get('panel_refresh_seconds') || env.panelRefreshSeconds || 30;
-      const timer = setInterval(() => {
-        services.panels.refresh(guildId).catch((error) => logger.warn(`Painel: ${error.message}`));
-      }, seconds * 1000);
-      timer.unref?.();
-      runtime.panelTimer = timer;
-      logger.info(`Atualização de painéis a cada ${seconds}s`);
-    };
-    startPanels();
-
-    // Expirados por tempo máximo de espera
-    const expireTimer = setInterval(() => {
-      services.queue.expire(guildId).catch((error) => logger.warn(`Expiração: ${error.message}`));
-      try {
-        services.repositories.cooldowns.purgeExpiredSync();
-      } catch (error) {
-        logger.warn(`Limpeza de bloqueios: ${error.message}`);
-      }
-    }, 60 * 1000);
-    expireTimer.unref?.();
-    runtime.expireTimer = expireTimer;
-
-    // Banco de horas: aviso 5 min antes do turno + fechamento de sessões esquecidas
-    runtime.stopHourBankWatcher = services.hourBank.startWatcher(guildId);
-    logger.info(
-      `Banco de horas ativo • aviso ${services.hourBank.reminderMinutes} min antes do turno`,
-    );
-
-    // Envio automático da escala semanal pelo webhook (ativado no painel)
-    runtime.stopScheduleBroadcastWatcher = services.scheduleBroadcast.startWatcher(guildId);
-    if (services.scheduleBroadcast.enabled) {
-      logger.info(
-        `Escala no webhook: envio automático ${serviceDayLabel(services.scheduleBroadcast.day)} às ${services.scheduleBroadcast.time}`,
-      );
-    }
-
-    // Abertura/fechamento pelo horário configurado
-    runtime.stopScheduleWatcher = services.schedule.startWatcher(guildId, (change) => {
-      services.central
-        .handleScheduleTransition({
-          guildId,
-          open: change.open,
-          previousOpen: change.previousOpen,
-        })
-        .catch((error) => logger.error('Falha na transição de horário', error));
-    });
-
-    logger.info(
-      `Central pronta • ${services.schedule.statusLabel(guildId)} • ${formatTime()}`,
-    );
-
-    const missingPanels = ['public', 'staff'].filter((key) => {
-      const panel = services.repositories.panels.getSync(guildId, key);
-      return !panel?.message_id;
-    });
-    if (missingPanels.length > 0) {
-      logger.warn(
-        `Painéis não publicados (${missingPanels.join(', ')}). ` +
-          'Rode /setup ou /painel publicar no Discord para publicá-los.',
-      );
-    }
-
-    await services.panels.refresh(guildId).catch(() => null);
+    runtime.awaitingGuild = null;
+    await startGuild({ client, context, guildId });
   },
 };

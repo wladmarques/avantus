@@ -57,6 +57,12 @@ class AuditService {
       ].filter(Boolean),
     };
 
+    // Sem o servidor no cache (bot ainda não convidado), evitar 1 warn por evento.
+    if (typeof this.gateway.isGuildAvailable === 'function' && !this.gateway.isGuildAvailable(guildId)) {
+      logger.debug(`Log de ${type} mantido só no banco: servidor ${guildId} indisponível.`);
+      return;
+    }
+
     try {
       await this.gateway.sendChannelMessage(guildId, channelId, { embeds: [embed] });
     } catch (error) {
