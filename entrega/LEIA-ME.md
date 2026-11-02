@@ -27,6 +27,16 @@ AUTO_REGISTER_COMMANDS=true
 
 Guia detalhado: [../docs/01-instalacao-squarecloud.md](../docs/01-instalacao-squarecloud.md)
 
+## Publicar pela API (sem painel)
+
+```bash
+SQUARECLOUD_TOKEN=xxxx SQUARECLOUD_APP_ID=yyyy npm run deploy:squarecloud
+```
+
+Envia este zip, reinicia a aplicação e, com `--reset-data`, apaga o banco antes do envio.
+Todo push na `main` também publica, via `.github/workflows/deploy-squarecloud.yml`
+(basta cadastrar os secrets `SQUARECLOUD_TOKEN` e `SQUARECLOUD_APP_ID` no GitHub).
+
 ## Regerar o pacote
 
 ```bash

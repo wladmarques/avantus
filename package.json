@@ -16,6 +16,7 @@
     "lint": "node scripts/check-syntax.js",
     "check:tracked": "node scripts/check-tracked.js",
     "package": "node scripts/package.js",
+    "deploy:squarecloud": "node scripts/squarecloud-deploy.js",
     "preview:panel": "node scripts/preview-panel.js",
     "preview:staff": "node scripts/preview-staff.js",
     "preview:web": "node scripts/preview-web.js",
