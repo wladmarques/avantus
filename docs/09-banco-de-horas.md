@@ -49,6 +49,12 @@ WEB_PANEL_HOST=0.0.0.0
   *EM SERVIÇO*, *ATRASO n min* ou *NO HORÁRIO*.
 - **Período**: hoje, 7 dias, 30 dias ou intervalo personalizado.
 - **CSV**: exporta o relatório do período (horas, sessões, entrada, saída, atrasos).
+- **Tirar de serviço** (coluna *Ações*, aparece só para quem está em serviço): encerra a
+  sessão do banco de horas agora, marca o staff como **INDISPONÍVEL** e, se estiver no canal
+  de voz de trabalho, desconecta da call — útil quando alguém esquece de sair e as horas
+  continuam contando. O staff recebe uma DM explicando como voltar (`/status`).
+  Se ele estiver atendendo um jogador, a ação é **recusada** (o atendimento precisa ser
+  encerrado/transferido no Discord antes, para o jogador não ficar órfão).
 
 ### Escala no canal (webhook)
 
@@ -176,6 +182,7 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end, parity? }] }` — `parity` = `A`/`B` para fim de semana revezado |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
+| POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
 | POST | `/api/schedule/send` | publica a escala da semana no webhook |

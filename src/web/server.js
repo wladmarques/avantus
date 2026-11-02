@@ -14,6 +14,7 @@
  *   GET  /api/overview         → staff + escala + horas do período
  *   GET  /api/report           → relatório agregado
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
+ *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
  *   PUT  /api/staff/:id/shifts → salva a escala semanal
  *   DELETE /api/staff/:id/shifts
  *   GET  /api/health
@@ -28,6 +29,7 @@ const {
   setWebhookUrl,
   sendWeeklySchedule,
 } = require('../systems/hourbank/scheduleBroadcast');
+const { takeStaffOffService, StaffServingError } = require('../systems/staff/offService');
 
 const logger = createLogger('web');
 
@@ -459,6 +461,34 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           return sendJson(res, 200, result);
         } catch (error) {
           logger.warn(`Falha ao enviar a escala pelo webhook: ${error.message}`);
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      const offMatch = /^\/api\/staff\/(\d{5,25})\/off-service$/.exec(pathname);
+      if (offMatch && req.method === 'POST') {
+        const userId = offMatch[1];
+        const body = await readBody(req).catch(() => ({}));
+        try {
+          const result = await takeStaffOffService({
+            services,
+            guildId: currentGuildId,
+            userId,
+            source: 'painel web',
+            disconnectVoice: body.disconnectVoice !== false,
+            notify: body.notify !== false,
+          });
+          nameCache.delete(`${currentGuildId}:${userId}`);
+          logger.info(`Staff ${userId} retirado de serviço pelo painel web.`);
+          return sendJson(res, 200, { ok: true, ...result });
+        } catch (error) {
+          if (error instanceof StaffServingError) {
+            return sendJson(res, 409, {
+              error: error.message,
+              code: error.code,
+              protocol: error.protocol,
+            });
+          }
           return sendJson(res, 400, { error: error.message });
         }
       }

@@ -691,3 +691,158 @@ test('escala em dois blocos pelo painel: dias úteis + fim de semana revezado', 
   assert.equal(onlyWeekdays.status, 200);
   assert.equal(onlyWeekdays.json.shifts.length, 5);
 });
+
+/* ------------------------------------------------------------------ */
+/* Tirar de serviço pelo painel                                        */
+/* ------------------------------------------------------------------ */
+
+test('tirar de serviço encerra a sessão, marca indisponível e desconecta da call', async (t) => {
+  const env = await createTestEnv();
+  const { addStaffInVoice } = require('./helpers');
+  addStaffInVoice(env.gateway, STAFF);
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  // Coloca o staff do teste em serviço → sessão aberta no banco de horas.
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: false,
+  });
+  assert.ok(env.services.hourBank.activeSession(env.guildId, STAFF), 'sessão contando');
+  const { cookie } = await panel.login();
+
+  const response = await panel.call(`/api/staff/${STAFF}/off-service`, {
+    method: 'POST',
+    cookie,
+    body: { disconnectVoice: true },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.status, 'INDISPONIVEL');
+  assert.ok(response.json.endedSession, 'devolve a sessão encerrada');
+  assert.match(response.json.endedSession.label, /\d/);
+  assert.equal(response.json.disconnected, true);
+
+  assert.equal(env.services.hourBank.activeSession(env.guildId, STAFF), null, 'nada mais contando');
+  const status = env.services.staff.get(env.guildId, STAFF);
+  assert.equal(status.status, 'INDISPONIVEL');
+  assert.equal(status.manual, true, 'status manual: o bot não reativa sozinho');
+  assert.ok(env.gateway.disconnects.some((item) => item.userId === STAFF), 'desconectado da call');
+  assert.ok(
+    env.gateway.dms.some((dm) => dm.userId === STAFF),
+    'staff é avisado por DM',
+  );
+
+  const overview = await panel.call('/api/overview', { cookie });
+  const row = overview.json.staff.find((item) => item.userId === STAFF);
+  assert.equal(row.session, null);
+  assert.equal(row.available, false);
+  assert.equal(row.statusLabel, 'INDISPONÍVEL');
+
+  const sessions = await panel.call(`/api/sessions?userId=${STAFF}`, { cookie });
+  assert.equal(sessions.json.sessions.length, 1);
+  assert.ok(sessions.json.sessions[0].exit, 'sessão com saída registrada');
+});
+
+test('tirar de serviço não desconecta de call que não é de trabalho', async (t) => {
+  const env = await createTestEnv();
+  const { addStaffInVoice } = require('./helpers');
+  addStaffInVoice(env.gateway, STAFF, { channelId: '888888888888888888', channelName: 'Call particular' });
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: false,
+  });
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  const response = await panel.call(`/api/staff/${STAFF}/off-service`, {
+    method: 'POST',
+    cookie,
+    body: {},
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.disconnected, false);
+  assert.equal(env.gateway.disconnects.length, 0, 'não mexe em call particular');
+  assert.equal(env.services.staff.get(env.guildId, STAFF).status, 'INDISPONIVEL');
+});
+
+test('tirar de serviço é recusado quando o staff está atendendo um jogador', async (t) => {
+  const env = await createTestEnv();
+  const { addMember, addStaffInVoice } = require('./helpers');
+  const PLAYER = '900000000000004001';
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
+  addStaffInVoice(env.gateway, STAFF);
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: false,
+  });
+  await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Jogador Teste' });
+  await env.services.attendance.callNext({
+    guildId: env.guildId,
+    staffId: STAFF,
+    staffTag: 'Staff Teste',
+  });
+
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  const response = await panel.call(`/api/staff/${STAFF}/off-service`, { method: 'POST', cookie, body: {} });
+
+  assert.equal(response.status, 409);
+  assert.equal(response.json.code, 'EM_ATENDIMENTO');
+  assert.match(response.json.error, /atendendo o jogador/);
+  assert.equal(env.services.staff.get(env.guildId, STAFF).status, 'EM_ATENDIMENTO', 'status preservado');
+  assert.ok(env.services.hourBank.activeSession(env.guildId, STAFF), 'sessão continua contando');
+});
+
+test('tirar de serviço exige sessão do painel', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: false,
+  });
+  const response = await panel.call(`/api/staff/${STAFF}/off-service`, { method: 'POST', body: {} });
+  assert.equal(response.status, 401);
+  assert.ok(env.services.hourBank.activeSession(env.guildId, STAFF), 'nada muda sem login');
+});
+
+test('o painel expõe o botão "Tirar de serviço" só para quem está em serviço', async () => {
+  const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+
+  assert.match(app, /if \(row\.session \|\| row\.available\) \{/);
+  assert.match(app, /\/off-service/);
+  assert.match(app, /Tirar de serviço/);
+  assert.match(html, /id="off-modal"/);
+  assert.match(html, /id="off-voice"/);
+});
