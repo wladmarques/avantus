@@ -174,8 +174,14 @@ Depois disso, todo push na `main` gera o pacote, publica e reinicia. Também dá
 à mão em **Actions → Deploy SquareCloud → Run workflow**, marcando *reset_data* para começar
 com banco limpo.
 
-> **Integração via GitHub do painel:** ela publica o repositório inteiro (rodando `npm install`
-> e `node index.js`), respeitando o `squarecloud.ignore`. Se a integração estiver apontando para
+> > **Integração via GitHub do painel:** ela publica o repositório inteiro (rodando `npm install`
+> e `node index.js`), respeitando o `squarecloud.ignore` e a **branch escolhida**. Se a branch
+> apontar para uma branch já mesclada, o painel sobe código antigo — mantenha em **`main`**.
+> Com *Deploy automático*, cada push nessa branch publica; sem ele, use o botão **Deploy**
+> do painel (ele também republica o último commit da branch).
+>
+> O workflow deste repositório só publica pela API quando os secrets existirem; sem eles ele
+> termina em verde com um aviso (veja a aba *Actions*). Se a integração estiver apontando para
 > uma branch antiga, o painel sobe código velho — troque para **`main`** em *Integrações →
 > GitHub*, ou use o workflow acima, que sempre publica o pacote da `main`.
 
