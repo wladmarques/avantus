@@ -146,6 +146,39 @@ O `/setup` cria:
 | Bot não move jogadores | sem **Mover membros** | revise [03-permissoes-discord.md](03-permissoes-discord.md) |
 | Fila não abre | horário fechado | `/central abrir` ou `/horario definir` |
 
+## 9.1 Deploy automático (API / CI)
+
+Além do upload manual no painel, o pacote pode ser publicado pela API oficial.
+
+**No seu computador:**
+
+```bash
+SQUARECLOUD_TOKEN=xxxx SQUARECLOUD_APP_ID=yyyy npm run deploy:squarecloud
+```
+
+- `SQUARECLOUD_TOKEN`: squarecloud.app → **Conta → Segurança** → novo token com os escopos
+  `apps:deploy`, `apps:control` e (opcional) `files:write`.
+- `SQUARECLOUD_APP_ID`: o ID da aplicação (aparece na URL do painel).
+- Opções: `--reset-data` (apaga `data/vantus.sqlite` antes do envio), `--no-restart`,
+  `--dry-run`, `--keep-package`.
+
+**Automático a cada merge na `main`:** o workflow `.github/workflows/deploy-squarecloud.yml`
+faz isso sozinho. Cadastre em **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Valor |
+| --- | --- |
+| `SQUARECLOUD_TOKEN` | token da API (nunca no código) |
+| `SQUARECLOUD_APP_ID` | ID da aplicação |
+
+Depois disso, todo push na `main` gera o pacote, publica e reinicia. Também dá para rodar
+à mão em **Actions → Deploy SquareCloud → Run workflow**, marcando *reset_data* para começar
+com banco limpo.
+
+> **Integração via GitHub do painel:** ela publica o repositório inteiro (rodando `npm install`
+> e `node index.js`), respeitando o `squarecloud.ignore`. Se a integração estiver apontando para
+> uma branch antiga, o painel sobe código velho — troque para **`main`** em *Integrações →
+> GitHub*, ou use o workflow acima, que sempre publica o pacote da `main`.
+
 ## 10. Troca de bot (nova aplicação)
 
 Ao migrar para outra aplicação do Discord (outro Application ID/token):
@@ -176,6 +209,17 @@ O log do boot sempre informa a aplicação do token:
 
 Se o bot não estiver no servidor, o VANTUS **não tenta registrar comandos** (era daí que vinha o
 `Missing Access`) e sobe a central sozinho assim que o convite for aceito — sem reiniciar.
+
+**Servidor salvo que não existe mais** (banco de teste, servidor antigo, bot removido do servidor):
+o boot passa a **adotar o `GUILD_ID` (ou `DEV_GUILD_ID`) do ambiente** e corrige o `guild_id` no
+banco automaticamente:
+
+```text
+[ready] Servidor salvo (440265886302076928) não está disponível para o bot;
+        usando 1200967871480737912 de GUILD_ID. Configuração do banco atualizada.
+```
+
+Assim não é mais preciso apagar o banco nem usar `DEV_GUILD_ID` para trocar de servidor.
 
 > O `data/vantus.sqlite` (escala, horas, configurações) continua o mesmo: a troca de bot não
 > afeta os dados. As mensagens dos painéis antigos são substituídas na republicação.

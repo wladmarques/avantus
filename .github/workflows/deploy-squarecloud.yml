@@ -1,0 +1,48 @@
+name: Deploy SquareCloud
+
+# Todo push na main (ou merge de PR) publica o bot na SquareCloud.
+# Também pode ser disparado à mão em Actions → Deploy SquareCloud → Run workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reset_data:
+        description: 'Apagar o banco (data/vantus.sqlite) antes do deploy'
+        type: boolean
+        default: false
+      restart:
+        description: 'Reiniciar a aplicação após o envio'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-squarecloud
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci --omit=dev || npm install --omit=dev
+
+      - name: Gerar pacote de deploy
+        run: npm run package
+
+      - name: Publicar na SquareCloud
+        env:
+          SQUARECLOUD_TOKEN: ${{ secrets.SQUARECLOUD_TOKEN }}
+          SQUARECLOUD_APP_ID: ${{ secrets.SQUARECLOUD_APP_ID }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.reset_data }}" = "true" ]; then ARGS="$ARGS --reset-data"; fi
+          if [ "${{ inputs.restart }}" = "false" ]; then ARGS="$ARGS --no-restart"; fi
+          node scripts/squarecloud-deploy.js --keep-package $ARGS
