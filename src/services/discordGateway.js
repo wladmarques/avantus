@@ -36,6 +36,11 @@ class DiscordGateway {
     return guild;
   }
 
+  /** O bot está (e já carregou) o servidor informado? */
+  isGuildAvailable(guildId) {
+    return Boolean(guildId) && this.client.guilds.cache.has(guildId);
+  }
+
   async _fetchMember(guildId, userId) {
     if (!userId) return null;
     const guild = this._guild(guildId);
@@ -389,6 +394,10 @@ class MemoryGateway {
     if (!channel) return null;
     channel.name = name;
     return channel;
+  }
+
+  isGuildAvailable() {
+    return true;
   }
 
   async fetchChannel(guildId, channelId) {

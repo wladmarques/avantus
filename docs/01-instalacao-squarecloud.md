@@ -139,6 +139,8 @@ O `/setup` cria:
 | --- | --- | --- |
 | `DISCORD_TOKEN não configurado` | variável ausente | preencha no painel/.env |
 | Bot offline, sem erro | token inválido | gere novo token e atualize |
+| `Missing Access` (50001) ao registrar comandos | o bot do token **não está** no servidor do `GUILD_ID` | convide com `npm run invite` (o log do boot mostra o link com a aplicação certa) e reinicie |
+| Conectou com um nome/ID de bot diferente do esperado | token de outra aplicação | o log mostra `aplicação <id>`; gere o token da aplicação correta |
 | `Used disallowed intents` | intent não ativada | ative **Server Members** no portal |
 | Comandos não aparecem | registro falhou | `npm run deploy:commands` ou reinicie |
 | Bot não move jogadores | sem **Mover membros** | revise [03-permissoes-discord.md](03-permissoes-discord.md) |
@@ -162,6 +164,18 @@ Ao migrar para outra aplicação do Discord (outro Application ID/token):
    `npm run deploy:commands` se os comandos não aparecerem.
 7. `/diagnostico` mostra o **bot conectado** e avisa se o token é de um bot diferente do
    `CLIENT_ID` — assim uma troca pela metade não passa batido.
+
+O log do boot sempre informa a aplicação do token:
+
+```text
+[ready] Conectado como VANTUS ATENDIMENTO#8206 (aplicação 1565771323492536520, 1 servidor(es))
+[ready] O bot VANTUS ATENDIMENTO#8206 não está no servidor configurado (4402...).
+        Servidores atuais: Outro servidor (9999...).
+        Convide com: https://discord.com/api/oauth2/authorize?client_id=1565771323492536520&...
+```
+
+Se o bot não estiver no servidor, o VANTUS **não tenta registrar comandos** (era daí que vinha o
+`Missing Access`) e sobe a central sozinho assim que o convite for aceito — sem reiniciar.
 
 > O `data/vantus.sqlite` (escala, horas, configurações) continua o mesmo: a troca de bot não
 > afeta os dados. As mensagens dos painéis antigos são substituídas na republicação.
