@@ -4,7 +4,17 @@
  * Fábricas de componentes (JSON puro) com IDs persistentes.
  * Os mesmos IDs continuam válidos após reiniciar o bot.
  */
+const { RATING_META } = require('../../config/theme');
+
 const STYLES = { PRIMARY: 1, SECONDARY: 2, SUCCESS: 3, DANGER: 4, LINK: 5 };
+
+/** Estilo de cada nota (verde = nota boa, vermelho = nota ruim). */
+const RATING_STYLES = {
+  MUITO_BOM: STYLES.SUCCESS,
+  BOM: STYLES.PRIMARY,
+  REGULAR: STYLES.SECONDARY,
+  RUIM: STYLES.DANGER,
+};
 
 function button(customId, label, { style = STYLES.SECONDARY, emoji = null, disabled = false } = {}) {
   const payload = { type: 2, custom_id: customId, style, label, disabled };
@@ -36,6 +46,7 @@ function selectMenu(customId, placeholder, options, { minValues = 1, maxValues =
 const IDs = {
   // painel público
   PUBLIC_JOIN: 'pub:join',
+  PUBLIC_EVALUATE: 'pub:evaluate',
   PUBLIC_LEAVE: 'pub:leave',
   PUBLIC_STATUS: 'pub:status',
   // painel staff
@@ -74,6 +85,9 @@ function publicPanelComponents({ joinDisabled = false } = {}) {
       button(IDs.PUBLIC_LEAVE, 'SAIR DA FILA', { style: STYLES.SECONDARY, emoji: '❌' }),
       button(IDs.PUBLIC_STATUS, 'MINHA POSIÇÃO', { style: STYLES.SECONDARY, emoji: '📊' }),
     ]),
+    // Sempre disponível: o jogador avalia o último atendimento mesmo depois
+    // de fechar a DM.
+    actionRow([button(IDs.PUBLIC_EVALUATE, 'AVALIAR ATENDIMENTO', { style: STYLES.SECONDARY })]),
   ];
 }
 
@@ -99,12 +113,32 @@ function staffPanelComponents({ hasQueue = false, hasServing = false, hasHold = 
   ];
 }
 
+/**
+ * Botões de nota (1 a 4 estrelas) de um atendimento.
+ * O custom_id carrega o atendimento: `eval:<id>:<NOTA>` (persistente).
+ */
+function ratingButtons(attendanceId, { protocol = null } = {}) {
+  return Object.entries(RATING_META).map(([rating, meta]) => {
+    const prefix = protocol ? `#${String(protocol).padStart(4, '0')} ` : '';
+    return button(`eval:${attendanceId}:${rating}`, `${prefix}${meta.label}`, {
+      style: RATING_STYLES[rating] ?? STYLES.SECONDARY,
+    });
+  });
+}
+
+function ratingRow(attendanceId, options = {}) {
+  return actionRow(ratingButtons(attendanceId, options));
+}
+
 module.exports = {
   STYLES,
+  RATING_STYLES,
   IDs,
   button,
   actionRow,
   selectMenu,
+  ratingButtons,
+  ratingRow,
   publicPanelComponents,
   staffPanelComponents,
 };

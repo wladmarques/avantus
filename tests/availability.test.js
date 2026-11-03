@@ -159,7 +159,7 @@ test('painel clássico também desabilita o botão de entrada', async (t) => {
   const joinButtonPayload = payload.components[0].components.find((item) => item.custom_id === 'pub:join');
   assert.ok(joinButtonPayload, 'botão presente no payload');
   assert.equal(joinButtonPayload.disabled, true);
-  assert.deepEqual(panelButtonIds(payload).length, 3, 'layout clássico mantém os três botões');
+  assert.deepEqual(panelButtonIds(payload).length, 4, 'layout clássico mantém os botões do painel');
 });
 
 test('entrada manual (botão/comando) só vale para quem está no canal de espera', async (t) => {

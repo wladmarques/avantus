@@ -62,11 +62,19 @@ Você recebe uma avaliação no privado:
 
 Sua nota fica vinculada ao protocolo e ao staff responsável. Você pode avaliar apenas uma vez por atendimento.
 
-Se você fechou as mensagens privadas (ou perdeu a DM), avalie pelo comando:
+Se você fechou as mensagens privadas (ou perdeu a DM), existem duas saídas:
+
+1. **Botão “Avaliar atendimento” no painel da central** — mostra as notas do(s) atendimento(s)
+   encerrado(s) que ainda estão sem avaliação.
+2. **Comando** (o protocolo é opcional; sem ele, o bot usa o último atendimento pendente):
 
 ```
 /avaliar protocolo:12 nota:Muito bom
+/avaliar nota:Bom
 ```
+
+Com a DM fechada, o próprio bot publica a avaliação no canal do painel marcando você com as
+quatro notas — dá para avaliar direto por lá.
 
 A avaliação aparece no painel web da equipe (média, distribuição e ranking por atendente) e no
 canal de avaliações do servidor.
@@ -77,7 +85,7 @@ canal de avaliações do servidor.
 | --- | --- |
 | `/entrar` | entra na fila |
 | `/sair` | sai da fila |
-| `/avaliar` | avalia um atendimento pelo protocolo (se a DM estiver fechada) |
+| `/avaliar` | avalia o último atendimento pendente (ou o protocolo informado) |
 | `/posicao` | mostra posição, tempo de espera e previsão |
 | `/protocolo` | consulta seu protocolo mais recente (ou `/protocolo numero:12`) |
 | `/ajuda` | resumo das regras e horários |

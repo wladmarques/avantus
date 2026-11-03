@@ -152,6 +152,16 @@ class EvaluationService {
     if (!row && protocol) {
       row = this.repos.attendance.findByProtocolSync(guildId, Number(protocol));
     }
+    if (!row && !protocol && !attendanceId) {
+      // Sem protocolo: pega o atendimento encerrado mais recente sem nota.
+      row = this.pending(guildId, userId, { limit: 1 })[0] ?? null;
+      if (!row) {
+        throw new AppError(
+          ERRORS.ATENDIMENTO_NAO_ENCONTRADO,
+          'Você não tem atendimentos aguardando avaliação.',
+        );
+      }
+    }
     if (!row) throw new AppError(ERRORS.ATENDIMENTO_NAO_ENCONTRADO, 'Atendimento não encontrado.');
     if (row.user_id !== userId) {
       throw new AppError(ERRORS.ERRO_INTERNO, 'Esta avaliação não pertence a você.');
@@ -241,6 +251,12 @@ class EvaluationService {
     }, {});
     const byStaff = this.repos.evaluations.byStaffSync(guildId, range.from, range.to);
     return { range, total: entries.length, byRating, byStaff, recent: entries.slice(0, 10) };
+  }
+
+  /** Atendimentos finalizados que o jogador ainda pode avaliar (mais recente primeiro). */
+  pending(guildId, userId, { limit = 5 } = {}) {
+    if (!userId) return [];
+    return this.repos.evaluations.pendingByUserSync(guildId, String(userId), { limit });
   }
 
   /** Avaliações em ordem (mais recentes primeiro) — usado pelo painel web. */

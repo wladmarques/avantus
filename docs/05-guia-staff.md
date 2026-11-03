@@ -35,7 +35,7 @@ por staff com `/config definir chave:allow_staff_multi valor:true`.
 
 | Botão | Efeito |
 | --- | --- |
-| ✅ FINALIZAR | encerra seu atendimento, calcula duração, envia a avaliação ao jogador e libera você |
+| ✅ FINALIZAR | encerra seu atendimento, calcula duração, envia a avaliação ao jogador (DM ou canal do painel, se a DM estiver fechada) e libera você |
 | 🔄 DEVOLVER À FILA | o jogador volta ao **final** da fila e você é liberado |
 | ⏭️ PULAR JOGADOR | move o jogador para o final da fila ou o mantém pendente (conforme configuração) — **motivo obrigatório** |
 | 🚫 REMOVER DA FILA | remove o jogador (fila ou atendimento) com **justificativa obrigatória** |
