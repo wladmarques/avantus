@@ -14,6 +14,8 @@
  *   GET  /api/overview         → staff + escala + horas do período
  *   GET  /api/report           → relatório agregado
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
+ *   GET  /api/schedule         → horário de funcionamento + status atual
+ *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
@@ -33,6 +35,8 @@ const {
 } = require('../systems/hourbank/scheduleBroadcast');
 const { takeStaffOffService, StaffServingError } = require('../systems/staff/offService');
 const { RATING_META } = require('../config/theme');
+const { isValidSchedule, isValidHHMM } = require('../utils/validators');
+const { DAY_KEYS, DAY_LABELS } = require('../utils/time');
 const { formatDateTime, startOfDay } = require('../utils/time');
 const { parseDayStart } = require('../systems/hourbank/hourBankService');
 
@@ -111,6 +115,75 @@ function periodRange(url, { timeZone = undefined, now = Date.now() } = {}) {
   const from = fromTs ?? startOfDay(new Date(now - 6 * 24 * 3600000), timeZone);
   const to = toTs ? toTs + 24 * 3600000 - 1 : now;
   return { from, to };
+}
+
+/**
+ * Estado do horário de funcionamento para o painel.
+ * `schedule` sempre traz as 7 chaves (dias fechados = lista vazia).
+ */
+function schedulePayload(services, guildId) {
+  const stored = services.settings.get('schedule') || {};
+  const schedule = {};
+  for (const key of DAY_KEYS) {
+    const windows = Array.isArray(stored[key]) ? stored[key] : [];
+    schedule[key] = windows.map((window) => ({ open: window.open, close: window.close }));
+  }
+
+  const status = services.schedule.isOpen(guildId);
+  const today = services.schedule.todayWindow(guildId);
+
+  return {
+    schedule,
+    days: DAY_KEYS.map((key) => ({
+      key,
+      label: DAY_LABELS[key] ?? key,
+      windows: schedule[key],
+    })),
+    centralManual: services.settings.get('central_manual'),
+    status: {
+      open: status.open,
+      manual: status.manual,
+      label: status.open ? 'ABERTA' : 'FECHADA',
+      nextOpen: status.nextOpen ?? null,
+      today: today.text,
+    },
+    timezone: services.hourBank?.timeZone ?? null,
+  };
+}
+
+/** Aceita { mon: [{open, close}] } (ou um único objeto por dia). */
+function normalizeSchedule(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('Formato de horário inválido.');
+  }
+  const result = {};
+  for (const key of DAY_KEYS) {
+    const value = input[key];
+    if (value === undefined || value === null) {
+      result[key] = [];
+      continue;
+    }
+    const windows = Array.isArray(value) ? value : [value];
+    result[key] = windows
+      .map((window) => ({
+        open: String(window?.open ?? '').trim(),
+        close: String(window?.close ?? '').trim(),
+      }))
+      .filter((window) => window.open || window.close);
+
+    for (const window of result[key]) {
+      if (!isValidHHMM(window.open) || !isValidHHMM(window.close)) {
+        throw new Error(`Horário inválido em ${key}: use HH:MM (ex.: 12:00).`);
+      }
+      if (window.open === window.close) {
+        throw new Error(`Em ${key} a abertura e o fechamento não podem ser iguais (${window.open}).`);
+      }
+    }
+  }
+
+  const unknown = Object.keys(input).filter((key) => !DAY_KEYS.includes(key));
+  if (unknown.length > 0) throw new Error(`Dia desconhecido: ${unknown.join(', ')}.`);
+  return result;
 }
 
 function readBody(req, limit = 256 * 1024) {
@@ -432,6 +505,59 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           to: url.searchParams.get('to'),
         });
         return sendJson(res, 200, { sessions: sessionsList });
+      }
+
+      if (pathname === '/api/schedule' && req.method === 'GET') {
+        return sendJson(res, 200, schedulePayload(services, currentGuildId));
+      }
+
+      if (pathname === '/api/schedule' && req.method === 'PUT') {
+        const body = await readBody(req);
+        const incoming = body.schedule;
+        const manual = body.centralManual ?? null;
+
+        if (manual !== null && !['auto', 'open', 'closed'].includes(manual)) {
+          return sendJson(res, 400, { error: 'Estado da central inválido (auto/open/closed).' });
+        }
+
+        let schedule = null;
+        if (incoming !== undefined) {
+          try {
+            schedule = normalizeSchedule(incoming);
+          } catch (error) {
+            return sendJson(res, 400, { error: error.message });
+          }
+          if (!isValidSchedule(schedule)) {
+            return sendJson(res, 400, { error: 'Horário inválido: use HH:MM em todos os turnos.' });
+          }
+        }
+
+        const before = services.settings.get('schedule');
+        if (schedule) await services.settings.set('schedule', schedule);
+        if (manual !== null) await services.settings.set('central_manual', manual);
+
+        if (schedule || manual !== null) {
+          const changes = [];
+          if (schedule) changes.push('horário de funcionamento');
+          if (manual !== null) changes.push(`estado manual (${manual})`);
+          await services.audit
+            .log({
+              guildId: currentGuildId,
+              type: 'SCHEDULE_UPDATE',
+              actorId: 'painel web',
+              message: `⚙️ O **painel web** atualizou ${changes.join(' e ')} da central.\n` +
+                `**Agora:** ${services.schedule.describe(currentGuildId)}`,
+              color: RATING_META.MUITO_BOM.color,
+              metadata: { before, schedule, manual },
+            })
+            .catch(() => null);
+          await services.panels.refresh(currentGuildId).catch(() => null);
+          logger.info(
+            `Horário da central atualizado pelo painel web (${services.schedule.statusLabel(currentGuildId)}).`,
+          );
+        }
+
+        return sendJson(res, 200, { ok: true, ...schedulePayload(services, currentGuildId) });
       }
 
       if (pathname === '/api/evaluations' && req.method === 'GET') {

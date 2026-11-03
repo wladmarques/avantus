@@ -80,6 +80,29 @@ async function startGuild({ client, context, guildId }) {
     logger.info(`Avaliações serão publicadas no canal ${env.evaluationChannelId} (EVALUATION_CHANNEL_ID).`);
   }
 
+  // Cargos configurados para o painel da equipe (EQUIPE mostra só estes).
+  if (env.staffPanelRoleIds?.length && !(services.settings.get('staff_panel_role_ids') || []).length) {
+    await services.settings.set('staff_panel_role_ids', env.staffPanelRoleIds);
+    logger.info(`EQUIPE do painel limitada aos cargos ${env.staffPanelRoleIds.join(', ')} (STAFF_PANEL_ROLE_IDS).`);
+  }
+  if (!(services.settings.get('staff_panel_role_ids') || []).length) {
+    logger.warn(
+      'EQUIPE do painel mostra todos os staff: defina STAFF_PANEL_ROLE_IDS (ou ' +
+        '/config definir chave:staff_panel_role_ids) para listar só um cargo.',
+    );
+  }
+  if ((services.settings.get('staff_panel_role_ids') || []).length) {
+    // Carrega os cargos agora e mantém atualizado (cargo trocado no Discord
+    // precisa refletir no painel sem reiniciar o bot).
+    await services.staff.refreshRoleCache(guildId);
+    const roleTimer = setInterval(() => {
+      services.staff.refreshRoleCache(guildId).catch(() => null);
+    }, 5 * 60 * 1000);
+    roleTimer.unref?.();
+    runtime.staffRoleTimer = roleTimer;
+    logger.info('Cargos do painel da equipe sincronizados (atualização a cada 5 min).');
+  }
+
   await services.recovery.run(guildId).catch((error) => logger.error('Recuperação falhou', error));
 
   // Atualização automática dos painéis

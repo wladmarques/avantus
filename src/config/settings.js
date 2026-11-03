@@ -85,6 +85,13 @@ const SETTINGS = {
     group: 'Permissões',
     validate: asIdList,
   },
+  staff_panel_role_ids: {
+    default: [],
+    type: 'json',
+    label: 'Cargos exibidos no painel da equipe (vazio = todos)',
+    group: 'Permissões',
+    validate: asIdList,
+  },
   admin_role_ids: {
     default: [],
     type: 'json',

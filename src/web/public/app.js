@@ -364,6 +364,144 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Horário de funcionamento                                            */
+  /* ------------------------------------------------------------------ */
+
+  /** Cria a linha de um turno: [início] às [fim] [remover]. */
+  function shiftRow(window = { open: '12:00', close: '02:00' }) {
+    const row = el('div', 'shift-row');
+    const open = document.createElement('input');
+    open.type = 'time';
+    open.value = window.open || '12:00';
+    open.className = 'shift-open';
+    open.setAttribute('aria-label', 'Abertura');
+
+    const close = document.createElement('input');
+    close.type = 'time';
+    close.value = window.close || '02:00';
+    close.className = 'shift-close';
+    close.setAttribute('aria-label', 'Fechamento');
+
+    const remove = el('button', 'link', 'remover');
+    remove.type = 'button';
+    remove.addEventListener('click', () => {
+      const day = row.closest('.schedule-day');
+      row.remove();
+      updateDayState(day);
+    });
+
+    row.append(open, el('span', 'muted small', 'às'), close, remove);
+    return row;
+  }
+
+  function updateDayState(day) {
+    if (!day) return;
+    const rows = day.querySelectorAll('.shift-row');
+    const toggle = day.querySelector('input[type="checkbox"]');
+    const box = day.querySelector('.shift-list');
+    const hasRows = rows.length > 0;
+    toggle.checked = hasRows;
+    box.hidden = !hasRows;
+    const add = day.querySelector('.shift-add');
+    if (add) add.hidden = !hasRows;
+  }
+
+  function buildDay(day) {
+    const wrapper = el('div', 'schedule-day');
+    wrapper.dataset.key = day.key;
+
+    const head = el('div', 'schedule-day-head');
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = day.windows.length > 0;
+    toggle.setAttribute('aria-label', `Abrir em ${day.label}`);
+    const name = el('span', 'schedule-day-name', day.label);
+    const add = el('button', 'link shift-add', '+ turno');
+    add.type = 'button';
+    add.addEventListener('click', () => {
+      const list = wrapper.querySelector('.shift-list');
+      list.appendChild(shiftRow());
+      updateDayState(wrapper);
+    });
+    head.append(toggle, name, add);
+
+    const list = el('div', 'shift-list');
+    for (const window of day.windows.length ? day.windows : []) list.appendChild(shiftRow(window));
+
+    toggle.addEventListener('change', () => {
+      if (toggle.checked && list.children.length === 0) list.appendChild(shiftRow());
+      if (!toggle.checked) {
+        list.innerHTML = '';
+      }
+      updateDayState(wrapper);
+    });
+
+    wrapper.append(head, list);
+    updateDayState(wrapper);
+    return wrapper;
+  }
+
+  function renderSchedule(data) {
+    const container = $('schedule-days');
+    container.innerHTML = '';
+    for (const day of data.days) container.appendChild(buildDay(day));
+
+    $('central-manual').value = data.centralManual || 'auto';
+    const status = data.status || {};
+    $('schedule-status').textContent = `${status.label || '—'}${
+      status.manual ? ' (manual)' : ''
+    } · hoje: ${status.today || '—'}`;
+    $('schedule-today').textContent =
+      status.open === false && status.nextOpen ? `Abre novamente ${status.nextOpen}.` : '';
+  }
+
+  async function loadSchedule() {
+    try {
+      const data = await api('/api/schedule');
+      renderSchedule(data);
+    } catch (error) {
+      if (error.message !== 'unauthorized') toast(error.message);
+    }
+  }
+
+  /** Monta o JSON { sun: [{open, close}], ... } a partir da tela. */
+  function collectSchedule() {
+    const schedule = {};
+    for (const day of $('schedule-days').querySelectorAll('.schedule-day')) {
+      const windows = [];
+      for (const row of day.querySelectorAll('.shift-row')) {
+        const open = row.querySelector('.shift-open').value;
+        const close = row.querySelector('.shift-close').value;
+        if (open && close) windows.push({ open, close });
+      }
+      schedule[day.dataset.key] = windows;
+    }
+    return schedule;
+  }
+
+  async function saveScheduleConfig() {
+    const button = $('schedule-save');
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      const data = await api('/api/schedule', {
+        method: 'PUT',
+        body: JSON.stringify({
+          schedule: collectSchedule(),
+          centralManual: $('central-manual').value,
+        }),
+      });
+      renderSchedule(data);
+      toast(`Horário salvo. Central ${data.status.open ? 'aberta' : 'fechada'} agora.`);
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar horário';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Avaliações                                                          */
   /* ------------------------------------------------------------------ */
 
@@ -973,6 +1111,7 @@
       await refresh({ silent: true });
       await loadWebhook();
       await loadEvaluations();
+      await loadSchedule();
       clearInterval(state.timer);
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch (requestError) {
@@ -1028,6 +1167,7 @@
   $('evaluation-channel-save').addEventListener('click', saveEvaluationChannel);
   $('eval-alert-save').addEventListener('click', saveAlertThreshold);
   $('eval-export').addEventListener('click', exportEvaluationsCsv);
+  $('schedule-save').addEventListener('click', saveScheduleConfig);
   $('eval-staff').addEventListener('change', () => loadEvaluations());
   $('schedule-send').addEventListener('click', sendSchedule);
   $('webhook-url').addEventListener('keydown', (event) => {
@@ -1054,6 +1194,7 @@
       renderScheduleList(overview.staff);
       await loadWebhook();
       await loadEvaluations();
+      await loadSchedule();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch {
       showLogin();

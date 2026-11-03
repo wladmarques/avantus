@@ -88,6 +88,34 @@
 
     <div class="panel">
       <div class="panel-head">
+        <h2>Horário de funcionamento</h2>
+        <span class="muted small" id="schedule-status">Carregando…</span>
+      </div>
+
+      <div id="schedule-days" class="schedule-days"></div>
+
+      <div class="webhook-row schedule-actions">
+        <label class="switch" for="central-manual">
+          <span class="muted small">Estado da central</span>
+          <select id="central-manual" aria-label="Estado manual da central">
+            <option value="auto">Automático (pelo horário)</option>
+            <option value="open">Forçar aberta</option>
+            <option value="closed">Forçar fechada</option>
+          </select>
+        </label>
+        <span class="spacer"></span>
+        <button id="schedule-save" class="btn primary">Salvar horário</button>
+      </div>
+      <p id="schedule-today" class="status-line"></p>
+      <p class="muted small webhook-help">
+        Um turno por dia é o suficiente na maioria dos casos; use <strong>+ turno</strong> para
+        intervalos separados (ex.: 12:00–16:00 e 20:00–02:00). Turnos que cruzam a meia-noite são
+        aceitos. O bot abre e fecha a central sozinho e atualiza o painel do Discord na hora.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <h2>Avaliações</h2>
         <span class="muted small">Notas dadas pelos jogadores depois de cada atendimento.</span>
       </div>

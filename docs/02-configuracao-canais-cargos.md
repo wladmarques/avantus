@@ -59,6 +59,17 @@ Regras:
 - `central_manual` (`auto` | `open` | `closed`) sobrepõe a agenda. Use `/central abrir|fechar` ou
   `/config definir chave:central_manual valor:auto` para voltar ao automático.
 
+### Editar pelo painel web
+
+A seção **Horário de funcionamento** do painel web (`WEB_PANEL_PASSWORD` configurada) é a forma mais
+rápida de ajustar a agenda: marque os dias abertos, preencha até dois turnos por dia e clique em
+**Salvar horário**. O mesmo formulário troca o estado da central (automático / forçar aberta /
+forçar fechada = `central_manual`).
+
+- Ao salvar, o painel do Discord é atualizado na hora e a alteração fica registrada no canal de log.
+- Horário no formato `HH:MM`; `fechamento` menor que `abertura` continua valendo como madrugada.
+- Dia sem turno = central fechada naquele dia. Nenhum turno na semana = sempre fechada.
+
 ## Fila e canal de voz (sincronizados nos dois sentidos)
 
 | Ação do jogador | O que o bot faz |

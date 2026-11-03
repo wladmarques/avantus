@@ -8,11 +8,15 @@ const { STAFF_STATUS, STAFF_STATUS_META } = require('../../config/theme');
  * - EM_ATENDIMENTO é aplicado automaticamente pelo sistema (manual = 0).
  */
 class StaffService {
-  constructor({ db, repo, gateway, hourBank = null }) {
+  constructor({ db, repo, gateway, hourBank = null, settings = null }) {
     this.db = db;
     this.repo = repo;
     this.gateway = gateway;
     this.hourBank = hourBank;
+    this.settings = settings;
+    // Cargos por membro (userId → [roleId]), carregados do Discord.
+    this.roleCache = new Map();
+    this.roleCacheAt = new Map();
   }
 
   /** Mantém o banco de horas alinhado com o status (nunca lança erro). */
@@ -88,6 +92,74 @@ class StaffService {
       updatedAt: row ? row.updated_at : null,
       updatedBy: row ? row.updated_by : null,
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Cargos exibidos no painel da equipe                                 */
+  /* ------------------------------------------------------------------ */
+
+  /** Cargos configurados para aparecer em EQUIPE (vazio = todos). */
+  panelRoleIds() {
+    const value = this.settings?.get ? this.settings.get('staff_panel_role_ids') : null;
+    return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+  }
+
+  /**
+   * Recarrega os cargos dos membros no Discord.
+   * Falha silenciosa: sem cache, o painel continua listando todos.
+   */
+  async refreshRoleCache(guildId) {
+    if (typeof this.gateway?.listMemberRoles !== 'function') return null;
+    try {
+      const roles = await this.gateway.listMemberRoles(guildId);
+      if (!roles) return null;
+      this.roleCache.set(guildId, roles);
+      this.roleCacheAt.set(guildId, Date.now());
+      return roles;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Lista para o painel da equipe: aplica o filtro de cargos quando configurado.
+   * Sem cache carregado (cold start) não esconde ninguém.
+   */
+  listForPanel(guildId) {
+    const rows = this.list(guildId);
+    const roleIds = this.panelRoleIds();
+    if (roleIds.length === 0) return rows;
+
+    const cache = this.roleCache.get(guildId);
+    if (!cache) return rows;
+
+    return rows.filter((row) => {
+      const roles = cache.get(row.userId);
+      if (!roles) return false; // não é membro do servidor (ou saiu)
+      return roles.some((roleId) => roleIds.includes(roleId));
+    });
+  }
+
+  /** Contadores do painel a partir da lista já filtrada. */
+  panelCounts(guildId, list = null) {
+    const rows = list ?? this.listForPanel(guildId);
+    const counts = {
+      total: rows.length,
+      [STAFF_STATUS.DISPONIVEL]: 0,
+      [STAFF_STATUS.EM_ATENDIMENTO]: 0,
+      [STAFF_STATUS.AUSENTE]: 0,
+      [STAFF_STATUS.INDISPONIVEL]: 0,
+    };
+    for (const row of rows) {
+      if (counts[row.status] !== undefined) counts[row.status] += 1;
+    }
+    return counts;
+  }
+
+  /** Estado do painel (lista + contadores) respeitando o filtro de cargos. */
+  panelState(guildId) {
+    const list = this.listForPanel(guildId);
+    return { list, counts: this.panelCounts(guildId, list) };
   }
 
   list(guildId) {
