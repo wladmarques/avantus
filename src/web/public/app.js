@@ -441,18 +441,69 @@
     return wrapper;
   }
 
+  /**
+   * Resumo do estado da central.
+   * Destaca o caso "aberta pelo horário, fechada manualmente" — o pedido do
+   * painel é justamente poder fechar mesmo dentro do horário.
+   */
+  function centralSummary(data) {
+    const status = data.status || {};
+    const manual = data.centralManual || 'auto';
+    const scheduled = status.scheduledOpen;
+
+    if (manual === 'closed') {
+      return {
+        badge: 'FECHADA',
+        tone: 'closed',
+        reason: scheduled
+          ? 'Fechada manualmente, mesmo dentro do horário de funcionamento.'
+          : 'Fechada manualmente (também fora do horário).',
+        manual,
+      };
+    }
+    if (manual === 'open') {
+      return {
+        badge: 'ABERTA',
+        tone: 'open',
+        reason: scheduled
+          ? 'Aberta manualmente (o horário também permite).'
+          : 'Aberta manualmente, fora do horário de funcionamento.',
+        manual,
+      };
+    }
+    return {
+      badge: status.open ? 'ABERTA' : 'FECHADA',
+      tone: status.open ? 'open' : 'closed',
+      reason: status.open
+        ? 'Aberta pelo horário de funcionamento.'
+        : 'Fechada pelo horário de funcionamento.',
+      manual,
+    };
+  }
+
+  function renderCentralState(data) {
+    const summary = centralSummary(data);
+    const badge = $('central-badge');
+    badge.textContent = summary.badge;
+    badge.dataset.tone = summary.tone;
+    $('central-reason').textContent = summary.reason;
+
+    $('central-close').disabled = summary.manual === 'closed';
+    $('central-open').disabled = summary.manual === 'open';
+    $('central-auto').disabled = summary.manual === 'auto';
+
+    const status = data.status || {};
+    $('schedule-status').textContent = `hoje: ${status.today || '—'}`;
+    $('schedule-today').textContent = status.nextOpen
+      ? `Próxima abertura: ${status.nextOpen}.`
+      : '';
+  }
+
   function renderSchedule(data) {
     const container = $('schedule-days');
     container.innerHTML = '';
     for (const day of data.days) container.appendChild(buildDay(day));
-
-    $('central-manual').value = data.centralManual || 'auto';
-    const status = data.status || {};
-    $('schedule-status').textContent = `${status.label || '—'}${
-      status.manual ? ' (manual)' : ''
-    } · hoje: ${status.today || '—'}`;
-    $('schedule-today').textContent =
-      status.open === false && status.nextOpen ? `Abre novamente ${status.nextOpen}.` : '';
+    renderCentralState(data);
   }
 
   async function loadSchedule() {
@@ -486,18 +537,40 @@
     try {
       const data = await api('/api/schedule', {
         method: 'PUT',
-        body: JSON.stringify({
-          schedule: collectSchedule(),
-          centralManual: $('central-manual').value,
-        }),
+        body: JSON.stringify({ schedule: collectSchedule() }),
       });
       renderSchedule(data);
-      toast(`Horário salvo. Central ${data.status.open ? 'aberta' : 'fechada'} agora.`);
+      toast('Horário salvo.');
     } catch (error) {
       toast(error.message);
     } finally {
       button.disabled = false;
       button.textContent = 'Salvar horário';
+    }
+  }
+
+  /** Abre, fecha ou devolve a central ao horário — vale na hora. */
+  async function setCentralState(state) {
+    const buttons = ['central-close', 'central-open', 'central-auto'].map((id) => $(id));
+    for (const button of buttons) button.disabled = true;
+
+    try {
+      const data = await api('/api/central', {
+        method: 'PUT',
+        body: JSON.stringify({ state }),
+      });
+      renderCentralState(data);
+      const notes = {
+        closed: data.queueCleared
+          ? 'Central fechada. A fila foi encerrada.'
+          : 'Central fechada. A fila existente foi mantida.',
+        open: 'Central aberta.',
+        auto: 'Central de volta ao horário de funcionamento.',
+      };
+      toast(notes[state] ?? 'Estado atualizado.');
+    } catch (error) {
+      toast(error.message);
+      await loadSchedule();
     }
   }
 
@@ -1168,6 +1241,9 @@
   $('eval-alert-save').addEventListener('click', saveAlertThreshold);
   $('eval-export').addEventListener('click', exportEvaluationsCsv);
   $('schedule-save').addEventListener('click', saveScheduleConfig);
+  $('central-close').addEventListener('click', () => setCentralState('closed'));
+  $('central-open').addEventListener('click', () => setCentralState('open'));
+  $('central-auto').addEventListener('click', () => setCentralState('auto'));
   $('eval-staff').addEventListener('change', () => loadEvaluations());
   $('schedule-send').addEventListener('click', sendSchedule);
   $('webhook-url').addEventListener('keydown', (event) => {
