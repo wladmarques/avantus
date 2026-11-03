@@ -730,15 +730,31 @@ class AttendanceEngine {
     );
 
     if (this.settings.get('evaluations_enabled')) {
-      await this._effect('enviar avaliação', () =>
+      const staffName = closed.staff_tag ? `<@${closed.staff_id}>` : null;
+      const delivery = await this._effect('enviar avaliação', () =>
         this.notifications.evaluationRequest({
           guildId,
           userId: closed.user_id,
           protocol: closed.protocol,
-          staffName: closed.staff_tag ? `<@${closed.staff_id}>` : null,
+          staffName,
           attendanceId: closed.id,
         }),
       );
+
+      // DM fechada (o caso mais comum): a avaliação vai para o canal do painel,
+      // marcando o jogador, para ele conseguir avaliar mesmo assim.
+      if (!delivery || delivery.ok === false) {
+        await this._effect('publicar avaliação no painel', () =>
+          this.notifications.evaluationFallback({
+            guildId,
+            channelId: this.settings.get('public_channel_id') || this.settings.get('log_channel_id'),
+            userId: closed.user_id,
+            protocol: closed.protocol,
+            staffName,
+            attendanceId: closed.id,
+          }),
+        );
+      }
     }
 
     await this.audit.log({

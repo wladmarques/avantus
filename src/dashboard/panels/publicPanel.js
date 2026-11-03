@@ -173,6 +173,14 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
         ? '-# Só é possível entrar na fila estando no canal de voz de espera. `/sair` desiste da fila e `/posicao` mostra a sua posição.'
         : `-# Entrada na fila indisponível: ${unavailableNote}.`,
     ),
+
+    // Avaliação sempre acessível (mesmo com a DM fechada)
+    {
+      type: 1,
+      components: [
+        button('pub:evaluate', 'Avaliar atendimento', 2),
+      ],
+    },
   ];
 
   return {

@@ -2,17 +2,20 @@
 
 const { card, DIVIDER } = require('../../dashboard/embeds/cards');
 const { COLORS, BRAND } = require('../../config/theme');
+const { ratingButtons, actionRow } = require('../../dashboard/components/buttons');
 const { formatTime, describeSchedule } = require('../../utils/time');
 const { createLogger } = require('../../utils/logger');
 
 const logger = createLogger('notifications');
 
-const RATING_BUTTONS = [
-  { custom_id: 'eval:MUITO_BOM', label: 'Muito bom', emoji: { name: '⭐' }, style: 3 },
-  { custom_id: 'eval:BOM', label: 'Bom', emoji: { name: '⭐' }, style: 1 },
-  { custom_id: 'eval:REGULAR', label: 'Regular', emoji: { name: '⭐' }, style: 2 },
-  { custom_id: 'eval:RUIM', label: 'Ruim', emoji: { name: '⭐' }, style: 4 },
-];
+/**
+ * Botões de nota do atendimento `attendanceId`.
+ * Usa a fábrica oficial (inclui `type: 2`) — sem o `type` o Discord recusa o
+ * envio e o jogador nunca recebe a avaliação.
+ */
+function ratingButtonsFor(attendanceId) {
+  return ratingButtons(attendanceId);
+}
 
 /**
  * Mensagens privadas e avisos. Todos os métodos devolvem payloads JSON
@@ -176,10 +179,12 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
-  evaluationRequest({ guildId, userId, protocol, staffName, attendanceId }) {
+  /** Embed + linhas de botões da avaliação (reaproveitado na DM e no servidor). */
+  evaluationPayload({ protocol, staffName, attendanceId, mention = null }) {
     const embed = card({
       title: '⭐ Como foi seu atendimento?',
       description: [
+        mention ? `${mention} seu atendimento foi encerrado.` : null,
         'Como foi seu atendimento pela equipe **VANTUS**?',
         '',
         `**Protocolo:** \`#${String(protocol).padStart(4, '0')}\``,
@@ -192,15 +197,49 @@ class NotificationService {
       color: COLORS.ORANGE,
       footer: `${BRAND.name} • Avaliação do atendimento`,
     });
-    const buttons = RATING_BUTTONS.map((button) => ({
-      ...button,
-      custom_id: `eval:${attendanceId}:${button.custom_id.split(':')[1]}`,
-    }));
-    return this._send(
+    return {
+      embeds: [embed],
+      components: [actionRow(ratingButtonsFor(attendanceId))],
+    };
+  }
+
+  /**
+   * Pede a avaliação na DM do jogador.
+   * @returns {Promise<{ok: boolean, reason?: string}>} `ok: false` quando a DM
+   * está fechada — quem chama decide o fallback.
+   */
+  async evaluationRequest({ guildId, userId, protocol, staffName, attendanceId }) {
+    const result = await this._send(
       userId,
-      { embeds: [embed], components: [{ type: 1, components: buttons }] },
+      this.evaluationPayload({ protocol, staffName, attendanceId }),
       guildId,
     );
+    const ok = Boolean(result) && result.ok !== false;
+    if (!ok) {
+      logger.warn(
+        `Avaliação #${String(protocol).padStart(4, '0')} não pôde ser enviada na DM de ${userId} — ` +
+          'será publicada no canal do painel.',
+      );
+    }
+    return { ok, reason: result?.reason ?? null };
+  }
+
+  /**
+   * Fallback: publica a avaliação no canal do painel marcando o jogador
+   * (usado quando a DM está fechada).
+   */
+  async evaluationFallback({ guildId, channelId, userId, protocol, staffName, attendanceId }) {
+    if (!channelId) return { ok: false, reason: 'canal não configurado' };
+    try {
+      return await this.gateway.sendChannelMessage(
+        guildId,
+        channelId,
+        this.evaluationPayload({ protocol, staffName, attendanceId, mention: `<@${userId}>` }),
+      );
+    } catch (error) {
+      logger.warn(`Não foi possível publicar a avaliação no canal ${channelId}: ${error.message}`);
+      return { ok: false, reason: error.message };
+    }
   }
 
   /** Aviso ao staff antes do início do turno (banco de horas). */
@@ -253,4 +292,4 @@ class NotificationService {
   }
 }
 
-module.exports = { NotificationService, RATING_BUTTONS };
+module.exports = { NotificationService, ratingButtonsFor };

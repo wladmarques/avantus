@@ -171,7 +171,7 @@ test('painéis publicados usam IDs persistentes reconhecidos pelo router', async
   const env = await createTestEnv();
   t.after(env.cleanup);
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
-  assert.deepEqual(panelButtonIds(payload), ['pub:join']);
+  assert.deepEqual(panelButtonIds(payload), ['pub:join', 'pub:evaluate']);
 });
 
 test('botão Entrar na Fila exige estar na call de espera', async (t) => {

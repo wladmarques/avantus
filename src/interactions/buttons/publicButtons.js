@@ -1,10 +1,10 @@
 'use strict';
 
-const { IDs } = require('../../dashboard/components/buttons');
+const { IDs, ratingRow } = require('../../dashboard/components/buttons');
 const { defer, respond, respondError, ephemeral } = require('../../handlers/respond');
 const { card } = require('../../dashboard/embeds/cards');
 const { COLORS, STAFF_STATUS_META } = require('../../config/theme');
-const { formatDuration, describeSchedule } = require('../../utils/time');
+const { formatDuration, describeSchedule, formatDateTime } = require('../../utils/time');
 
 async function handleJoin(interaction, { services }) {
   await defer(interaction, { ephemeral: true });
@@ -150,10 +150,68 @@ async function handleStatus(interaction, { services }) {
   );
 }
 
+/**
+ * Botão "Avaliar atendimento": o jogador avalia o(s) atendimento(s) encerrado(s)
+ * que ainda estão sem nota — funciona mesmo com a DM fechada.
+ */
+async function handleEvaluate(interaction, { services }) {
+  await defer(interaction, { ephemeral: true });
+  const guildId = interaction.guildId;
+
+  const pending = services.evaluations.pending(guildId, interaction.user.id, { limit: 4 });
+
+  if (!pending.length) {
+    return respond(
+      interaction,
+      ephemeral({
+        embeds: [
+          card({
+            title: 'Nenhum atendimento para avaliar',
+            description: [
+              'Você não tem atendimentos encerrados aguardando avaliação.',
+              '',
+              'Depois de cada atendimento a equipe envia a avaliação por mensagem privada — e ela fica disponível aqui também.',
+            ].join('\n'),
+            color: COLORS.MUTED,
+          }),
+        ],
+      }),
+    );
+  }
+
+  const lines = pending.map(
+    (row) =>
+      `**#${String(row.protocol).padStart(4, '0')}** · ${formatDateTime(new Date(row.finished_at ?? row.updated_at ?? row.created_at))}` +
+      (row.staff_tag ? ` · ${row.staff_tag}` : ''),
+  );
+
+  return respond(
+    interaction,
+    ephemeral({
+      embeds: [
+        card({
+          title: '⭐ Avalie seu atendimento',
+          description: [
+            pending.length === 1
+              ? 'Como foi o seu atendimento com a equipe **VANTUS**?'
+              : 'Escolha a nota de cada atendimento abaixo:',
+            '',
+            ...lines,
+          ].join('\n'),
+          color: COLORS.ORANGE,
+          footer: 'Sua nota ajuda a equipe a melhorar',
+        }),
+      ],
+      components: pending.map((row) => ratingRow(row.id, { protocol: row.protocol })),
+    }),
+  );
+}
+
 const PUBLIC_BUTTON_HANDLERS = {
   [IDs.PUBLIC_JOIN]: handleJoin,
   [IDs.PUBLIC_LEAVE]: handleLeave,
   [IDs.PUBLIC_STATUS]: handleStatus,
+  [IDs.PUBLIC_EVALUATE]: handleEvaluate,
 };
 
-module.exports = { PUBLIC_BUTTON_HANDLERS, handleJoin, handleLeave, handleStatus };
+module.exports = { PUBLIC_BUTTON_HANDLERS, handleJoin, handleLeave, handleStatus, handleEvaluate };

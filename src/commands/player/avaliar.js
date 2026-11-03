@@ -17,8 +17,8 @@ module.exports = {
     .addIntegerOption((option) =>
       option
         .setName('protocolo')
-        .setDescription('Número do protocolo do atendimento (ex.: 12)')
-        .setRequired(true)
+        .setDescription('Número do protocolo (vazio = último atendimento sem avaliação)')
+        .setRequired(false)
         .setMinValue(1),
     )
     .addStringOption((option) =>
@@ -37,7 +37,7 @@ module.exports = {
       const result = await services.evaluations.submitByProtocol({
         guildId: interaction.guildId,
         userId: interaction.user.id,
-        protocol,
+        protocol: protocol ?? null,
         rating,
       });
 

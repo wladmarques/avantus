@@ -38,8 +38,8 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.match(text, /Fila por canal de voz/);
   assert.match(text, /Você será movido automaticamente/);
 
-  // Visual limpo: apenas o botão principal fica no painel
-  assert.deepEqual(panelButtonIds(message.payload), ['pub:join']);
+  // Visual limpo: botão principal + avaliação sempre acessível
+  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:evaluate']);
 
   const container = message.payload.components[0];
   assert.equal(container.type, 17, 'container único');
@@ -125,7 +125,12 @@ test('estilo clássico continua disponível em embed', async (t) => {
   const message = env.gateway.channelMessages.at(-1);
   assert.ok(message.payload.embeds?.length, 'payload em embed');
   assert.match(panelText(message.payload), /ATENDIMENTO \| VANTUS/);
-  assert.deepEqual(panelButtonIds(message.payload), ['pub:join', 'pub:leave', 'pub:status']);
+  assert.deepEqual(panelButtonIds(message.payload), [
+    'pub:join',
+    'pub:leave',
+    'pub:status',
+    'pub:evaluate',
+  ]);
 });
 
 test('trocar o estilo recria a mensagem sem duplicar o painel', async (t) => {

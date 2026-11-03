@@ -21,6 +21,17 @@ class EvaluationRepository {
     );
   }
 
+  /** Atendimentos finalizados do jogador que ainda não foram avaliados. */
+  pendingByUserSync(guildId, userId, { limit = 5 } = {}) {
+    return this.db.all(
+      `SELECT a.* FROM attendance a
+        LEFT JOIN evaluations e ON e.guild_id = a.guild_id AND e.attendance_id = a.id
+        WHERE a.guild_id = ? AND a.user_id = ? AND a.status = 'finished' AND e.id IS NULL
+        ORDER BY a.id DESC LIMIT ?`,
+      [guildId, String(userId), limit],
+    );
+  }
+
   listByPeriodSync(guildId, from, to, { limit = 200 } = {}) {
     return this.db.all(
       `SELECT * FROM evaluations WHERE guild_id = ? AND created_at >= ? AND created_at < ?
