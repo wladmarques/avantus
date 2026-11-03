@@ -196,6 +196,7 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
+| PUT | `/api/central` | `{ state, reason? }` — `closed` fecha a central mesmo dentro do horário, `open` abre fora dele, `auto` volta ao horário; devolve o payload de `/api/schedule` + `message` e `queueCleared` |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
 | POST | `/api/schedule/send` | publica a escala da semana no webhook |

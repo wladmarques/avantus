@@ -111,6 +111,20 @@ tbody td.num .btn:first-child { margin-left: 0; }
 .stat.highlight { border-left: 3px solid var(--red); }
 
 /* ---------------- horário de funcionamento ---------------- */
+.central-state {
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  background: var(--card-2); margin-bottom: 14px;
+}
+.central-state-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.central-badge {
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; padding: 4px 9px;
+  border-radius: 6px; border: 1px solid var(--line); color: var(--muted);
+}
+.central-badge[data-tone="open"] { color: #8ee0a6; border-color: #2a4a35; background: #101a13; }
+.central-badge[data-tone="closed"] { color: #ff7a6b; border-color: #4a2a26; background: #1a1110; }
+.central-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.central-actions .btn { font-size: 11.5px; padding: 7px 12px; }
+
 .schedule-days { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .schedule-day {
   border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; background: var(--card);
@@ -122,14 +136,6 @@ tbody td.num .btn:first-child { margin-left: 0; }
 .shift-list { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
 .shift-row { display: flex; align-items: center; gap: 8px; }
 .shift-row input[type="time"] { width: 104px; padding: 5px 8px; font-size: 12px; }
-.schedule-actions { margin-top: 4px; }
-.schedule-actions .switch { background: transparent; border: none; padding: 0; gap: 10px; }
-.schedule-actions .switch:hover { border: none; }
-.schedule-actions .switch:hover select { border-color: #3a3c42; }
-.schedule-actions select {
-  background: var(--card); border: 1px solid var(--line); color: var(--text);
-  border-radius: 8px; padding: 6px 9px; font-size: 12px; font-family: inherit;
-}
 
 /* ---------------- avaliações ---------------- */
 .eval-cards { margin-bottom: 12px; }

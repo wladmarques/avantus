@@ -16,6 +16,7 @@
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
+ *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
@@ -36,7 +37,8 @@ const {
 const { takeStaffOffService, StaffServingError } = require('../systems/staff/offService');
 const { RATING_META } = require('../config/theme');
 const { isValidSchedule, isValidHHMM } = require('../utils/validators');
-const { DAY_KEYS, DAY_LABELS } = require('../utils/time');
+const { DAY_KEYS, DAY_LABELS, evaluateSchedule } = require('../utils/time');
+const { COLORS } = require('../config/theme');
 const { formatDateTime, startOfDay } = require('../utils/time');
 const { parseDayStart } = require('../systems/hourbank/hourBankService');
 
@@ -131,6 +133,9 @@ function schedulePayload(services, guildId) {
 
   const status = services.schedule.isOpen(guildId);
   const today = services.schedule.todayWindow(guildId);
+  // O que a agenda sozinha diz (ignorando o estado manual).
+  const scheduledOpen = evaluateSchedule(schedule, new Date()).open;
+  const manual = services.settings.get('central_manual');
 
   return {
     schedule,
@@ -139,16 +144,45 @@ function schedulePayload(services, guildId) {
       label: DAY_LABELS[key] ?? key,
       windows: schedule[key],
     })),
-    centralManual: services.settings.get('central_manual'),
+    centralManual: manual,
     status: {
       open: status.open,
       manual: status.manual,
       label: status.open ? 'ABERTA' : 'FECHADA',
+      // true = aberta pelo horário mas fechada manualmente (ou o contrário)
+      scheduledOpen,
+      overridden: status.open !== scheduledOpen,
       nextOpen: status.nextOpen ?? null,
       today: today.text,
     },
     timezone: services.hourBank?.timeZone ?? null,
   };
+}
+
+/**
+ * Aplica o estado manual da central pelo fluxo oficial (fila, avisos e
+ * auditoria), não apenas gravando a configuração.
+ * @param {'auto'|'open'|'closed'} state
+ */
+async function applyCentralState(services, guildId, state, { actorTag = 'painel web', reason = null } = {}) {
+  if (state === 'open') {
+    return services.central.open({ guildId, actorId: actorTag, actorTag, manual: true });
+  }
+  if (state === 'closed') {
+    return services.central.close({ guildId, actorId: actorTag, actorTag, manual: true, reason });
+  }
+  // automático: a agenda volta a mandar
+  await services.settings.set('central_manual', 'auto');
+  await services.audit.log({
+    guildId,
+    type: 'CENTRAL_AUTO',
+    actorId: actorTag,
+    actorTag,
+    message: '⚙️ O **painel web** devolveu a central ao **horário de funcionamento** (automático).',
+    color: COLORS.MUTED,
+  });
+  await services.panels.refresh(guildId, { immediate: true }).catch(() => null);
+  return services.central.status(guildId);
 }
 
 /** Aceita { mon: [{open, close}] } (ou um único objeto por dia). */
@@ -511,6 +545,28 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
         return sendJson(res, 200, schedulePayload(services, currentGuildId));
       }
 
+      if (pathname === '/api/central' && req.method === 'PUT') {
+        const body = await readBody(req);
+        const state = String(body.state ?? '').trim();
+        if (!['auto', 'open', 'closed'].includes(state)) {
+          return sendJson(res, 400, {
+            error: 'Estado inválido: use "open", "closed" ou "auto".',
+          });
+        }
+        const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 200) : null;
+
+        await applyCentralState(services, currentGuildId, state, { reason: reason || null });
+
+        const payload = schedulePayload(services, currentGuildId);
+        const labels = { open: 'aberta', closed: 'fechada', auto: 'no automático' };
+        return sendJson(res, 200, {
+          ok: true,
+          message: `Central ${labels[state]}.`,
+          queueCleared: state === 'closed' && services.settings.get('queue_policy_on_close') === 'clear',
+          ...payload,
+        });
+      }
+
       if (pathname === '/api/schedule' && req.method === 'PUT') {
         const body = await readBody(req);
         const incoming = body.schedule;
@@ -534,7 +590,8 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
 
         const before = services.settings.get('schedule');
         if (schedule) await services.settings.set('schedule', schedule);
-        if (manual !== null) await services.settings.set('central_manual', manual);
+        // O estado manual passa pelo fluxo oficial (fila, avisos e auditoria).
+        if (manual !== null) await applyCentralState(services, currentGuildId, manual);
 
         if (schedule || manual !== null) {
           const changes = [];

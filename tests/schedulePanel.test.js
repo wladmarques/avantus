@@ -215,7 +215,16 @@ test('o painel tem a seção de horário ligada ao app.js', async () => {
   const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8');
   const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
 
-  for (const id of ['schedule-days', 'schedule-save', 'schedule-status', 'schedule-today', 'central-manual']) {
+  for (const id of [
+    'schedule-days',
+    'schedule-save',
+    'schedule-status',
+    'schedule-today',
+    'central-badge',
+    'central-close',
+    'central-open',
+    'central-auto',
+  ]) {
     assert.match(html, new RegExp(`id="${id}"`), `HTML contém #${id}`);
     assert.match(app, new RegExp(`\\$\\('${id}'\\)`), `app.js usa #${id}`);
   }
@@ -223,4 +232,162 @@ test('o painel tem a seção de horário ligada ao app.js', async () => {
   assert.match(app, /\/api\/schedule/);
   assert.match(app, /function collectSchedule/);
   assert.match(app, /function buildDay/);
+  assert.match(app, /function setCentralState/);
+  assert.match(app, /\/api\/central/);
+});
+
+/* ------------------------------------------------------------------ */
+/* Fechar a central mesmo dentro do horário                            */
+/* ------------------------------------------------------------------ */
+
+/** Horário aberto 24h: qualquer estado manual é "fora do horário". */
+const alwaysOpen = () => everyDay('00:00', '23:59');
+
+test('central fechada manualmente ignora o horário de funcionamento', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  // Abre 24h/dia para garantir que o horário não é o motivo do fechamento.
+  await panel.call('/api/schedule', {
+    method: 'PUT',
+    cookie,
+    body: { schedule: alwaysOpen(), centralManual: 'auto' },
+  });
+
+  const closed = await panel.call('/api/central', {
+    method: 'PUT',
+    cookie,
+    body: { state: 'closed' },
+  });
+
+  assert.equal(closed.status, 200);
+  assert.equal(closed.json.status.open, false, 'central fechada');
+  assert.equal(closed.json.status.manual, true);
+  assert.equal(closed.json.status.scheduledOpen, true, 'o horário permitiria abrir');
+  assert.equal(closed.json.status.overridden, true, 'painel pode explicar o override');
+  assert.equal(env.services.settings.get('central_manual'), 'closed');
+  assert.deepEqual(closed.json.schedule.mon, [{ open: '00:00', close: '23:59' }], 'horário intacto');
+
+  // O painel do Discord mostra a central fechada.
+  const panelPayload = JSON.stringify(env.services.panels.buildPayload(env.guildId, 'public'));
+  assert.match(panelPayload, /Central fechada/, 'painel do Discord mostra a central fechada');
+  assert.match(panelPayload, /"disabled":true/, 'botão de entrar na fila desabilitado');
+});
+
+test('fechar pelo painel aplica a política da fila e registra auditoria', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  await env.services.settings.set('queue_policy_on_close', 'clear');
+
+  // Um jogador esperando na fila.
+  const player = '900000000000009901';
+  env.gateway.members.set(player, { inGuild: true, voiceChannelId: env.waitChannelId });
+  await env.services.queue.join({ guildId: env.guildId, userId: player, displayName: 'Jogador' });
+
+  const closed = await panel.call('/api/central', {
+    method: 'PUT',
+    cookie,
+    body: { state: 'closed' },
+  });
+
+  assert.equal(closed.status, 200);
+  assert.equal(closed.json.queueCleared, true, 'resposta avisa que a fila foi encerrada');
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0, 'fila encerrada');
+
+  const logs = env.gateway.channelMessages.filter(
+    (item) => item.channelId === env.services.settings.get('log_channel_id'),
+  );
+  assert.ok(
+    logs.some((item) => /central de atendimento foi \*\*fechada\*\*/i.test(item.payload.embeds[0].description)),
+    'auditoria do fechamento',
+  );
+});
+
+test('"seguir o horário" devolve a central ao automático', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  await panel.call('/api/schedule', {
+    method: 'PUT',
+    cookie,
+    body: { schedule: alwaysOpen(), centralManual: 'closed' },
+  });
+  assert.equal(env.services.settings.get('central_manual'), 'closed');
+
+  const auto = await panel.call('/api/central', {
+    method: 'PUT',
+    cookie,
+    body: { state: 'auto' },
+  });
+
+  assert.equal(auto.status, 200);
+  assert.equal(auto.json.centralManual, 'auto');
+  assert.equal(auto.json.status.manual, false);
+  assert.equal(auto.json.status.open, true, 'aberta de novo pelo horário');
+  assert.equal(auto.json.status.overridden, false);
+});
+
+test('abrir manualmente fora do horário e fechar sem horário configurado', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+  await panel.call('/api/schedule', {
+    method: 'PUT',
+    cookie,
+    body: { schedule: Object.fromEntries(DAYS.map((key) => [key, []])), centralManual: 'auto' },
+  });
+  assert.equal((await panel.call('/api/schedule', { cookie })).json.status.open, false);
+
+  const opened = await panel.call('/api/central', { method: 'PUT', cookie, body: { state: 'open' } });
+  assert.equal(opened.json.status.open, true, 'aberta manualmente sem horário');
+  assert.equal(opened.json.status.scheduledOpen, false);
+
+  const closed = await panel.call('/api/central', { method: 'PUT', cookie, body: { state: 'closed' } });
+  assert.equal(closed.json.status.open, false);
+  assert.equal(closed.json.centralManual, 'closed');
+});
+
+test('PUT /api/central valida o estado e exige login', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  assert.equal(
+    (await panel.call('/api/central', { method: 'PUT', body: { state: 'closed' } })).status,
+    401,
+  );
+
+  const { cookie } = await panel.login();
+  const invalid = await panel.call('/api/central', {
+    method: 'PUT',
+    cookie,
+    body: { state: 'fechar' },
+  });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.json.error, /Estado inválido/);
+  assert.notEqual(env.services.settings.get('central_manual'), 'closed');
 });

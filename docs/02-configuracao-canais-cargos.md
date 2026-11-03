@@ -67,6 +67,18 @@ rápida de ajustar a agenda: marque os dias abertos, preencha até dois turnos p
 forçar fechada = `central_manual`).
 
 - Ao salvar, o painel do Discord é atualizado na hora e a alteração fica registrada no canal de log.
+
+Acima dos dias ficam três botões que valem **na hora**, sem salvar horário:
+
+| Botão | O que faz |
+| --- | --- |
+| **Fechar central agora** | fecha a central mesmo dentro do horário de funcionamento (`central_manual=closed`); a fila segue a regra *Fila ao fechar a central* |
+| **Abrir central agora** | abre fora do horário (`central_manual=open`) |
+| **Seguir o horário** | volta ao automático (`central_manual=auto`) |
+
+O selo ao lado mostra o estado atual e o motivo ("Fechada manualmente, mesmo dentro do horário de
+funcionamento"), e cada mudança passa pelo fluxo oficial: avisos aos jogadores na fila, aplicação da
+política da fila, auditoria e atualização do painel do Discord.
 - Horário no formato `HH:MM`; `fechamento` menor que `abertura` continua valendo como madrugada.
 - Dia sem turno = central fechada naquele dia. Nenhum turno na semana = sempre fechada.
 
