@@ -33,6 +33,8 @@ const env = {
   timezone: required('TIMEZONE') || 'America/Sao_Paulo',
   autoRegisterCommands: bool('AUTO_REGISTER_COMMANDS', true),
   devGuildId: required('DEV_GUILD_ID'),
+  // Canal que recebe as avaliações dos atendimentos (pode ser trocado no painel web).
+  evaluationChannelId: required('EVALUATION_CHANNEL_ID'),
   panelRefreshSeconds: int('PANEL_REFRESH_SECONDS', 30),
   backupRetention: int('BACKUP_RETENTION', 10),
   isProduction: (required('NODE_ENV') || 'production') === 'production',

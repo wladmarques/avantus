@@ -144,6 +144,46 @@ async function main() {
   });
   await services.hourBank.endSession({ guildId: GUILD, userId: SEM_NOME, at: Date.now() - 20 * MINUTE });
 
+  // Avaliações de exemplo (o painel mostra média, distribuição e ranking).
+  const SAMPLE_EVALUATIONS = [
+    { protocol: 101, userId: '700000000000000101', username: 'jogador.alfa', staff: 0, rating: 'MUITO_BOM', daysAgo: 1 },
+    { protocol: 102, userId: '700000000000000102', username: 'jogador.beta', staff: 0, rating: 'BOM', daysAgo: 2 },
+    { protocol: 103, userId: '700000000000000103', username: 'jogador.gama', staff: 1, rating: 'REGULAR', daysAgo: 3 },
+    { protocol: 104, userId: '700000000000000104', username: 'jogador.delta', staff: 2, rating: 'RUIM', daysAgo: 4 },
+    { protocol: 105, userId: '700000000000000105', username: 'jogador.epsilon', staff: 1, rating: 'MUITO_BOM', daysAgo: 5 },
+  ];
+  for (const sample of SAMPLE_EVALUATIONS) {
+    const staff = STAFF[sample.staff];
+    const at = Date.now() - sample.daysAgo * 24 * 60 * MINUTE;
+    const attendance = services.repositories.attendance.createSync({
+      guildId: GUILD,
+      protocol: sample.protocol,
+      userId: sample.userId,
+      username: sample.username,
+      status: 'finished',
+      joinedAt: at - 30 * MINUTE,
+      queueSeq: sample.protocol,
+      staffId: staff.id,
+      staffTag: staff.name,
+    });
+    db.run('UPDATE attendance SET outcome = ?, duration_seconds = ? WHERE id = ?', [
+      'CONCLUIDO',
+      (18 + sample.rating.length * 3) * 60,
+      attendance.id,
+    ]);
+    services.repositories.evaluations.createSync({
+      guildId: GUILD,
+      attendanceId: attendance.id,
+      protocol: attendance.protocol,
+      userId: sample.userId,
+      staffId: staff.id,
+      staffTag: staff.name,
+      rating: sample.rating,
+    });
+    db.run('UPDATE evaluations SET created_at = ? WHERE attendance_id = ?', [at, attendance.id]);
+  }
+  await services.settings.set('evaluation_channel_id', '1560793933750210582');
+
   const active = services.hourBank.activeSession(GUILD, STAFF[0].id);
   if (active) {
     db.run('UPDATE staff_sessions SET started_at = ?, late_minutes = ? WHERE id = ?', [

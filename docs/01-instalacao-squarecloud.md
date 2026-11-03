@@ -235,7 +235,9 @@ Assim não é mais preciso apagar o banco nem usar `DEV_GUILD_ID` para trocar de
 O painel sobe junto com o bot e permite cadastrar a escala da equipe e ver as horas trabalhadas.
 
 1. No `.env`, defina `WEB_PANEL_PASSWORD` com uma senha forte.
-2. Localmente, acesse `http://localhost:8080`.
-3. Na SquareCloud, o painel é exposto como site: mantenha o app do tipo **Site** e use
+2. Opcional: `EVALUATION_CHANNEL_ID=<id do canal>` para publicar as avaliações dos atendimentos
+   nesse canal (também editável no próprio painel, seção **Avaliações**).
+3. Localmente, acesse `http://localhost:8080`.
+4. Na SquareCloud, o painel é exposto como site: mantenha o app do tipo **Site** e use
    `WEB_PANEL_PORT=80`. Se não quiser expor nada, deixe `WEB_PANEL_PASSWORD` vazio.
-4. Guia completo: [09-banco-de-horas.md](09-banco-de-horas.md).
+5. Guia completo: [09-banco-de-horas.md](09-banco-de-horas.md).

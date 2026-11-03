@@ -362,6 +362,124 @@
     })}`;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Avaliações                                                          */
+  /* ------------------------------------------------------------------ */
+
+  const RATING_CLASS = {
+    MUITO_BOM: 'rating-4',
+    BOM: 'rating-3',
+    REGULAR: 'rating-2',
+    RUIM: 'rating-1',
+  };
+
+  function renderEvaluations(data) {
+    const { total, average, positiveRate, byRating } = data;
+
+    $('eval-average').textContent = average === null ? '—' : `${average.toFixed(2)}/4`;
+    $('eval-total').textContent = String(total ?? 0);
+    $('eval-positive').textContent = positiveRate === null ? '—' : `${positiveRate}%`;
+
+    const ranking = Object.entries(byRating || {})
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1]);
+    $('eval-top').textContent = ranking.length ? `${ratingLabel(ranking[0][0])} (${ranking[0][1]})` : '—';
+
+    // Distribuição em barras (sem emoji, paleta VANTUS).
+    const bars = $('eval-bars');
+    bars.innerHTML = '';
+    for (const key of ['MUITO_BOM', 'BOM', 'REGULAR', 'RUIM']) {
+      const count = byRating?.[key] ?? 0;
+      const share = total ? Math.round((count / total) * 100) : 0;
+      const line = el('div', 'eval-bar');
+      line.appendChild(el('span', 'eval-bar-label', ratingLabel(key)));
+      const track = el('span', 'eval-bar-track');
+      const fill = el('span', `eval-bar-fill ${RATING_CLASS[key]}`);
+      fill.style.width = `${share}%`;
+      track.appendChild(fill);
+      line.appendChild(track);
+      line.appendChild(el('span', 'eval-bar-value', `${count} · ${share}%`));
+      bars.appendChild(line);
+    }
+
+    const body = $('eval-body');
+    body.innerHTML = '';
+    if (!data.entries.length) {
+      const row = el('tr');
+      const cell = el('td', 'empty', 'Nenhuma avaliação no período.');
+      cell.colSpan = 5;
+      row.appendChild(cell);
+      body.appendChild(row);
+    } else {
+      for (const entry of data.entries) {
+        const tr = el('tr');
+        tr.appendChild(el('td', null, entry.dateLabel));
+        tr.appendChild(el('td', null, entry.userName || entry.userId));
+        tr.appendChild(el('td', null, entry.staffName || entry.staffId || '—'));
+        const rating = el('td');
+        rating.appendChild(el('span', `rating ${RATING_CLASS[entry.rating] || ''}`, entry.ratingLabel));
+        tr.appendChild(rating);
+        tr.appendChild(el('td', 'num', entry.protocolLabel));
+        body.appendChild(tr);
+      }
+    }
+
+    const rankBox = $('eval-ranking');
+    rankBox.innerHTML = '';
+    if (!data.byStaff.length) {
+      rankBox.appendChild(el('p', 'muted small', 'Sem avaliações por atendente no período.'));
+    } else {
+      for (const item of data.byStaff.slice(0, 10)) {
+        const line = el('div', 'eval-rank-row');
+        line.appendChild(el('span', null, item.staffName || item.staffId));
+        line.appendChild(el('strong', null, `${item.average?.toFixed(2) ?? '—'}/4`));
+        line.appendChild(el('span', 'muted small', `${item.total} avaliação(ões)`));
+        rankBox.appendChild(line);
+      }
+    }
+  }
+
+  function ratingLabel(key) {
+    return (
+      { MUITO_BOM: 'Muito bom', BOM: 'Bom', REGULAR: 'Regular', RUIM: 'Ruim' }[key] || key
+    );
+  }
+
+  async function loadEvaluations() {
+    try {
+      const query = periodQuery();
+      const data = await api(`/api/evaluations${query ? `?${query}` : ''}`);
+      renderEvaluations(data);
+      $('evaluation-channel').value = data.channelId || '';
+      $('evaluation-channel-status').textContent = data.channelId
+        ? `Publicando no canal ${data.channelId}.`
+        : 'Nenhum canal configurado — as avaliações ficam só no painel e no log administrativo.';
+    } catch (error) {
+      if (error.message !== 'unauthorized') toast(error.message);
+    }
+  }
+
+  async function saveEvaluationChannel() {
+    const button = $('evaluation-channel-save');
+    const value = $('evaluation-channel').value.trim();
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      const data = await api('/api/evaluations/channel', {
+        method: 'PUT',
+        body: JSON.stringify({ channelId: value || null }),
+      });
+      $('evaluation-channel').value = data.channelId || '';
+      toast(data.channelId ? 'Canal de avaliações salvo.' : 'Canal de avaliações removido.');
+      await loadEvaluations();
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar canal';
+    }
+  }
+
   async function refresh({ silent = false } = {}) {
     try {
       const query = periodQuery();
@@ -377,6 +495,7 @@
       renderStats(overview);
       renderStaff(overview);
       renderScheduleList(overview.staff);
+      await loadEvaluations();
       if (!silent) toast('Dados atualizados.');
     } catch (error) {
       if (error.message !== 'unauthorized' && !silent) toast(error.message);
@@ -764,6 +883,7 @@
       setPeriod(6);
       await refresh({ silent: true });
       await loadWebhook();
+      await loadEvaluations();
       clearInterval(state.timer);
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch (requestError) {
@@ -816,6 +936,7 @@
 
   fillDayOptions();
   $('webhook-save').addEventListener('click', saveWebhook);
+  $('evaluation-channel-save').addEventListener('click', saveEvaluationChannel);
   $('schedule-send').addEventListener('click', sendSchedule);
   $('webhook-url').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -840,6 +961,7 @@
       renderStaff(overview);
       renderScheduleList(overview.staff);
       await loadWebhook();
+      await loadEvaluations();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch {
       showLogin();

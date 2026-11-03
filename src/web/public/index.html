@@ -88,6 +88,52 @@
 
     <div class="panel">
       <div class="panel-head">
+        <h2>Avaliações</h2>
+        <span class="muted small">Notas dadas pelos jogadores depois de cada atendimento.</span>
+      </div>
+
+      <div class="cards eval-cards">
+        <div class="stat"><span class="stat-label">Média das notas</span><strong id="eval-average">—</strong></div>
+        <div class="stat"><span class="stat-label">Avaliações no período</span><strong id="eval-total">—</strong></div>
+        <div class="stat"><span class="stat-label">Notas boas (bom + muito bom)</span><strong id="eval-positive">—</strong></div>
+        <div class="stat"><span class="stat-label">Nota mais comum</span><strong id="eval-top">—</strong></div>
+      </div>
+
+      <div class="eval-bars" id="eval-bars"></div>
+
+      <div class="table-wrap">
+        <table id="eval-table">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Jogador</th>
+              <th>Atendente</th>
+              <th>Nota</th>
+              <th class="num">Protocolo</th>
+            </tr>
+          </thead>
+          <tbody id="eval-body">
+            <tr><td colspan="5" class="empty">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="eval-ranking-title">Média por atendente</h3>
+      <div id="eval-ranking" class="eval-ranking"></div>
+
+      <p class="muted small eval-channel-help">
+        As avaliações são publicadas em um canal do Discord. Cole o ID do canal (clique com o botão
+        direito no canal → Copiar ID, com o Modo Desenvolvedor ativo).
+      </p>
+      <div class="webhook-row">
+        <input id="evaluation-channel" type="text" inputmode="numeric" placeholder="ID do canal de avaliações" autocomplete="off" spellcheck="false" aria-label="ID do canal de avaliações">
+        <button id="evaluation-channel-save" class="btn ghost">Salvar canal</button>
+      </div>
+      <p id="evaluation-channel-status" class="status-line">Carregando…</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <h2>Escala cadastrada</h2>
         <span class="muted small" id="weekend-note-panel">Dias úteis têm horário fixo; os fins de semana se revezam entre os grupos A e B.</span>
       </div>

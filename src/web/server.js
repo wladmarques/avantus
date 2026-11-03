@@ -14,6 +14,8 @@
  *   GET  /api/overview         → staff + escala + horas do período
  *   GET  /api/report           → relatório agregado
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
+ *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
+ *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
  *   PUT  /api/staff/:id/shifts → salva a escala semanal
  *   DELETE /api/staff/:id/shifts
@@ -30,6 +32,9 @@ const {
   sendWeeklySchedule,
 } = require('../systems/hourbank/scheduleBroadcast');
 const { takeStaffOffService, StaffServingError } = require('../systems/staff/offService');
+const { RATING_META } = require('../config/theme');
+const { formatDateTime, startOfDay } = require('../utils/time');
+const { parseDayStart } = require('../systems/hourbank/hourBankService');
 
 const logger = createLogger('web');
 
@@ -94,6 +99,18 @@ function sendJson(res, status, payload, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(body);
+}
+
+/**
+ * Intervalo do período vindo da query (`from`/`to` em AAAA-MM-DD, fuso do bot).
+ * Sem `from`: últimos 7 dias. Sem `to`: agora.
+ */
+function periodRange(url, { timeZone = undefined, now = Date.now() } = {}) {
+  const fromTs = parseDayStart(url.searchParams.get('from'), timeZone);
+  const toTs = parseDayStart(url.searchParams.get('to'), timeZone);
+  const from = fromTs ?? startOfDay(new Date(now - 6 * 24 * 3600000), timeZone);
+  const to = toTs ? toTs + 24 * 3600000 - 1 : now;
+  return { from, to };
 }
 
 function readBody(req, limit = 256 * 1024) {
@@ -415,6 +432,56 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           to: url.searchParams.get('to'),
         });
         return sendJson(res, 200, { sessions: sessionsList });
+      }
+
+      if (pathname === '/api/evaluations' && req.method === 'GET') {
+        const range = periodRange(url, { timeZone: env.timezone });
+        const stats = services.evaluations.stats(currentGuildId, range);
+        const entries = services.evaluations.list(currentGuildId, { ...range, limit: 200 });
+
+        const names = services.hourBank.names(currentGuildId);
+        const rows = [];
+        for (const entry of entries) {
+          const attendance = services.repositories.attendance.findByIdSync(currentGuildId, entry.attendance_id);
+          rows.push({
+            attendanceId: entry.attendance_id,
+            protocol: entry.protocol,
+            protocolLabel: `#${String(entry.protocol).padStart(4, '0')}`,
+            userId: entry.user_id,
+            userName: attendance?.username ?? null,
+            staffId: entry.staff_id,
+            staffName: names.get(entry.staff_id) ?? entry.staff_tag ?? null,
+            rating: entry.rating,
+            ratingLabel: RATING_META[entry.rating]?.label ?? entry.rating,
+            score: RATING_META[entry.rating]?.score ?? null,
+            durationSeconds: Number(attendance?.duration_seconds) || 0,
+            createdAt: entry.created_at,
+            dateLabel: formatDateTime(new Date(entry.created_at)),
+          });
+        }
+
+        return sendJson(res, 200, {
+          guildId: currentGuildId,
+          period: range,
+          channelId: services.evaluations.channelId,
+          ...stats,
+          entries: rows,
+        });
+      }
+
+      if (pathname === '/api/evaluations/channel' && req.method === 'PUT') {
+        const body = await readBody(req);
+        try {
+          const channelId = await services.evaluations.setChannelId(body.channelId ?? null);
+          logger.info(
+            channelId
+              ? `Canal de avaliações definido pelo painel: ${channelId}`
+              : 'Canal de avaliações removido pelo painel.',
+          );
+          return sendJson(res, 200, { ok: true, channelId });
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
       }
 
       if (pathname === '/api/schedule/webhook' && req.method === 'GET') {

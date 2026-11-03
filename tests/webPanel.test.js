@@ -846,3 +846,142 @@ test('o painel expõe o botão "Tirar de serviço" só para quem está em servi�
   assert.match(html, /id="off-modal"/);
   assert.match(html, /id="off-voice"/);
 });
+
+/* ------------------------------------------------------------------ */
+/* Avaliações no painel                                                */
+/* ------------------------------------------------------------------ */
+
+const EVAL_CHANNEL = '1560793933750210582';
+
+/** Cria um atendimento finalizado e avalia pelo serviço. */
+async function rateOne(env, { player, staff = '900000000000000900', rating = 'MUITO_BOM' }) {
+  const { addMember, addStaffInVoice } = require('./helpers');
+  addMember(env.gateway, player, { voiceChannelId: env.waitChannelId, displayName: `Jogador ${player}` });
+  addStaffInVoice(env.gateway, staff);
+  await env.services.queue.join({ guildId: env.guildId, userId: player, displayName: `Jogador ${player}` });
+  const called = await env.services.attendance.callNext({
+    guildId: env.guildId,
+    staffId: staff,
+    staffTag: 'Staff Teste',
+  });
+  await env.services.attendance.finish({
+    guildId: env.guildId,
+    attendanceId: called.attendance.id,
+    actorId: staff,
+    actorTag: 'Staff Teste',
+  });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: player,
+    attendanceId: called.attendance.id,
+    rating,
+  });
+  return called.attendance;
+}
+
+test('API de avaliações lista notas, média, distribuição e ranking', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  await rateOne(env, { player: '900000000000002001', rating: 'MUITO_BOM' });
+  await rateOne(env, { player: '900000000000002002', rating: 'RUIM' });
+  await env.services.evaluations.setChannelId(EVAL_CHANNEL);
+
+  const { cookie } = await panel.login();
+  const response = await panel.call('/api/evaluations', { cookie });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.total, 2);
+  assert.equal(response.json.average, 2.5);
+  assert.equal(response.json.positiveRate, 50);
+  assert.deepEqual(response.json.byRating, { MUITO_BOM: 1, BOM: 0, REGULAR: 0, RUIM: 1 });
+  assert.equal(response.json.channelId, EVAL_CHANNEL);
+
+  assert.equal(response.json.entries.length, 2);
+  const first = response.json.entries[0];
+  assert.ok(first.protocolLabel.startsWith('#'));
+  assert.match(first.dateLabel, /\d{2}\/\d{2}\/\d{4}/);
+  assert.equal(first.userName, `Jogador ${first.userId}`);
+  assert.equal(first.staffName, 'Staff Teste');
+  assert.match(first.ratingLabel, /Muito bom|Ruim/);
+  assert.ok(first.score >= 1 && first.score <= 4);
+});
+
+test('API de avaliações respeita o período e exige login', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const noAuth = await panel.call('/api/evaluations');
+  assert.equal(noAuth.status, 401);
+
+  await rateOne(env, { player: '900000000000002003', rating: 'BOM' });
+
+  const { cookie } = await panel.login();
+  const today = new Date();
+  const iso = (date) => date.toISOString().slice(0, 10);
+  const inside = await panel.call(`/api/evaluations?from=${iso(today)}&to=${iso(today)}`, { cookie });
+  assert.equal(inside.status, 200);
+  assert.equal(inside.json.total, 1);
+
+  const past = new Date(today.getTime() - 40 * 86400000);
+  const outside = await panel.call(`/api/evaluations?from=${iso(past)}&to=${iso(past)}`, { cookie });
+  assert.equal(outside.json.total, 0);
+});
+
+test('canal de avaliações é salvo e removido pelo painel', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+
+  const saved = await panel.call('/api/evaluations/channel', {
+    method: 'PUT',
+    cookie,
+    body: { channelId: EVAL_CHANNEL },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.channelId, EVAL_CHANNEL);
+  assert.equal(env.services.settings.get('evaluation_channel_id'), EVAL_CHANNEL);
+
+  const invalid = await panel.call('/api/evaluations/channel', {
+    method: 'PUT',
+    cookie,
+    body: { channelId: 'não-é-id' },
+  });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.json.error, /ID de canal inválido/);
+
+  const removed = await panel.call('/api/evaluations/channel', {
+    method: 'PUT',
+    cookie,
+    body: { channelId: null },
+  });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.json.channelId, null);
+  assert.equal(env.services.settings.get('evaluation_channel_id'), null);
+});
+
+test('o painel tem a seção de avaliações ligada ao app.js', async () => {
+  const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+
+  for (const id of ['eval-average', 'eval-total', 'eval-positive', 'eval-top', 'eval-bars', 'eval-body', 'eval-ranking', 'evaluation-channel', 'evaluation-channel-save']) {
+    assert.match(html, new RegExp(`id="${id}"`), `HTML contém #${id}`);
+    assert.match(app, new RegExp(`\\$\\('${id}'\\)`), `app.js usa #${id}`);
+  }
+  assert.match(app, /\/api\/evaluations/);
+  assert.match(app, /\/api\/evaluations\/channel/);
+  assert.match(html, /<h2>Avaliações<\/h2>/);
+});
