@@ -230,3 +230,137 @@ test('stats do painel: média, distribuição, positivas e ranking por staff', a
   assert.equal(stats.byStaff[0].average, 2.5);
   assert.equal(stats.byStaff[0].total, 2);
 });
+
+/* ------------------------------------------------------------------ */
+/* Filtro por atendente                                                */
+/* ------------------------------------------------------------------ */
+
+test('list e stats filtram por atendente sem perder o ranking', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  const OTHER_STAFF = '900000000000000901';
+  const first = await finishedAttendance(env, { player: PLAYER });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: PLAYER,
+    attendanceId: first.id,
+    rating: 'MUITO_BOM',
+  });
+  const second = await finishedAttendance(env, { player: '900000000000001003', staff: OTHER_STAFF });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: '900000000000001003',
+    attendanceId: second.id,
+    rating: 'RUIM',
+  });
+
+  const range = { from: 0, to: Date.now() + 1000 };
+  assert.equal(env.services.evaluations.list(env.guildId, range).length, 2);
+
+  const onlyStaff = env.services.evaluations.list(env.guildId, { ...range, staffId: STAFF });
+  assert.equal(onlyStaff.length, 1);
+  assert.equal(onlyStaff[0].staff_id, STAFF);
+
+  const stats = env.services.evaluations.stats(env.guildId, { ...range, staffId: STAFF });
+  assert.equal(stats.total, 1);
+  assert.equal(stats.average, 4);
+  assert.equal(stats.byStaff.length, 2, 'ranking continua com os dois atendentes');
+
+  const empty = env.services.evaluations.stats(env.guildId, { ...range, staffId: '999999999999999999' });
+  assert.equal(empty.total, 0);
+  assert.equal(empty.average, null);
+});
+
+/* ------------------------------------------------------------------ */
+/* Aviso de média baixa                                               */
+/* ------------------------------------------------------------------ */
+
+test('aviso de média baixa é publicado uma vez por semana no canal', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  await env.services.settings.set('evaluation_channel_id', EVAL_CHANNEL);
+  await env.services.settings.set('evaluations_alert_min_average', 3);
+  await env.services.settings.set('evaluations_alert_min_sample', 2);
+
+  const first = await finishedAttendance(env, { player: PLAYER });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: PLAYER,
+    attendanceId: first.id,
+    rating: 'RUIM',
+  });
+  // 1 avaliação: abaixo da amostra mínima (2) → nenhum aviso ainda.
+  assert.equal(
+    env.gateway.channelMessages.filter((item) => /abaixo do esperado/.test(item.payload.embeds[0].title)).length,
+    0,
+  );
+
+  const second = await finishedAttendance(env, { player: '900000000000001004' });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: '900000000000001004',
+    attendanceId: second.id,
+    rating: 'REGULAR',
+  });
+
+  const alerts = env.gateway.channelMessages.filter((item) =>
+    /Média das avaliações abaixo/.test(item.payload.embeds[0].title),
+  );
+  assert.equal(alerts.length, 1, 'aviso publicado');
+  assert.match(alerts[0].payload.embeds[0].description, /1\.50\/4/);
+  assert.equal(alerts[0].channelId, EVAL_CHANNEL);
+
+  // Nova avaliação ruim na mesma semana não repete o aviso.
+  const third = await finishedAttendance(env, { player: '900000000000001005' });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: '900000000000001005',
+    attendanceId: third.id,
+    rating: 'RUIM',
+  });
+  assert.equal(
+    env.gateway.channelMessages.filter((item) => /Média das avaliações abaixo/.test(item.payload.embeds[0].title))
+      .length,
+    1,
+    'no máximo um aviso por semana',
+  );
+});
+
+test('sem limite configurado (ou média boa) nenhum aviso é enviado', async (t) => {
+  const env = await createTestEnv();
+  t.after(env.cleanup);
+
+  await env.services.settings.set('evaluation_channel_id', EVAL_CHANNEL);
+  await env.services.settings.set('evaluations_alert_min_sample', 1);
+
+  const only = await finishedAttendance(env, { player: PLAYER });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: PLAYER,
+    attendanceId: only.id,
+    rating: 'RUIM',
+  });
+  assert.equal(
+    env.gateway.channelMessages.filter((item) => /Média das avaliações abaixo/.test(item.payload.embeds[0].title))
+      .length,
+    0,
+    'limite 0 = desligado',
+  );
+
+  await env.services.settings.set('evaluations_alert_min_average', 2);
+  const ok = await finishedAttendance(env, { player: '900000000000001006' });
+  await env.services.evaluations.submit({
+    guildId: env.guildId,
+    userId: '900000000000001006',
+    attendanceId: ok.id,
+    rating: 'MUITO_BOM',
+  });
+  // média (1 + 4) / 2 = 2.5 ≥ 2 → sem aviso
+  assert.equal(
+    env.gateway.channelMessages.filter((item) => /Média das avaliações abaixo/.test(item.payload.embeds[0].title))
+      .length,
+    0,
+  );
+});

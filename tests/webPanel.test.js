@@ -985,3 +985,88 @@ test('o painel tem a seção de avaliações ligada ao app.js', async () => {
   assert.match(app, /\/api\/evaluations\/channel/);
   assert.match(html, /<h2>Avaliações<\/h2>/);
 });
+
+test('avaliações: filtro por atendente e opções do seletor', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const a = await rateOne(env, { player: '900000000000003001', staff: '900000000000000900', rating: 'MUITO_BOM' });
+  await rateOne(env, { player: '900000000000003002', staff: '900000000000000901', rating: 'RUIM' });
+  assert.ok(a.id);
+
+  const { cookie } = await panel.login();
+
+  const all = await panel.call('/api/evaluations', { cookie });
+  assert.equal(all.json.total, 2);
+  assert.equal(all.json.staffFilter, null);
+  assert.ok(all.json.staffOptions.length >= 2, 'seletor lista os atendentes');
+  assert.ok(all.json.staffOptions.every((item) => item.userId && item.name !== undefined));
+
+  const filtered = await panel.call('/api/evaluations?staffId=900000000000000900', { cookie });
+  assert.equal(filtered.json.total, 1);
+  assert.equal(filtered.json.staffFilter, '900000000000000900');
+  assert.equal(filtered.json.entries[0].staffId, '900000000000000900');
+  assert.equal(filtered.json.byStaff.length, 2, 'ranking continua completo');
+
+  const invalid = await panel.call('/api/evaluations?staffId=abc', { cookie });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.json.error, /staffId inválido/);
+});
+
+test('avaliações: limite do aviso de média é salvo e validado', async (t) => {
+  const env = await createTestEnv();
+  const panel = await startPanel(env);
+  t.after(async () => {
+    await panel.close();
+    await env.cleanup();
+  });
+
+  const { cookie } = await panel.login();
+
+  const saved = await panel.call('/api/evaluations/alert', {
+    method: 'PUT',
+    cookie,
+    body: { minAverage: 2.5 },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.alertMinAverage, 2.5);
+  assert.equal(env.services.settings.get('evaluations_alert_min_average'), 2.5);
+
+  const byQuery = await panel.call('/api/evaluations', { cookie });
+  assert.equal(byQuery.json.alertMinAverage, 2.5);
+
+  for (const invalid of [5, -1, 'abc']) {
+    const response = await panel.call('/api/evaluations/alert', {
+      method: 'PUT',
+      cookie,
+      body: { minAverage: invalid },
+    });
+    assert.equal(response.status, 400, `valor ${invalid} recusado`);
+  }
+
+  const off = await panel.call('/api/evaluations/alert', {
+    method: 'PUT',
+    cookie,
+    body: { minAverage: 0 },
+  });
+  assert.equal(off.json.alertMinAverage, 0);
+  assert.equal(env.services.settings.get('evaluations_alert_min_average'), 0);
+});
+
+test('avaliações: o painel tem filtro, CSV e alerta ligados ao app.js', async () => {
+  const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+
+  for (const id of ['eval-staff', 'eval-export', 'eval-filter-note', 'eval-alert', 'eval-alert-save']) {
+    assert.match(html, new RegExp(`id="${id}"`), `HTML contém #${id}`);
+    assert.match(app, new RegExp(`\\$\\('${id}'\\)`), `app.js usa #${id}`);
+  }
+  assert.match(app, /function exportEvaluationsCsv/);
+  assert.match(app, /avaliacoes_\$\{data\.staffFilter/);
+  assert.match(app, /\/api\/evaluations\/alert/);
+  assert.match(app, /params\.set\('staffId'/);
+});

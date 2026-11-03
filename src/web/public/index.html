@@ -99,6 +99,17 @@
         <div class="stat"><span class="stat-label">Nota mais comum</span><strong id="eval-top">—</strong></div>
       </div>
 
+      <div class="eval-toolbar">
+        <label class="switch" for="eval-staff">
+          <span class="muted small">Atendente</span>
+          <select id="eval-staff" aria-label="Filtrar avaliações por atendente">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <button id="eval-export" class="btn ghost">CSV das avaliações</button>
+        <span id="eval-filter-note" class="muted small"></span>
+      </div>
+
       <div class="eval-bars" id="eval-bars"></div>
 
       <div class="table-wrap">
@@ -130,6 +141,19 @@
         <button id="evaluation-channel-save" class="btn ghost">Salvar canal</button>
       </div>
       <p id="evaluation-channel-status" class="status-line">Carregando…</p>
+
+      <div class="webhook-row eval-alert-row">
+        <label class="switch" for="eval-alert">
+          <span class="muted small">Avisar no canal quando a média dos últimos 7 dias ficar abaixo de</span>
+        </label>
+        <input id="eval-alert" type="number" min="0" max="4" step="0.1" inputmode="decimal" aria-label="Média mínima para o aviso">
+        <span class="muted small">/4</span>
+        <button id="eval-alert-save" class="btn ghost">Salvar alerta</button>
+      </div>
+      <p class="muted small webhook-help">
+        Use 0 para desligar. O aviso é publicado no canal de avaliações no máximo uma vez por semana
+        e só quando houver pelo menos 3 avaliações no período.
+      </p>
     </div>
 
     <div class="panel">

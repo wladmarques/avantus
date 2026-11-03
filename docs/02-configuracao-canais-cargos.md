@@ -167,6 +167,8 @@ equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
 | `position_notify_cooldown_minutes` | `10` | Intervalo mínimo entre avisos |
 | `evaluations_enabled` | `true` | Envia avaliação no privado após encerrar |
 | `evaluation_channel_id` | — | Canal do Discord que recebe cada avaliação (também editável no painel web e em `EVALUATION_CHANNEL_ID`) |
+| `evaluations_alert_min_average` | `0` | Avisa no canal quando a média dos últimos 7 dias ficar abaixo deste valor (0 = desligado) |
+| `evaluations_alert_min_sample` | `3` | Mínimo de avaliações na semana para o aviso de média |
 | `panel_style` | `modern` | Layout do painel público: `modern` (Components V2) ou `classic` (embed) |
 | `panel_refresh_seconds` | `30` | Atualização automática dos painéis |
 | `average_wait_window_minutes` | `120` | Janela usada no cálculo da espera média |

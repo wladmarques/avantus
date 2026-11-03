@@ -436,8 +436,16 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
 
       if (pathname === '/api/evaluations' && req.method === 'GET') {
         const range = periodRange(url, { timeZone: env.timezone });
-        const stats = services.evaluations.stats(currentGuildId, range);
-        const entries = services.evaluations.list(currentGuildId, { ...range, limit: 200 });
+        const staffFilter = (url.searchParams.get('staffId') || '').trim() || null;
+        if (staffFilter && !/^\d{5,25}$/.test(staffFilter)) {
+          return sendJson(res, 400, { error: 'staffId inválido.' });
+        }
+        const stats = services.evaluations.stats(currentGuildId, { ...range, staffId: staffFilter });
+        const entries = services.evaluations.list(currentGuildId, {
+          ...range,
+          limit: 500,
+          staffId: staffFilter,
+        });
 
         const names = services.hourBank.names(currentGuildId);
         const rows = [];
@@ -460,13 +468,42 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           });
         }
 
+        // Opções do filtro por atendente: quem tem avaliação no período + os
+        // nomes cadastrados no painel (para filtrar quem ainda não foi avaliado).
+        const staffOptions = new Map();
+        for (const item of stats.byStaff) {
+          staffOptions.set(item.staffId, item.staffName || names.get(item.staffId) || item.staffId);
+        }
+        for (const [userId, name] of names.entries()) {
+          if (!staffOptions.has(userId)) staffOptions.set(userId, name);
+        }
+
         return sendJson(res, 200, {
           guildId: currentGuildId,
           period: range,
           channelId: services.evaluations.channelId,
+          staffFilter,
+          alertMinAverage: Number(services.settings.get('evaluations_alert_min_average')) || 0,
+          staffOptions: [...staffOptions.entries()].map(([userId, name]) => ({ userId, name })),
           ...stats,
           entries: rows,
         });
+      }
+
+      if (pathname === '/api/evaluations/alert' && req.method === 'PUT') {
+        const body = await readBody(req);
+        const value = Number(String(body.minAverage ?? '').replace(',', '.'));
+        if (!Number.isFinite(value) || value < 0 || value > 4) {
+          return sendJson(res, 400, { error: 'Informe um valor entre 0 e 4 (0 desliga o aviso).' });
+        }
+        const rounded = Math.round(value * 100) / 100;
+        await services.settings.set('evaluations_alert_min_average', rounded);
+        logger.info(
+          rounded > 0
+            ? `Aviso de média das avaliações ativado (abaixo de ${rounded.toFixed(2)}/4).`
+            : 'Aviso de média das avaliações desligado.',
+        );
+        return sendJson(res, 200, { ok: true, alertMinAverage: rounded });
       }
 
       if (pathname === '/api/evaluations/channel' && req.method === 'PUT') {
