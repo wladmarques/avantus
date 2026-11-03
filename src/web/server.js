@@ -20,6 +20,8 @@
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
+ *   PUT  /api/staff/:id/block      → bloqueia/desbloqueia o staff de entrar em serviço
+ *   DELETE /api/staff/:id          → remove o staff da equipe
  *   PUT  /api/staff/:id/shifts → salva a escala semanal
  *   DELETE /api/staff/:id/shifts
  *   GET  /api/health
@@ -35,6 +37,7 @@ const {
   sendWeeklySchedule,
 } = require('../systems/hourbank/scheduleBroadcast');
 const { takeStaffOffService, StaffServingError } = require('../systems/staff/offService');
+const { blockStaff, unblockStaff, removeStaff } = require('../systems/staff/staffAdmin');
 const { RATING_META } = require('../config/theme');
 const { isValidSchedule, isValidHHMM } = require('../utils/validators');
 const { DAY_KEYS, DAY_LABELS, evaluateSchedule } = require('../utils/time');
@@ -768,6 +771,58 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           nameCache.delete(`${currentGuildId}:${userId}`);
           logger.info(`Staff ${userId} retirado de serviço pelo painel web.`);
           return sendJson(res, 200, { ok: true, ...result });
+        } catch (error) {
+          if (error instanceof StaffServingError) {
+            return sendJson(res, 409, {
+              error: error.message,
+              code: error.code,
+              protocol: error.protocol,
+            });
+          }
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      const blockMatch = /^\/api\/staff\/(\d{5,25})\/block$/.exec(pathname);
+      if (blockMatch && req.method === 'PUT') {
+        const userId = blockMatch[1];
+        const body = await readBody(req).catch(() => ({}));
+        const blocked = body.blocked !== false; // padrão: bloquear
+        const reason =
+          typeof body.reason === 'string' && body.reason.trim()
+            ? body.reason.trim().slice(0, 200)
+            : null;
+        try {
+          const result = blocked
+            ? await blockStaff({ services, guildId: currentGuildId, userId, reason })
+            : await unblockStaff({ services, guildId: currentGuildId, userId });
+          return sendJson(res, 200, {
+            ok: true,
+            blocked: result.blocked?.blocked ?? blocked,
+            alreadyBlocked: Boolean(result.alreadyBlocked),
+            alreadyUnblocked: Boolean(result.alreadyUnblocked),
+            endedSession: result.endedSession ?? null,
+            message: blocked ? 'Staff bloqueado.' : 'Bloqueio removido.',
+          });
+        } catch (error) {
+          if (error instanceof StaffServingError) {
+            return sendJson(res, 409, {
+              error: error.message,
+              code: error.code,
+              protocol: error.protocol,
+            });
+          }
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      const removeMatch = /^\/api\/staff\/(\d{5,25})$/.exec(pathname);
+      if (removeMatch && req.method === 'DELETE') {
+        const userId = removeMatch[1];
+        try {
+          const result = await removeStaff({ services, guildId: currentGuildId, userId });
+          nameCache.delete(`${currentGuildId}:${userId}`);
+          return sendJson(res, 200, { ok: true, ...result, message: 'Staff removido da equipe.' });
         } catch (error) {
           if (error instanceof StaffServingError) {
             return sendJson(res, 409, {

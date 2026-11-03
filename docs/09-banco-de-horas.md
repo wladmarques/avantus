@@ -193,6 +193,8 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | PUT | `/api/evaluations/alert` | `{ minAverage }` — limite (0–4) do aviso de média baixa; `0` desliga |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end, parity? }] }` — `parity` = `A`/`B` para fim de semana revezado |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
+| PUT | `/api/staff/:userId/block` | `{ blocked, reason? }` — bloqueia/desbloqueia o staff de entrar em serviço (encerra a sessão e deixa indisponível); 409 se estiver atendendo |
+| DELETE | `/api/staff/:userId` | remove o staff da equipe (apaga status, nome e escala; histórico de horas é mantido); 409 se estiver atendendo |
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
@@ -239,6 +241,19 @@ CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 /banco escala membro:@fulano dia:Segunda inicio:12:00 fim:18:00   # adiciona um turno (admin)
 /banco limpar membro:@fulano     # remove a escala (admin)
 ```
+
+### Bloquear e remover staff
+
+Na tabela **Equipe**, cada staff tem dois botões administrativos:
+
+| Ação | O que acontece |
+| --- | --- |
+| **Bloquear** | o staff sai de serviço agora (sessão encerrada, desconectado do canal de trabalho) e **não consegue mais ficar disponível**: `/status disponível`, o menu do painel da equipe e a entrada no canal de atendimento são recusados até o desbloqueio. Continua na equipe, aparece como **BLOQUEADO** no painel do Discord e recebe uma DM com o motivo |
+| **Remover** | apaga o cadastro do staff (status, nome e escala). Ele sai do painel da equipe e do banco de horas. O **histórico** de horas e atendimentos já registrados continua nos relatórios |
+
+Ambas as ações são recusadas com erro **409** quando o staff está atendendo alguém — finalize ou
+transfira o atendimento antes. Tudo fica registrado no canal de log (`STAFF_BLOCK`, `STAFF_UNBLOCK`,
+`STAFF_REMOVE`).
 
 ## Filtro da EQUIPE por cargo
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const { STAFF_STATUS, STAFF_STATUS_META } = require('../../config/theme');
+const { AppError, ERRORS } = require('../../services/errors');
 
 /**
  * Disponibilidade da equipe.
@@ -31,6 +32,13 @@ class StaffService {
 
   async setStatus({ guildId, userId, status, updatedBy = null, manual = true }) {
     if (!STAFF_STATUS_META[status]) throw new Error(`Status inválido: ${status}`);
+    // Staff bloqueado pela administração não pode entrar em serviço.
+    if (status === STAFF_STATUS.DISPONIVEL && this.isBlocked(guildId, userId)) {
+      throw new AppError(
+        ERRORS.STAFF_BLOQUEADO,
+        'Seu acesso ao serviço está bloqueado pela administração. Fale com um administrador.',
+      );
+    }
     const row = await this.db.transaction(async () =>
       this.repo.upsertSync(guildId, userId, { status, manual: manual ? 1 : 0, updatedBy }),
     );
@@ -54,6 +62,18 @@ class StaffService {
   async release(guildId, userId, { autoAvailable = true } = {}) {
     const current = this.repo.getSync(guildId, userId);
     if (!autoAvailable) return current;
+    // Bloqueado volta para INDISPONÍVEL, nunca para disponível.
+    if (current && current.blocked === 1) {
+      const row = await this.db.transaction(async () =>
+        this.repo.upsertSync(guildId, userId, {
+          status: STAFF_STATUS.INDISPONIVEL,
+          manual: 1,
+          updatedBy: 'sistema (bloqueado)',
+        }),
+      );
+      await this._syncHourBank(guildId, userId, STAFF_STATUS.INDISPONIVEL);
+      return row;
+    }
     // Se o staff definiu manualmente AUSENTE/INDISPONIVEL, respeitamos.
     if (current && current.manual === 1 && current.status !== STAFF_STATUS.EM_ATENDIMENTO) {
       return current;
@@ -91,7 +111,25 @@ class StaffService {
       manual: row ? row.manual === 1 : false,
       updatedAt: row ? row.updated_at : null,
       updatedBy: row ? row.updated_by : null,
+      blocked: row ? row.blocked === 1 : false,
+      blockedAt: row?.blocked_at ?? null,
+      blockedBy: row?.blocked_by ?? null,
+      blockedReason: row?.blocked_reason ?? null,
     };
+  }
+
+  /** Staff bloqueado não entra em serviço (nem pelo Discord). */
+  isBlocked(guildId, userId) {
+    const row = this.repo.getSync(guildId, userId);
+    return row ? row.blocked === 1 : false;
+  }
+
+  /** Liga/desliga o bloqueio (não mexe no status; use staffAdmin para isso). */
+  async setBlocked(guildId, userId, { blocked, by = null, reason = null }) {
+    await this.db.transaction(async () =>
+      this.repo.setBlockedSync(guildId, userId, { blocked, by, reason }),
+    );
+    return this.get(guildId, userId);
   }
 
   /* ------------------------------------------------------------------ */
@@ -169,6 +207,9 @@ class StaffService {
       manual: row.manual === 1,
       updatedAt: row.updated_at,
       updatedBy: row.updated_by,
+      blocked: row.blocked === 1,
+      blockedAt: row.blocked_at ?? null,
+      blockedReason: row.blocked_reason ?? null,
       meta: STAFF_STATUS_META[row.status] ?? STAFF_STATUS_META.INDISPONIVEL,
     }));
   }
@@ -189,8 +230,14 @@ class StaffService {
   }
 
   async setManualStatusForAll(guildId, status, updatedBy) {
-    const userIds = this.repo.listSync(guildId).map((row) => row.user_id);
-    const result = await this.db.transaction(async () => this.repo.resetAllToSync(guildId, status, updatedBy));
+    // Bloqueados nunca são promovidos a DISPONÍVEL em massa.
+    const userIds = this.repo
+      .listSync(guildId)
+      .filter((row) => !(status === STAFF_STATUS.DISPONIVEL && row.blocked === 1))
+      .map((row) => row.user_id);
+    const result = await this.db.transaction(async () =>
+      this.repo.resetAllToSync(guildId, status, updatedBy, { skipBlocked: status === STAFF_STATUS.DISPONIVEL }),
+    );
     for (const userId of userIds) await this._syncHourBank(guildId, userId, status);
     return result;
   }

@@ -34,6 +34,34 @@ class StaffRepository {
     return this.getSync(guildId, userId);
   }
 
+  /**
+   * Liga/desliga o bloqueio do staff.
+   * O bloqueio é independente do status: `upsertSync` nunca o sobrescreve.
+   */
+  setBlockedSync(guildId, userId, { blocked, by = null, reason = null }) {
+    if (!this.getSync(guildId, userId)) {
+      this.upsertSync(guildId, userId, {
+        status: STAFF_STATUS.INDISPONIVEL,
+        manual: 1,
+        updatedBy: by,
+      });
+    }
+    this.db.run(
+      `UPDATE staff_status
+          SET blocked = ?, blocked_at = ?, blocked_by = ?, blocked_reason = ?
+        WHERE guild_id = ? AND user_id = ?`,
+      [blocked ? 1 : 0, blocked ? Date.now() : null, blocked ? by : null, blocked ? reason : null, guildId, userId],
+    );
+    return this.getSync(guildId, userId);
+  }
+
+  /** Remove o staff do quadro (histórico de sessões é preservado). */
+  deleteSync(guildId, userId) {
+    const row = this.getSync(guildId, userId);
+    this.db.run('DELETE FROM staff_status WHERE guild_id = ? AND user_id = ?', [guildId, userId]);
+    return row;
+  }
+
   /** Status efetivo de um staff: registro no banco ou INDISPONÍVEL. */
   effectiveStatusSync(guildId, userId) {
     const row = this.getSync(guildId, userId);
@@ -48,9 +76,10 @@ class StaffRepository {
     return Number(row?.total || 0);
   }
 
-  resetAllToSync(guildId, status, updatedBy = null) {
+  resetAllToSync(guildId, status, updatedBy = null, { skipBlocked = false } = {}) {
     this.db.run(
-      `UPDATE staff_status SET status = ?, manual = 1, updated_at = ?, updated_by = ? WHERE guild_id = ?`,
+      `UPDATE staff_status SET status = ?, manual = 1, updated_at = ?, updated_by = ?
+        WHERE guild_id = ?${skipBlocked ? ' AND blocked = 0' : ''}`,
       [status, Date.now(), updatedBy, guildId],
     );
   }

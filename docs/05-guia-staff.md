@@ -43,6 +43,10 @@ por staff com `/config definir chave:allow_staff_multi valor:true`.
 | 🔄 ATUALIZAR PAINEL | força a atualização das informações |
 | 🟢 MEU STATUS | altera sua disponibilidade |
 
+> A administração pode **bloquear** você pelo painel web. Enquanto o bloqueio estiver ativo, o
+> `/status situacao:Disponível` (e entrar no canal de atendimento) não coloca você em serviço — fale
+> com um administrador. Também é possível ser **removido da equipe** pelo painel.
+
 ## Seus status
 
 | Status | Quando usar |

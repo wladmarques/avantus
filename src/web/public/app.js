@@ -11,6 +11,8 @@
     editing: null,
     renaming: null,
     offService: null,
+    blocking: null,
+    removing: null,
     evaluations: null,
     timer: null,
     // Grupo do revezamento da semana (A/B) — vem do /api/overview.
@@ -259,7 +261,13 @@
       const statusBox = el('span', 'status');
       statusBox.appendChild(el('span', statusDotClass(row.status)));
       statusBox.appendChild(el('span', null, row.session ? `EM SERVIÇO ${row.session.entry}` : row.statusLabel));
+      if (row.blocked) {
+        const badge = el('span', 'badge blocked', 'BLOQUEADO');
+        badge.title = row.blockedReason ? `Motivo: ${row.blockedReason}` : 'Bloqueado de entrar em serviço';
+        statusBox.appendChild(badge);
+      }
       status.appendChild(statusBox);
+      if (row.blocked) tr.classList.add('is-blocked');
 
       const shift = el('td', null, shiftTextForToday(row));
       const entry = el('td', null, row.session ? row.session.entry : row.totals.entryLabel);
@@ -286,6 +294,20 @@
         off.addEventListener('click', () => openOffService(row));
         actions.appendChild(off);
       }
+      const block = el(
+        'button',
+        row.blocked ? 'btn tiny' : 'btn tiny danger',
+        row.blocked ? 'Desbloquear' : 'Bloquear',
+      );
+      block.title = row.blocked
+        ? 'Permitir que o staff volte a entrar em serviço'
+        : 'Impedir que o staff entre em serviço';
+      block.addEventListener('click', () =>
+        row.blocked ? toggleBlock(row, false) : openBlock(row),
+      );
+      const remove = el('button', 'btn tiny danger', 'Remover');
+      remove.addEventListener('click', () => openRemove(row));
+      actions.append(block, remove);
 
       for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
       body.appendChild(tr);
@@ -967,6 +989,103 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Modal: bloquear / desbloquear staff                                 */
+  /* ------------------------------------------------------------------ */
+
+  function openBlock(row) {
+    state.blocking = row;
+    $('block-title').textContent = `Bloquear • ${row.staffName || row.userId}`;
+    const parts = [`Status atual: ${row.statusLabel}.`];
+    if (row.session) parts.push(`Sessão aberta desde ${row.session.entry} — será encerrada agora.`);
+    else parts.push('O staff sai de serviço agora.');
+    $('block-text').textContent = parts.join(' ');
+    $('block-reason').value = '';
+    $('block-error').hidden = true;
+    $('block-modal').showModal();
+  }
+
+  async function submitBlock(event) {
+    event.preventDefault();
+    const row = state.blocking;
+    if (!row) return;
+    const button = $('block-confirm');
+    button.disabled = true;
+    button.textContent = 'Bloqueando…';
+    try {
+      const data = await api(`/api/staff/${row.userId}/block`, {
+        method: 'PUT',
+        body: JSON.stringify({ blocked: true, reason: $('block-reason').value.trim() || null }),
+      });
+      $('block-modal').close();
+      const ended = data.endedSession ? ` Sessão de ${data.endedSession.label} encerrada.` : '';
+      toast(`${row.staffName || row.userId} bloqueado de entrar em serviço.${ended}`);
+      await refresh({ silent: true });
+    } catch (error) {
+      const node = $('block-error');
+      node.textContent = error.message;
+      node.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Bloquear';
+    }
+  }
+
+  async function toggleBlock(row, blocked) {
+    try {
+      await api(`/api/staff/${row.userId}/block`, {
+        method: 'PUT',
+        body: JSON.stringify({ blocked }),
+      });
+      toast(
+        blocked
+          ? `${row.staffName || row.userId} bloqueado.`
+          : `${row.staffName || row.userId} liberado para entrar em serviço.`,
+      );
+      await refresh({ silent: true });
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Modal: remover da equipe                                            */
+  /* ------------------------------------------------------------------ */
+
+  function openRemove(row) {
+    state.removing = row;
+    $('remove-title').textContent = `Remover • ${row.staffName || row.userId}`;
+    const parts = ['Essa ação tira o staff do quadro da equipe.'];
+    if (row.session) parts.push(`A sessão aberta desde ${row.session.entry} será encerrada.`);
+    if (row.blocked) parts.push('O bloqueio também é removido.');
+    $('remove-text').textContent = parts.join(' ');
+    $('remove-error').hidden = true;
+    $('remove-modal').showModal();
+  }
+
+  async function submitRemove(event) {
+    event.preventDefault();
+    const row = state.removing;
+    if (!row) return;
+    const button = $('remove-confirm');
+    button.disabled = true;
+    button.textContent = 'Removendo…';
+    try {
+      const data = await api(`/api/staff/${row.userId}`, { method: 'DELETE' });
+      $('remove-modal').close();
+      const ended = data.endedSession ? ` Sessão de ${data.endedSession.label} encerrada.` : '';
+      toast(`${row.staffName || row.userId} removido da equipe.${ended}`);
+      await refresh({ silent: true });
+    } catch (error) {
+      const node = $('remove-error');
+      node.textContent = error.message;
+      node.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Remover da equipe';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Modal de sessões                                                    */
   /* ------------------------------------------------------------------ */
 
@@ -1255,6 +1374,10 @@
   $('name-cancel').addEventListener('click', () => $('name-modal').close());
   $('off-form').addEventListener('submit', submitOffService);
   $('off-cancel').addEventListener('click', () => $('off-modal').close());
+  $('block-form').addEventListener('submit', submitBlock);
+  $('block-cancel').addEventListener('click', () => $('block-modal').close());
+  $('remove-form').addEventListener('submit', submitRemove);
+  $('remove-cancel').addEventListener('click', () => $('remove-modal').close());
   $('name-discord').addEventListener('click', () => submitName(''));
 
   // Sessão existente? Abre direto no painel.

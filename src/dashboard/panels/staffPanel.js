@@ -70,7 +70,11 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
           .map(
             (entry) =>
               `<@${entry.userId}> — **${
-                entry.status === 'EM_ATENDIMENTO' ? 'EM ATENDIMENTO' : entry.meta.label
+                entry.blocked
+                  ? 'BLOQUEADO'
+                  : entry.status === 'EM_ATENDIMENTO'
+                    ? 'EM ATENDIMENTO'
+                    : entry.meta.label
               }**`,
           )
           .join('\n');
