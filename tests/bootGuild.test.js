@@ -192,3 +192,39 @@ test('clientReady troca o servidor do banco e segue o boot quando o antigo sumiu
   assert.equal(context.runtime.startedGuildId, novo, 'central iniciada no servidor novo');
   assert.ok(context.runtime.panelTimer, 'painéis ligados');
 });
+
+test('EVALUATION_CHANNEL_ID define o canal de avaliações quando nada está configurado', async (t) => {
+  const env = await createTestEnv();
+  t.after(() => env.db.close());
+
+  const client = fakeClient({ guildIds: [env.guildId] });
+  const context = {
+    services: env.services,
+    env: { autoRegisterCommands: false, evaluationChannelId: '1560793933750210582' },
+    runtime: {},
+  };
+  t.after(() => cleanRuntime(context.runtime));
+
+  await require('../src/handlers/guildStart').startGuild({ client, context, guildId: env.guildId });
+
+  assert.equal(env.services.settings.get('evaluation_channel_id'), '1560793933750210582');
+  assert.equal(env.services.evaluations.channelId, '1560793933750210582');
+});
+
+test('canal de avaliações configurado no painel vence o do ambiente', async (t) => {
+  const env = await createTestEnv();
+  t.after(() => env.db.close());
+  await env.services.settings.set('evaluation_channel_id', '111111111111111111');
+
+  const client = fakeClient({ guildIds: [env.guildId] });
+  const context = {
+    services: env.services,
+    env: { autoRegisterCommands: false, evaluationChannelId: '1560793933750210582' },
+    runtime: {},
+  };
+  t.after(() => cleanRuntime(context.runtime));
+
+  await require('../src/handlers/guildStart').startGuild({ client, context, guildId: env.guildId });
+
+  assert.equal(env.services.evaluations.channelId, '111111111111111111');
+});

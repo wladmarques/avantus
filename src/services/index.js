@@ -145,6 +145,8 @@ async function createServices({ db, gateway }) {
     repos: repositories,
     settings,
     audit: auditService,
+    gateway,
+    notifications: notificationService,
   });
 
   const recoveryService = new RecoveryService({

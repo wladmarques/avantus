@@ -74,6 +74,12 @@ async function startGuild({ client, context, guildId }) {
     }
   }
 
+  // Canal de avaliações definido no ambiente (pode ser trocado no painel web).
+  if (env.evaluationChannelId && !services.settings.get('evaluation_channel_id')) {
+    await services.settings.set('evaluation_channel_id', env.evaluationChannelId);
+    logger.info(`Avaliações serão publicadas no canal ${env.evaluationChannelId} (EVALUATION_CHANNEL_ID).`);
+  }
+
   await services.recovery.run(guildId).catch((error) => logger.error('Recuperação falhou', error));
 
   // Atualização automática dos painéis

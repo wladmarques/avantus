@@ -197,6 +197,13 @@ const SETTINGS = {
     group: 'Avaliações',
     validate: asBool,
   },
+  evaluation_channel_id: {
+    default: null,
+    type: 'string',
+    label: 'Canal onde as avaliações são publicadas',
+    group: 'Avaliações',
+    validate: (value) => value === null || value === undefined || value === '' || /^\d{5,25}$/.test(String(value).trim()),
+  },
   panel_style: {
     default: 'modern',
     type: 'string',

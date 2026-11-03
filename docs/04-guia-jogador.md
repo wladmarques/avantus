@@ -62,12 +62,22 @@ Você recebe uma avaliação no privado:
 
 Sua nota fica vinculada ao protocolo e ao staff responsável. Você pode avaliar apenas uma vez por atendimento.
 
+Se você fechou as mensagens privadas (ou perdeu a DM), avalie pelo comando:
+
+```
+/avaliar protocolo:12 nota:Muito bom
+```
+
+A avaliação aparece no painel web da equipe (média, distribuição e ranking por atendente) e no
+canal de avaliações do servidor.
+
 ## Comandos
 
 | Comando | O que faz |
 | --- | --- |
 | `/entrar` | entra na fila |
 | `/sair` | sai da fila |
+| `/avaliar` | avalia um atendimento pelo protocolo (se a DM estiver fechada) |
 | `/posicao` | mostra posição, tempo de espera e previsão |
 | `/protocolo` | consulta seu protocolo mais recente (ou `/protocolo numero:12`) |
 | `/ajuda` | resumo das regras e horários |
