@@ -124,6 +124,22 @@ class DiscordGateway {
     }
   }
 
+  /**
+   * Cargos de todos os membros do servidor (Map userId → [roleId]).
+   * Usado para filtrar quem aparece em EQUIPE no painel da staff.
+   */
+  async listMemberRoles(guildId) {
+    const guild = this._guild(guildId);
+    const members = await guild.members.fetch().catch(() => null);
+    const result = new Map();
+    if (!members) return result;
+    for (const member of members.values()) {
+      if (member.user?.bot) continue;
+      result.set(member.id, [...member.roles.cache.keys()]);
+    }
+    return result;
+  }
+
   async grantVoiceAccess(guildId, channelId, userId) {
     if (!channelId || !userId) return false;
     const channel = await this._guild(guildId).channels.fetch(channelId).catch(() => null);
@@ -306,6 +322,15 @@ class MemoryGateway {
       voiceChannelId: entry.voiceChannelId ?? null,
       displayName: entry.displayName ?? `Jogador ${userId}`,
     };
+  }
+
+  async listMemberRoles() {
+    const result = new Map();
+    for (const [userId, entry] of this.members.entries()) {
+      if (entry.inGuild === false) continue;
+      result.set(userId, entry.staffRoles ?? entry.roleIds ?? []);
+    }
+    return result;
   }
 
   async getStaffVoiceState(guildId, staffId) {

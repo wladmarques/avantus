@@ -110,6 +110,27 @@ tbody td.num .btn:first-child { margin-left: 0; }
 .stat strong { font-size: 24px; font-weight: 800; letter-spacing: .2px; }
 .stat.highlight { border-left: 3px solid var(--red); }
 
+/* ---------------- horário de funcionamento ---------------- */
+.schedule-days { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.schedule-day {
+  border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; background: var(--card);
+}
+.schedule-day-head { display: flex; align-items: center; gap: 10px; }
+.schedule-day-head input[type="checkbox"] { accent-color: var(--red); width: 14px; height: 14px; }
+.schedule-day-name { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.schedule-day-head .shift-add { margin-left: auto; }
+.shift-list { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+.shift-row { display: flex; align-items: center; gap: 8px; }
+.shift-row input[type="time"] { width: 104px; padding: 5px 8px; font-size: 12px; }
+.schedule-actions { margin-top: 4px; }
+.schedule-actions .switch { background: transparent; border: none; padding: 0; gap: 10px; }
+.schedule-actions .switch:hover { border: none; }
+.schedule-actions .switch:hover select { border-color: #3a3c42; }
+.schedule-actions select {
+  background: var(--card); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 6px 9px; font-size: 12px; font-family: inherit;
+}
+
 /* ---------------- avaliações ---------------- */
 .eval-cards { margin-bottom: 12px; }
 .eval-cards .stat strong { font-size: 20px; }

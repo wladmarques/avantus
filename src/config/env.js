@@ -35,6 +35,11 @@ const env = {
   devGuildId: required('DEV_GUILD_ID'),
   // Canal que recebe as avaliações dos atendimentos (pode ser trocado no painel web).
   evaluationChannelId: required('EVALUATION_CHANNEL_ID'),
+  // Cargos (separados por vírgula) cujos membros aparecem em EQUIPE no painel.
+  staffPanelRoleIds: (required('STAFF_PANEL_ROLE_IDS') || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => /^\d{17,20}$/.test(value)),
   panelRefreshSeconds: int('PANEL_REFRESH_SECONDS', 30),
   backupRetention: int('BACKUP_RETENTION', 10),
   isProduction: (required('NODE_ENV') || 'production') === 'production',

@@ -83,8 +83,14 @@ class AttendanceEngine {
         ...row,
         servingSeconds: Math.max(0, Math.floor((now - (row.started_at ?? now)) / 1000)),
       })),
-      staffCounts: this.staff.counts(guildId),
-      staffList: this.staff.list(guildId),
+      // EQUIPE do painel: só quem tem os cargos configurados em
+      // `staff_panel_role_ids` (vazio = todos). Ver StaffService.panelState.
+      ...(() => {
+        const panel = this.staff.panelState
+          ? this.staff.panelState(guildId)
+          : { list: this.staff.list(guildId), counts: this.staff.counts(guildId) };
+        return { staffCounts: panel.counts, staffList: panel.list };
+      })(),
       avgWaitSeconds: Math.round(avgWait.average || 0),
       avgWaitSamples: avgWait.total || 0,
     };

@@ -194,6 +194,8 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end, parity? }] }` — `parity` = `A`/`B` para fim de semana revezado |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
+| GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
+| PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
 | POST | `/api/schedule/send` | publica a escala da semana no webhook |
@@ -237,11 +239,31 @@ CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 /banco limpar membro:@fulano     # remove a escala (admin)
 ```
 
+## Filtro da EQUIPE por cargo
+
+O bloco **EQUIPE** do painel da central lista apenas os membros que têm o cargo definido em
+`staff_panel_role_ids`. Sem nenhum cargo configurado, todos os staff cadastrados aparecem (comportamento
+antigo).
+
+```bash
+# .env (aplicado no boot) ou /config definir chave:staff_panel_role_ids valor:["1566903220968624188"]
+STAFF_PANEL_ROLE_IDS=1566903220968624188
+```
+
+- Aceita vários cargos separados por vírgula: qualquer um deles coloca a pessoa no painel.
+- O cache de cargos é carregado no boot, atualizado a cada 5 minutos e imediatamente quando alguém
+  recebe ou perde um cargo (`guildMemberUpdate`).
+- Enquanto o cache ainda não existe (primeiros segundos após o boot), ninguém é escondido.
+- Os contadores de staff seguem a mesma lista: o painel nunca mostra "3 na equipe" listando 2.
+
 ## Configurações
 
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
 | `hour_bank_enabled` | `true` | Liga/desliga a contagem automática |
+| `staff_panel_role_ids` | `[]` (todos) | Cargos que aparecem em **EQUIPE** no painel da central |
+| `schedule` | modelo padrão | Agenda da central (editável no painel web) |
+| `central_manual` | `auto` | Força a central aberta/fechada ignorando a agenda |
 | `hour_bank_reminder_minutes` | `5` | Antecedência do aviso por DM (`0` desliga) |
 | `hour_bank_max_session_hours` | `12` | Limite para fechamento automático da sessão |
 

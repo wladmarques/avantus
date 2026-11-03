@@ -86,6 +86,7 @@ async function createServices({ db, gateway }) {
     repo: repositories.staff,
     gateway,
     hourBank: hourBankService,
+    settings,
   });
   // o painel web precisa do status atual de cada staff
   hourBankService.staff = staffService;
