@@ -11,6 +11,7 @@
     editing: null,
     renaming: null,
     offService: null,
+    evaluations: null,
     timer: null,
     // Grupo do revezamento da semana (A/B) — vem do /api/overview.
     weekParity: null,
@@ -373,6 +374,84 @@
     RUIM: 'rating-1',
   };
 
+  /** Preenche o filtro de atendente sem perder a seleção atual. */
+  function renderStaffOptions(data) {
+    const select = $('eval-staff');
+    const current = select.value || data.staffFilter || '';
+    select.innerHTML = '';
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'Todos';
+    select.appendChild(all);
+    for (const option of data.staffOptions || []) {
+      const node = document.createElement('option');
+      node.value = option.userId;
+      node.textContent = option.name || option.userId;
+      select.appendChild(node);
+    }
+    select.value = current;
+    if (select.value !== current) select.value = '';
+  }
+
+  async function saveAlertThreshold() {
+    const button = $('eval-alert-save');
+    const raw = Number(String($('eval-alert').value).replace(',', '.'));
+    if (!Number.isFinite(raw) || raw < 0 || raw > 4) {
+      toast('Informe um valor entre 0 e 4 (0 desliga o aviso).');
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      await api('/api/evaluations/alert', {
+        method: 'PUT',
+        body: JSON.stringify({ minAverage: raw }),
+      });
+      toast(raw > 0 ? `Aviso ativado para médias abaixo de ${raw.toFixed(2)}/4.` : 'Aviso de média desligado.');
+      await loadEvaluations();
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar alerta';
+    }
+  }
+
+  /** CSV das avaliações do período (respeita o filtro de atendente). */
+  function exportEvaluationsCsv() {
+    const data = state.evaluations;
+    if (!data) {
+      toast('Ainda não há avaliações carregadas.');
+      return;
+    }
+    const rows = [['data', 'protocolo', 'jogador_id', 'jogador', 'atendente_id', 'atendente', 'nota', 'pontos', 'duracao_min']];
+    for (const entry of data.entries) {
+      rows.push([
+        entry.dateLabel,
+        entry.protocol,
+        entry.userId,
+        entry.userName || '',
+        entry.staffId || '',
+        entry.staffName || '',
+        entry.ratingLabel,
+        entry.score ?? '',
+        Math.round((entry.durationSeconds || 0) / 60),
+      ]);
+    }
+    rows.push([]);
+    rows.push(['resumo', 'media', data.average === null || data.average === undefined ? '' : data.average.toFixed(2)]);
+    rows.push(['resumo', 'total', data.total]);
+    rows.push(['resumo', 'positivas_%', data.positiveRate ?? '']);
+    const csv = rows.map((line) => line.join(';')).join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `avaliacoes_${data.staffFilter || 'todos'}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function renderEvaluations(data) {
     const { total, average, positiveRate, byRating } = data;
 
@@ -447,10 +526,20 @@
 
   async function loadEvaluations() {
     try {
-      const query = periodQuery();
+      const params = new URLSearchParams(periodQuery());
+      const staffId = $('eval-staff') ? $('eval-staff').value : '';
+      if (staffId) params.set('staffId', staffId);
+      const query = params.toString();
       const data = await api(`/api/evaluations${query ? `?${query}` : ''}`);
+      state.evaluations = data;
+      renderStaffOptions(data);
       renderEvaluations(data);
+      $('eval-staff').value = data.staffFilter || '';
       $('evaluation-channel').value = data.channelId || '';
+      $('eval-alert').value = data.alertMinAverage ? String(data.alertMinAverage) : '0';
+      $('eval-filter-note').textContent = staffId
+        ? 'Mostrando só as avaliações deste atendente (o ranking continua completo).'
+        : '';
       $('evaluation-channel-status').textContent = data.channelId
         ? `Publicando no canal ${data.channelId}.`
         : 'Nenhum canal configurado — as avaliações ficam só no painel e no log administrativo.';
@@ -937,6 +1026,9 @@
   fillDayOptions();
   $('webhook-save').addEventListener('click', saveWebhook);
   $('evaluation-channel-save').addEventListener('click', saveEvaluationChannel);
+  $('eval-alert-save').addEventListener('click', saveAlertThreshold);
+  $('eval-export').addEventListener('click', exportEvaluationsCsv);
+  $('eval-staff').addEventListener('change', () => loadEvaluations());
   $('schedule-send').addEventListener('click', sendSchedule);
   $('webhook-url').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {

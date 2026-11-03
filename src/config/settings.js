@@ -25,6 +25,13 @@ const asInt = (min, max) => (value) => {
   return parsed;
 };
 const asIdList = (value) => (Array.isArray(value) && value.every((v) => /^\d{17,20}$/.test(String(v))));
+/** Número decimal (ex.: média de 0 a 4). */
+const asDecimal = (min, max) => (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < min || parsed > max) return null;
+  return Math.round(parsed * 100) / 100;
+};
 
 const SETTINGS = {
   guild_id: {
@@ -204,6 +211,27 @@ const SETTINGS = {
     group: 'Avaliações',
     validate: (value) => value === null || value === undefined || value === '' || /^\d{5,25}$/.test(String(value).trim()),
   },
+  evaluations_alert_min_average: {
+    default: 0,
+    type: 'decimal',
+    label: 'Avisar no canal quando a média da semana ficar abaixo de (0 = desligado)',
+    group: 'Avaliações',
+    validate: asDecimal(0, 4),
+  },
+  evaluations_alert_min_sample: {
+    default: 3,
+    type: 'number',
+    label: 'Mínimo de avaliações na semana para o aviso',
+    group: 'Avaliações',
+    validate: asInt(1, 200),
+  },
+  evaluations_alert_last_week: {
+    default: null,
+    type: 'string',
+    label: 'Semana do último aviso de avaliações (interno)',
+    group: 'Avaliações',
+    validate: (value) => value === null || value === undefined || value === '' || /^\d{4}-\d{2}-\d{2}$/.test(String(value)),
+  },
   panel_style: {
     default: 'modern',
     type: 'string',
@@ -321,6 +349,7 @@ function coerceValue(key, raw) {
     }
   }
   if (def.type === 'number' && typeof raw === 'string') value = Number.parseInt(raw, 10);
+  if (def.type === 'decimal' && typeof raw === 'string') value = Number.parseFloat(raw.replace(',', '.'));
   if (def.type === 'boolean' && typeof raw === 'string') value = asBool(raw);
 
   if (def.validate && !def.validate(value)) {

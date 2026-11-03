@@ -47,7 +47,11 @@ WEB_PANEL_HOST=0.0.0.0
 - **Avaliações**: média das notas (0–4), total no período, % de notas boas, distribuição em
   barras, tabela com data/jogador/atendente/nota/protocolo e a média por atendente. Há um campo
   para definir o **canal do Discord** que recebe cada avaliação (ou use `EVALUATION_CHANNEL_ID`
-  / `/config definir`).
+  / `/config definir`). O seletor **Atendente** filtra as notas de uma pessoa (o ranking continua
+  completo) e **CSV das avaliações** baixa o período com data, protocolo, jogador, atendente, nota
+  e duração. Há também o campo de **alerta**: quando a média dos últimos 7 dias fica abaixo do
+  limite (0 = desligado), o bot publica um aviso no canal de avaliações — no máximo uma vez por
+  semana e só com pelo menos 3 notas no período.
 - **Escala cadastrada**: resumo semanal de cada staff.
 - **Sessões** (clique na linha): cada entrada/saída do período, com etiqueta de
   *EM SERVIÇO*, *ATRASO n min* ou *NO HORÁRIO*.
@@ -184,8 +188,9 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | GET | `/api/overview?from&to` | staff + status + escala + horas |
 | GET | `/api/report?from&to` | relatório agregado por staff |
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
-| GET | `/api/evaluations?from&to` | avaliações do período: `entries`, `total`, `average`, `positiveRate`, `byRating`, `byStaff`, `channelId` |
+| GET | `/api/evaluations?from&to&staffId` | avaliações do período: `entries`, `total`, `average`, `positiveRate`, `byRating`, `byStaff`, `channelId`, `staffOptions`, `alertMinAverage` |
 | PUT | `/api/evaluations/channel` | `{ channelId }` — define o canal que recebe as avaliações (`null`/`""` desliga) |
+| PUT | `/api/evaluations/alert` | `{ minAverage }` — limite (0–4) do aviso de média baixa; `0` desliga |
 | PUT | `/api/staff/:userId/shifts` | `{ staffName, shifts: [{ weekday, start, end, parity? }] }` — `parity` = `A`/`B` para fim de semana revezado |
 | PUT | `/api/staff/:userId/name` | `{ staffName }` — define o nome exibido (`""` volta ao nome do Discord) |
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
