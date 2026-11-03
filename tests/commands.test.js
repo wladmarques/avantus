@@ -16,6 +16,47 @@ function fakeClient(commands) {
   };
 }
 
+/**
+ * O Discord recusa o registro inteiro quando uma opção obrigatória vem depois
+ * de uma opcional ("Required options must be placed before non-required
+ * options"). Esse erro derrubava o registro de TODOS os 23 comandos.
+ */
+test('opções obrigatórias vêm antes das opcionais em todos os comandos', () => {
+  const commands = loadCommands();
+  assert.ok(commands.size > 0, 'comandos carregados');
+
+  const problems = [];
+  const check = (options, label) => {
+    let optional = null;
+    for (const option of options ?? []) {
+      if (option.type === 1 || option.type === 2) {
+        check(option.options, `${label} ${option.name}`);
+        continue;
+      }
+      if (!option.required) optional = optional ?? option.name;
+      else if (optional) problems.push(`${label}: "${option.name}" é obrigatória depois de "${optional}"`);
+    }
+  };
+
+  for (const [name, command] of commands) {
+    check(command.data.toJSON().options, name);
+  }
+
+  assert.deepEqual(problems, [], 'nenhum comando com obrigatória depois de opcional');
+});
+
+test('/avaliar aceita nota (obrigatória) e protocolo (opcional)', () => {
+  const command = require('../src/commands/player/avaliar');
+  const options = command.data.toJSON().options;
+  assert.deepEqual(
+    options.map((option) => [option.name, Boolean(option.required)]),
+    [
+      ['nota', true],
+      ['protocolo', false],
+    ],
+  );
+});
+
 test('executeCommand repassa client, services, env e runtime ao comando', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
