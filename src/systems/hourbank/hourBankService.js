@@ -595,6 +595,10 @@ class HourBankService {
         status: row.status,
         statusLabel: row.meta?.label ?? row.status,
         available: row.status === STAFF_STATUS.DISPONIVEL,
+        // Bloqueio administrativo: não entra em serviço até ser liberado.
+        blocked: Boolean(row.blocked),
+        blockedAt: row.blockedAt ?? null,
+        blockedReason: row.blockedReason ?? null,
       });
     }
     for (const userId of [...shiftsByUser.keys(), ...names.keys()]) {
@@ -605,6 +609,9 @@ class HourBankService {
           status: STAFF_STATUS.INDISPONIVEL,
           statusLabel: 'SEM STATUS',
           available: false,
+          blocked: false,
+          blockedAt: null,
+          blockedReason: null,
         });
       }
     }

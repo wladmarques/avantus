@@ -333,6 +333,46 @@
     </form>
   </dialog>
 
+  <!-- Modal: bloquear staff -->
+  <dialog id="block-modal">
+    <form id="block-form" method="dialog">
+      <h2 id="block-title">Bloquear staff</h2>
+      <p id="block-text" class="muted small"></p>
+      <div class="field">
+        <label for="block-reason">Motivo (opcional, vai para o log)</label>
+        <input id="block-reason" type="text" maxlength="200" placeholder="Ex.: advertência por conduta" autocomplete="off">
+      </div>
+      <p class="muted small">
+        O staff sai de serviço agora e só volta a ficar disponível depois que o bloqueio for removido.
+        Ele continua na equipe.
+      </p>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button type="button" id="block-cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" id="block-confirm" class="btn primary">Bloquear</button>
+      </div>
+      <p id="block-error" class="error" hidden></p>
+    </form>
+  </dialog>
+
+  <!-- Modal: remover staff da equipe -->
+  <dialog id="remove-modal">
+    <form id="remove-form" method="dialog">
+      <h2 id="remove-title">Remover da equipe</h2>
+      <p id="remove-text" class="muted small"></p>
+      <p class="muted small">
+        O cadastro (<strong>status, nome e escala</strong>) é apagado e o staff sai do painel da
+        equipe. O histórico de horas e atendimentos já registrados é mantido nos relatórios.
+      </p>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button type="button" id="remove-cancel" class="btn ghost">Cancelar</button>
+        <button type="submit" id="remove-confirm" class="btn danger">Remover da equipe</button>
+      </div>
+      <p id="remove-error" class="error" hidden></p>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
 </div>
 <script src="app.js"></script>

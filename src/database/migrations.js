@@ -259,6 +259,20 @@ const migrations = [
       db.exec('ALTER TABLE staff_shifts ADD COLUMN parity TEXT;');
     },
   },
+  {
+    version: 8,
+    name: 'bloqueio_de_staff',
+    up(db) {
+      // blocked = 1 impede o staff de ficar DISPONÍVEL (entrar em serviço),
+      // tanto pelo /status quanto ao entrar no canal de atendimento.
+      db.exec(`
+        ALTER TABLE staff_status ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE staff_status ADD COLUMN blocked_at INTEGER;
+        ALTER TABLE staff_status ADD COLUMN blocked_by TEXT;
+        ALTER TABLE staff_status ADD COLUMN blocked_reason TEXT;
+      `);
+    },
+  },
 ];
 
 /**

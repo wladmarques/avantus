@@ -1292,7 +1292,12 @@ class AttendanceEngine {
     const isAttendanceChannel = attendanceChannelIds.includes(channelId);
     const current = this.staff.get(guildId, userId);
 
-    if (memberInGuild && isAttendanceChannel && current.status === STAFF_STATUS.INDISPONIVEL) {
+    if (
+      memberInGuild &&
+      isAttendanceChannel &&
+      current.status === STAFF_STATUS.INDISPONIVEL &&
+      !this.staff.isBlocked(guildId, userId)
+    ) {
       await this._effect('marcar disponível', () =>
         this.staff.setStatus({
           guildId,
@@ -1480,10 +1485,12 @@ class AttendanceEngine {
       if (entry.status !== STAFF_STATUS.EM_ATENDIMENTO) continue;
       const serving = this.repos.attendance.findServingByStaffSync(guildId, entry.user_id);
       if (!serving) {
+        // Staff bloqueado volta para INDISPONÍVEL, nunca para disponível.
+        const blocked = entry.blocked === 1;
         await this.db.transaction(async () =>
           this.repos.staff.upsertSync(guildId, entry.user_id, {
-            status: STAFF_STATUS.DISPONIVEL,
-            manual: 0,
+            status: blocked ? STAFF_STATUS.INDISPONIVEL : STAFF_STATUS.DISPONIVEL,
+            manual: blocked ? 1 : 0,
             updatedBy: 'recuperação',
           }),
         );
