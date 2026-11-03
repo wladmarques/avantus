@@ -14,19 +14,20 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('avaliar')
     .setDescription('Avalia um atendimento que você já recebeu')
-    .addIntegerOption((option) =>
-      option
-        .setName('protocolo')
-        .setDescription('Número do protocolo (vazio = último atendimento sem avaliação)')
-        .setRequired(false)
-        .setMinValue(1),
-    )
+    // Ordem importa: o Discord exige as opções obrigatórias antes das opcionais.
     .addStringOption((option) =>
       option
         .setName('nota')
         .setDescription('Como foi o atendimento?')
         .setRequired(true)
         .addChoices(...CHOICES),
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName('protocolo')
+        .setDescription('Número do protocolo (vazio = último atendimento sem avaliação)')
+        .setRequired(false)
+        .setMinValue(1),
     ),
 
   async execute({ interaction, services }) {
