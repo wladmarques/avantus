@@ -88,31 +88,31 @@
 
     <div class="panel">
       <div class="panel-head">
-        <h2>Fila e canal de espera</h2>
-        <span class="muted small" id="queue-status">Carregando…</span>
+        <h2>Bloqueio ao sair da call</h2>
+        <span class="muted small" id="cooldown-status">Carregando…</span>
       </div>
 
-      <label class="switch" for="wait-grace-enabled">
-        <input id="wait-grace-enabled" type="checkbox">
-        <span>Aguardar a reconexão antes de remover da fila</span>
+      <label class="switch" for="cooldown-enabled">
+        <input id="cooldown-enabled" type="checkbox">
+        <span>Aplicar bloqueio a quem sai da call de espera</span>
       </label>
       <p class="muted small block-note">
-        Ligado: quem cai do canal <strong>aguardando-atendimento</strong> continua na fila pelo tempo
-        abaixo e recebe uma DM para voltar. Se não voltar, o protocolo é encerrado. Desligado: sai da
-        fila na hora.
+        Ligado: quem sai do canal <strong>aguardando-atendimento</strong> antes de ser chamado fica o
+        tempo abaixo sem poder voltar à fila (por botão, comando ou canal de voz). Desligado: pode
+        voltar na hora.
       </p>
 
-      <div class="webhook-row queue-actions">
-        <label class="switch" for="wait-grace-seconds">
-          <span class="muted small">Tempo de espera (segundos)</span>
-          <input id="wait-grace-seconds" type="number" min="10" max="900" step="5" value="60" aria-label="Tempo de espera para reconectar">
+      <div class="webhook-row cooldown-actions">
+        <label class="switch" for="cooldown-minutes">
+          <span class="muted small">Tempo do bloqueio (minutos)</span>
+          <input id="cooldown-minutes" type="number" min="1" max="1440" step="1" value="10" aria-label="Tempo do bloqueio em minutos">
         </label>
         <span class="spacer"></span>
-        <button id="queue-save" class="btn primary">Salvar</button>
+        <button id="cooldown-save" class="btn primary">Salvar</button>
       </div>
 
-      <p id="queue-players" class="status-line"></p>
-      <div id="queue-grace-list" class="queue-grace-list"></div>
+      <p id="cooldown-players" class="status-line"></p>
+      <div id="cooldown-list" class="queue-grace-list"></div>
     </div>
 
     <div class="panel">

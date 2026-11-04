@@ -198,8 +198,8 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
-| GET | `/api/queue` | janela de reconexão da fila: `waitGrace { enabled, seconds }`, `rejoinCooldownMinutes` e `players` (quem está fora do canal esperando reconectar, com `remainingSeconds`) |
-| PUT | `/api/queue` | `{ waitGraceEnabled?, waitGraceSeconds? }` — liga/desliga e ajusta o tempo (10–900 s); audita e atualiza os painéis |
+| GET | `/api/cooldown` | bloqueio de reentrada: `cooldown { enabled, minutes, lastMinutes }` e `players` (quem está bloqueado, com `remainingSeconds`) |
+| PUT | `/api/cooldown` | `{ enabled?, minutes? }` — `minutes: 0` desativa; 1–1440 quando ativo; audita e atualiza os painéis |
 | PUT | `/api/central` | `{ state, reason? }` — `closed` fecha a central mesmo dentro do horário, `open` abre fora dele, `auto` volta ao horário; devolve o payload de `/api/schedule` + `message` e `queueCleared` |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
@@ -244,18 +244,19 @@ CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 /banco limpar membro:@fulano     # remove a escala (admin)
 ```
 
-### Fila e canal de espera
+### Bloqueio ao sair da call
 
-A seção **Fila e canal de espera** do painel liga a janela de reconexão: quem cai do canal
-**⏳・aguardando-atendimento** continua na fila pelo tempo configurado e recebe uma DM para voltar.
-Desligada (padrão), a saída encerra o protocolo na hora.
+A seção **Bloqueio ao sair da call** liga/desliga o castigo de reentrada
+(`rejoin_cooldown_minutes`): quem sai do canal **⏳・aguardando-atendimento** antes de ser chamado
+fica o tempo configurado sem poder voltar à fila (por botão, comando ou canal de voz).
 
-- Tempo em segundos, de **10 a 900**.
-- Abaixo do formulário aparece quem está fora do canal aguardando reconectar, com a contagem.
-- A alteração vale imediatamente, fica no canal de log (`QUEUE_SETTINGS_UPDATE`) e também pode ser
-  feita em `/config definir chave:wait_voice_grace_enabled|wait_voice_grace_seconds`.
+- **Desligado** (`0`): o jogador pode voltar na hora — útil para servidores com conexão instável.
+- **Ligado**: tempo em minutos (1 a 1440). O último valor usado é lembrado ao reativar.
+- Abaixo do formulário aparece quem está bloqueado agora, com o tempo restante.
+- A alteração vale imediatamente, fica no canal de log (`COOLDOWN_UPDATE`) e também pode ser feita
+  em `/config definir chave:rejoin_cooldown_minutes valor:10`.
 
-### Bloquear e remover staff
+### Bloquear e remover staff### Bloquear e remover staff
 
 Na tabela **Equipe**, cada staff tem dois botões administrativos:
 

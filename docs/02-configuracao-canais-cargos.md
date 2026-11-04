@@ -117,28 +117,17 @@ Enquanto faltar uma delas:
 O staff fica disponível com `/staff status` → **Disponível** ou entrando em um canal de atendimento,
 e o painel é atualizado na hora (o botão volta a funcionar na mesma hora).
 
-### Saída do canal de espera
+### Saída do canal de espera (regra fixa)
 
-Por padrão sair do canal **⏳・aguardando-atendimento** remove o jogador da fila imediatamente —
-vale para desconexão voluntária, quedas de conexão, remoções feitas pela moderação e mudança para
-qualquer outro canal de voz. A saída encerra o protocolo como **JOGADOR DESISTIU**, envia DM ao
-jogador e aplica o bloqueio de reentrada (`rejoin_cooldown_minutes`). O evento fica registrado como
-`QUEUE_LEFT_WAIT_VOICE`.
+Sair do canal **⏳・aguardando-atendimento** remove o jogador da fila imediatamente — não existe
+configuração para manter alguém na fila fora do canal. Vale para:
 
-**Janela de reconexão (opcional).** Com `wait_voice_grace_enabled` ligado, quem cai do canal continua
-na fila por `wait_voice_grace_seconds` (10–900 s) e recebe uma DM com o tempo para voltar:
+- desconexão voluntária, quedas de conexão e remoções feitas pela moderação;
+- mudança para qualquer outro canal de voz (inclusive o de atendimento antes de ser chamado).
 
-- voltando ao canal dentro do tempo, o **lugar na fila é mantido** (`QUEUE_WAIT_GRACE_RESUMED`);
-- não voltando, o protocolo é encerrado (`QUEUE_WAIT_GRACE_EXPIRED`) com o bloqueio de reentrada
-  normal;
-- se o jogador for chamado nesse intervalo, a espera é cancelada na hora.
-
-Configure pelo painel web (seção **Fila e canal de espera**) ou por comando:
-
-```bash
-/config definir chave:wait_voice_grace_enabled valor:true
-/config definir chave:wait_voice_grace_seconds valor:60
-```
+A saída encerra o protocolo como **JOGADOR DESISTIU**, envia DM ao jogador e aplica o bloqueio de
+reentrada (`rejoin_cooldown_minutes`, editável no painel web — `0` desativa). O evento fica
+registrado como `QUEUE_LEFT_WAIT_VOICE`.
 
 ### O jogador entrou no canal de espera e não entrou na fila
 
@@ -174,18 +163,19 @@ O bloqueio **não** é aplicado quando: houve atendimento (staff chamou), a remo
 equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
 
 ```bash
-/config definir chave:rejoin_cooldown_minutes valor:5   # 5 minutos
+/config definir chave:rejoin_cooldown_minutes valor:5   # 5 minutos (0 = desativado)
 /fila liberar jogador:@fulano                          # libera na hora
 ```
+
+O painel web (seção **Bloqueio ao sair da call**) liga/desliga esse bloqueio e define o tempo, sem
+precisar de comando.
 
 ## Comportamento da fila e do atendimento
 
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
 | `auto_queue_on_voice_join` | `true` | Entrar no canal de espera coloca o jogador na fila automaticamente |
-| `rejoin_cooldown_minutes` | `10` | Bloqueio para voltar à fila depois de desistir antes de ser chamado (0 = desativado) |
-| `wait_voice_grace_enabled` | `false` | Aguarda a reconexão antes de remover quem sai do canal de espera (editável no painel web) |
-| `wait_voice_grace_seconds` | `60` | Tempo da janela de reconexão (10–900 s) |
+| `rejoin_cooldown_minutes` | `10` | Bloqueio para voltar à fila depois de desistir antes de ser chamado (0 = desativado; editável no painel web) |
 | `max_queue_size` | `0` | Limite de jogadores na fila (0 = ilimitado) |
 | `max_wait_minutes` | `0` | Remove quem esperar mais que isso (0 = sem limite) |
 | `skip_policy` | `end` | `end` = pulado vai ao final; `hold` = fica pendente |
