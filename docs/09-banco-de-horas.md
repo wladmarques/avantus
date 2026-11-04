@@ -198,6 +198,8 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
+| GET | `/api/queue` | janela de reconexão da fila: `waitGrace { enabled, seconds }`, `rejoinCooldownMinutes` e `players` (quem está fora do canal esperando reconectar, com `remainingSeconds`) |
+| PUT | `/api/queue` | `{ waitGraceEnabled?, waitGraceSeconds? }` — liga/desliga e ajusta o tempo (10–900 s); audita e atualiza os painéis |
 | PUT | `/api/central` | `{ state, reason? }` — `closed` fecha a central mesmo dentro do horário, `open` abre fora dele, `auto` volta ao horário; devolve o payload de `/api/schedule` + `message` e `queueCleared` |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
@@ -241,6 +243,17 @@ CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 /banco escala membro:@fulano dia:Segunda inicio:12:00 fim:18:00   # adiciona um turno (admin)
 /banco limpar membro:@fulano     # remove a escala (admin)
 ```
+
+### Fila e canal de espera
+
+A seção **Fila e canal de espera** do painel liga a janela de reconexão: quem cai do canal
+**⏳・aguardando-atendimento** continua na fila pelo tempo configurado e recebe uma DM para voltar.
+Desligada (padrão), a saída encerra o protocolo na hora.
+
+- Tempo em segundos, de **10 a 900**.
+- Abaixo do formulário aparece quem está fora do canal aguardando reconectar, com a contagem.
+- A alteração vale imediatamente, fica no canal de log (`QUEUE_SETTINGS_UPDATE`) e também pode ser
+  feita em `/config definir chave:wait_voice_grace_enabled|wait_voice_grace_seconds`.
 
 ### Bloquear e remover staff
 

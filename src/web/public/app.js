@@ -386,6 +386,78 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Fila e canal de espera (janela de reconexão)                        */
+  /* ------------------------------------------------------------------ */
+
+  function renderQueue(data) {
+    const grace = data.waitGrace || {};
+    $('wait-grace-enabled').checked = Boolean(grace.enabled);
+    $('wait-grace-seconds').value = grace.seconds ?? 60;
+    $('wait-grace-seconds').disabled = !grace.enabled;
+
+    const players = data.players || [];
+    $('queue-status').textContent = grace.enabled
+      ? `aguardando reconexão por até ${grace.seconds}s`
+      : 'remoção imediata (desligado)';
+
+    const list = $('queue-grace-list');
+    list.innerHTML = '';
+    if (!grace.enabled) {
+      $('queue-players').textContent = 'Nenhum jogador aguardando reconexão.';
+      return;
+    }
+    if (!players.length) {
+      $('queue-players').textContent = 'Nenhum jogador aguardando reconexão agora.';
+      return;
+    }
+    $('queue-players').textContent = `${players.length} jogador(es) fora do canal de espera:`;
+    for (const player of players) {
+      const row = el('div', 'queue-grace-row');
+      row.appendChild(el('strong', null, player.username || player.userId));
+      row.appendChild(el('span', 'muted small', `protocolo #${String(player.protocol).padStart(4, '0')}`));
+      if (player.position) row.appendChild(el('span', 'muted small', `${player.position}º na fila`));
+      row.appendChild(el('span', 'countdown', `${player.remainingSeconds}s`));
+      list.appendChild(row);
+    }
+  }
+
+  async function loadQueue() {
+    try {
+      renderQueue(await api('/api/queue'));
+    } catch (error) {
+      if (error.message !== 'unauthorized') toast(error.message);
+    }
+  }
+
+  async function saveQueueConfig() {
+    const button = $('queue-save');
+    const seconds = Number($('wait-grace-seconds').value);
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      const data = await api('/api/queue', {
+        method: 'PUT',
+        body: JSON.stringify({
+          waitGraceEnabled: $('wait-grace-enabled').checked,
+          waitGraceSeconds: seconds,
+        }),
+      });
+      renderQueue(data);
+      toast(
+        data.waitGrace.enabled
+          ? `Fila atualizada: aguarda ${data.waitGrace.seconds}s para a reconexão.`
+          : 'Fila atualizada: remoção imediata ao sair do canal de espera.',
+      );
+    } catch (error) {
+      toast(error.message);
+      await loadQueue();
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Horário de funcionamento                                            */
   /* ------------------------------------------------------------------ */
 
@@ -1304,6 +1376,7 @@
       await loadWebhook();
       await loadEvaluations();
       await loadSchedule();
+      await loadQueue();
       clearInterval(state.timer);
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch (requestError) {
@@ -1360,6 +1433,10 @@
   $('eval-alert-save').addEventListener('click', saveAlertThreshold);
   $('eval-export').addEventListener('click', exportEvaluationsCsv);
   $('schedule-save').addEventListener('click', saveScheduleConfig);
+  $('queue-save').addEventListener('click', saveQueueConfig);
+  $('wait-grace-enabled').addEventListener('change', () => {
+    $('wait-grace-seconds').disabled = !$('wait-grace-enabled').checked;
+  });
   $('central-close').addEventListener('click', () => setCentralState('closed'));
   $('central-open').addEventListener('click', () => setCentralState('open'));
   $('central-auto').addEventListener('click', () => setCentralState('auto'));
@@ -1394,6 +1471,7 @@
       await loadWebhook();
       await loadEvaluations();
       await loadSchedule();
+      await loadQueue();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch {
       showLogin();

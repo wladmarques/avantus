@@ -17,6 +17,8 @@
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
+ *   GET  /api/queue            → janela de reconexão da fila + quem está aguardando
+ *   PUT  /api/queue            → liga/desliga e ajusta o tempo de espera da reconexão
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
@@ -186,6 +188,17 @@ async function applyCentralState(services, guildId, state, { actorTag = 'painel 
   });
   await services.panels.refresh(guildId, { immediate: true }).catch(() => null);
   return services.central.status(guildId);
+}
+
+/** Estado da janela de reconexão (quem sai do canal de espera). */
+function queuePayload(services, guildId) {
+  const enabled = Boolean(services.settings.get('wait_voice_grace_enabled'));
+  const seconds = Number(services.settings.get('wait_voice_grace_seconds')) || 0;
+  return {
+    waitGrace: { enabled, seconds },
+    rejoinCooldownMinutes: Number(services.settings.get('rejoin_cooldown_minutes')) || 0,
+    players: services.engine.waitGraceState ? services.engine.waitGraceState(guildId) : [],
+  };
 }
 
 /** Aceita { mon: [{open, close}] } (ou um único objeto por dia). */
@@ -546,6 +559,51 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
 
       if (pathname === '/api/schedule' && req.method === 'GET') {
         return sendJson(res, 200, schedulePayload(services, currentGuildId));
+      }
+
+      if (pathname === '/api/queue' && req.method === 'GET') {
+        return sendJson(res, 200, queuePayload(services, currentGuildId));
+      }
+
+      if (pathname === '/api/queue' && req.method === 'PUT') {
+        const body = await readBody(req);
+        const changes = [];
+
+        if (body.waitGraceSeconds !== undefined) {
+          const seconds = Number(body.waitGraceSeconds);
+          if (!Number.isInteger(seconds) || seconds < 10 || seconds > 900) {
+            return sendJson(res, 400, {
+              error: 'Tempo de espera inválido: use um número inteiro entre 10 e 900 segundos.',
+            });
+          }
+          await services.settings.set('wait_voice_grace_seconds', seconds);
+          changes.push(`tempo de espera ${seconds}s`);
+        }
+
+        if (body.waitGraceEnabled !== undefined) {
+          const enabled = body.waitGraceEnabled === true || body.waitGraceEnabled === 'true';
+          await services.settings.set('wait_voice_grace_enabled', enabled);
+          changes.push(enabled ? 'janela de reconexão ligada' : 'janela de reconexão desligada');
+        }
+
+        if (!changes.length) {
+          return sendJson(res, 400, { error: 'Nada para atualizar: envie waitGraceEnabled ou waitGraceSeconds.' });
+        }
+
+        await services.audit.log({
+          guildId: currentGuildId,
+          type: 'QUEUE_SETTINGS_UPDATE',
+          actorId: 'painel web',
+          message: `⚙️ O **painel web** atualizou a fila: ${changes.join(' e ')}.`,
+          color: COLORS.MUTED,
+        });
+        await services.panels.refresh(currentGuildId, { immediate: true }).catch(() => null);
+
+        return sendJson(res, 200, {
+          ok: true,
+          message: `Fila atualizada: ${changes.join(' e ')}.`,
+          ...queuePayload(services, currentGuildId),
+        });
       }
 
       if (pathname === '/api/central' && req.method === 'PUT') {
