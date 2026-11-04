@@ -122,6 +122,39 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
+  /** Jogador saiu do canal de espera: aviso enquanto o bot aguarda a reconexão. */
+  waitGraceStarted({ guildId, userId, protocol, seconds, position, channelId = null }) {
+    const embed = card({
+      title: '⚠️ Você saiu do canal de espera',
+      description: [
+        `**Protocolo:** \`#${String(protocol).padStart(4, '0')}\``,
+        `**Posição na fila:** ${position}º`,
+        '',
+        `Você ainda está na fila, mas precisa voltar para ${
+          channelId ? `<#${channelId}>` : 'o canal de espera'
+        } em **${this.formatRemaining(seconds)}** para não perder o lugar.`,
+        'Se o tempo acabar, o protocolo é encerrado (e você fica 10 minutos sem poder voltar).',
+      ].join('\n'),
+      color: COLORS.WARNING,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
+  /** Jogador voltou ao canal de espera dentro do tempo. */
+  waitGraceResumed({ guildId, userId, protocol, position }) {
+    const embed = card({
+      title: '✅ Você voltou para o canal de espera',
+      description: [
+        `**Protocolo:** \`#${String(protocol).padStart(4, '0')}\``,
+        `**Posição na fila:** ${position}º`,
+        '',
+        'Seu lugar na fila foi mantido. Aguarde o contato da equipe.',
+      ].join('\n'),
+      color: COLORS.SUCCESS,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
   cooldownBlocked({ guildId, userId, remainingSeconds, minutes }) {
     const embed = card({
       title: '⏳ Aguarde para entrar novamente',

@@ -88,6 +88,35 @@
 
     <div class="panel">
       <div class="panel-head">
+        <h2>Fila e canal de espera</h2>
+        <span class="muted small" id="queue-status">Carregando…</span>
+      </div>
+
+      <label class="switch" for="wait-grace-enabled">
+        <input id="wait-grace-enabled" type="checkbox">
+        <span>Aguardar a reconexão antes de remover da fila</span>
+      </label>
+      <p class="muted small block-note">
+        Ligado: quem cai do canal <strong>aguardando-atendimento</strong> continua na fila pelo tempo
+        abaixo e recebe uma DM para voltar. Se não voltar, o protocolo é encerrado. Desligado: sai da
+        fila na hora.
+      </p>
+
+      <div class="webhook-row queue-actions">
+        <label class="switch" for="wait-grace-seconds">
+          <span class="muted small">Tempo de espera (segundos)</span>
+          <input id="wait-grace-seconds" type="number" min="10" max="900" step="5" value="60" aria-label="Tempo de espera para reconectar">
+        </label>
+        <span class="spacer"></span>
+        <button id="queue-save" class="btn primary">Salvar</button>
+      </div>
+
+      <p id="queue-players" class="status-line"></p>
+      <div id="queue-grace-list" class="queue-grace-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
         <h2>Horário de funcionamento</h2>
         <span class="muted small" id="schedule-status">Carregando…</span>
       </div>

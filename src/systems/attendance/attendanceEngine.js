@@ -53,6 +53,8 @@ class AttendanceEngine {
     this.schedule = schedule;
     this.cooldowns = cooldowns;
     this.timers = new Map();
+    // Janela de reconexão: atendimentoId → { userId, protocol, deadline, timer, position }
+    this.waitGrace = new Map();
     this.positionCooldowns = new Map();
     this.warnedMissingWaitChannel = false;
   }
@@ -1157,16 +1159,51 @@ class AttendanceEngine {
 
     if (!active) return null;
 
-    // 2) Fora da fila de espera enquanto aguardava → desistência
+    // 2) Voltou ao canal de espera durante a janela de reconexão → mantém a fila
+    if (active.status === ATTENDANCE_STATUS.WAITING && joinedWaitChannel) {
+      const grace = this.waitGrace.get(active.id);
+      if (!grace) return null;
+      this._cancelWaitGrace(active.id);
+      const position = this.positionOf(guildId, userId);
+      await this._effect('avisar retorno', () =>
+        this.notifications.waitGraceResumed({
+          guildId,
+          userId,
+          protocol: active.protocol,
+          position: position?.position ?? 0,
+        }),
+      );
+      await this.audit.log({
+        guildId,
+        type: 'QUEUE_WAIT_GRACE_RESUMED',
+        actorId: userId,
+        targetId: userId,
+        protocol: active.protocol,
+        message: `**${active.username ?? `<@${userId}>`}** voltou ao canal de espera dentro do tempo e **manteve o lugar na fila**.`,
+        color: COLORS.SUCCESS,
+      });
+      await this.panels.refresh(guildId).catch(() => null);
+      return { graceCanceled: true };
+    }
+
+    // 3) Fora da fila de espera enquanto aguardava → desistência (ou espera)
     if (active.status === ATTENDANCE_STATUS.WAITING) {
       const wasWaitingInVoice = Boolean(oldChannelId) && oldChannelId === waitChannelId;
       const leftWaitChannel = wasWaitingInVoice && channelId !== waitChannelId;
 
       if (!leftWaitChannel) return null;
 
-      // Regra fixa (sem configuração): sair do canal de espera tira o jogador da
-      // fila na hora — incluindo quando ele é desconectado ou movido para outro
-      // canal. A saída também alimenta o bloqueio de reentrada.
+      // Janela de reconexão configurável (`wait_voice_grace_*`): o jogador
+      // continua na fila até o tempo acabar. Sem ela, sai na hora.
+      const graceSeconds = this.waitGraceSeconds();
+      if (graceSeconds > 0) {
+        await this._startWaitGrace(guildId, active, graceSeconds);
+        return { graceStarted: true, seconds: graceSeconds };
+      }
+
+      // Regra padrão: sair do canal de espera tira o jogador da fila na hora —
+      // incluindo quando ele é desconectado ou movido para outro canal. A saída
+      // também alimenta o bloqueio de reentrada.
       const closed = await this.leaveQueue({
         guildId,
         userId,
@@ -1203,6 +1240,149 @@ class AttendanceEngine {
     }
 
     return null;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Janela de reconexão do canal de espera                              */
+  /* ------------------------------------------------------------------ */
+
+  /** Posição do jogador na fila (1 = próximo); null se não estiver esperando. */
+  positionOf(guildId, userId) {
+    const waiting = this.repos.attendance.listWaitingSync(guildId);
+    const index = waiting.findIndex((row) => row.user_id === String(userId));
+    if (index < 0) return null;
+    return { position: index + 1, entry: waiting[index] };
+  }
+
+  /** Segundos de espera configurados (0 = remove na hora). */
+  waitGraceSeconds() {
+    if (!this.settings.get('wait_voice_grace_enabled')) return 0;
+    return Number(this.settings.get('wait_voice_grace_seconds')) || 0;
+  }
+
+  /** Jogadores aguardando reconexão (para o painel web). */
+  waitGraceState(guildId) {
+    const now = Date.now();
+    const players = [];
+    for (const [attendanceId, grace] of this.waitGrace) {
+      const row = this.repos.attendance.findByIdSync(guildId, attendanceId);
+      if (!row || row.status !== ATTENDANCE_STATUS.WAITING) {
+        this._cancelWaitGrace(attendanceId);
+        continue;
+      }
+      players.push({
+        attendanceId,
+        userId: grace.userId,
+        username: row.username ?? null,
+        protocol: row.protocol,
+        position: this.positionOf(guildId, grace.userId)?.position ?? null,
+        remainingSeconds: Math.max(0, Math.ceil((grace.deadline - now) / 1000)),
+        totalSeconds: grace.totalSeconds,
+      });
+    }
+    players.sort((a, b) => a.remainingSeconds - b.remainingSeconds);
+    return players;
+  }
+
+  async _startWaitGrace(guildId, active, seconds) {
+    this._cancelWaitGrace(active.id);
+    const deadline = Date.now() + seconds * 1000;
+    const timer = setTimeout(() => {
+      this._handleWaitGraceTimeout(guildId, active.id).catch((error) =>
+        logger.error('Falha na janela de reconexão da fila', error),
+      );
+    }, seconds * 1000);
+    timer.unref?.();
+
+    this.waitGrace.set(active.id, {
+      userId: active.user_id,
+      protocol: active.protocol,
+      deadline,
+      totalSeconds: seconds,
+      timer,
+    });
+
+    const position = this.positionOf(guildId, active.user_id);
+    await this._effect('avisar saída da espera', () =>
+      this.notifications.waitGraceStarted({
+        guildId,
+        userId: active.user_id,
+        protocol: active.protocol,
+        seconds,
+        position: position?.position ?? 0,
+        channelId: this.settings.get('wait_channel_id'),
+      }),
+    );
+    await this.audit.log({
+      guildId,
+      type: 'QUEUE_WAIT_GRACE_STARTED',
+      actorId: active.user_id,
+      targetId: active.user_id,
+      protocol: active.protocol,
+      message:
+        `**${active.username ?? `<@${active.user_id}>`}** saiu do canal de espera — ` +
+        `o protocolo fica reservado por **${this.formatSeconds(seconds)}** para ele reconectar.`,
+      color: COLORS.WARNING,
+    });
+    await this.panels.refresh(guildId).catch(() => null);
+    logger.info(
+      `[voz] ${active.user_id} saiu da espera; aguardando reconexão por ${seconds}s (protocolo #${this.formatProtocol(active.protocol)}).`,
+    );
+  }
+
+  /** Tempo esgotado: remove da fila (mesma regra de desistência). */
+  async _handleWaitGraceTimeout(guildId, attendanceId) {
+    const grace = this.waitGrace.get(attendanceId);
+    if (!grace) return null;
+    this._cancelWaitGrace(attendanceId);
+
+    const row = this.repos.attendance.findByIdSync(guildId, attendanceId);
+    if (!row || row.status !== ATTENDANCE_STATUS.WAITING) return null;
+
+    // Reconectou no último instante (evento pode chegar depois do timeout).
+    const member = await this.gateway.getMember(guildId, grace.userId).catch(() => null);
+    const waitChannelId = this.settings.get('wait_channel_id');
+    if (member?.voiceChannelId && waitChannelId && member.voiceChannelId === waitChannelId) {
+      logger.info(`[voz] ${grace.userId} reconectou antes do timeout — permanece na fila.`);
+      return null;
+    }
+
+    logger.info(
+      `[voz] janela de reconexão expirou para ${grace.userId} (protocolo #${this.formatProtocol(row.protocol)}) — removendo da fila.`,
+    );
+    const closed = await this.leaveQueue({
+      guildId,
+      userId: grace.userId,
+      actorId: grace.userId,
+      reason: `Não voltou ao canal de espera em ${this.formatSeconds(grace.totalSeconds)}`,
+      outcome: OUTCOMES.DESISTIU,
+    });
+
+    const cooldown = this.cooldowns ? this.cooldowns.check(guildId, grace.userId) : null;
+    await this.audit.log({
+      guildId,
+      type: 'QUEUE_WAIT_GRACE_EXPIRED',
+      actorId: grace.userId,
+      targetId: grace.userId,
+      protocol: closed.protocol,
+      message:
+        `**${closed.username}** não voltou ao canal de espera em **${this.formatSeconds(
+          grace.totalSeconds,
+        )}** e foi removido da fila automaticamente` +
+        (cooldown?.active
+          ? ` (reentrada bloqueada por ${this.formatSeconds(cooldown.remainingSeconds)}).`
+          : '.'),
+      color: COLORS.MUTED,
+    });
+    return closed;
+  }
+
+  _cancelWaitGrace(attendanceId) {
+    const grace = this.waitGrace.get(attendanceId);
+    if (!grace) return false;
+    clearTimeout(grace.timer);
+    this.waitGrace.delete(attendanceId);
+    return true;
   }
 
   _scheduleVoiceDisconnect(guildId, attendanceId) {
@@ -1633,6 +1813,7 @@ class AttendanceEngine {
       this.timers.delete(attendanceId);
     }
     this._clearVoiceTimer(attendanceId);
+    this._cancelWaitGrace(attendanceId);
   }
 
   formatProtocol(protocol) {

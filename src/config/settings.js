@@ -120,6 +120,20 @@ const SETTINGS = {
     group: 'Funcionamento',
     validate: (v) => ['keep', 'clear'].includes(v),
   },
+  wait_voice_grace_enabled: {
+    default: false,
+    type: 'boolean',
+    label: 'Aguardar reconexão antes de remover quem sai do canal de espera',
+    group: 'Fila',
+    validate: asBool,
+  },
+  wait_voice_grace_seconds: {
+    default: 60,
+    type: 'number',
+    label: 'Tempo de espera para reconectar (s)',
+    group: 'Fila',
+    validate: asInt(10, 900),
+  },
   rejoin_cooldown_minutes: {
     default: 10,
     type: 'number',
