@@ -47,9 +47,6 @@ Você também é avisado quando sua posição melhora — sem spam: os avisos re
   nem entrando no canal de voz) — tente novamente mais tarde.
 - **Sair do canal de espera remove você da fila na hora** — inclusive se você for movido para
   outro canal ou cair a conexão.
-- Se o servidor estiver com a **janela de reconexão** ativa, sair do canal de espera (queda de
-  conexão, por exemplo) **não perde a fila na hora**: você recebe uma DM com o tempo para voltar e
-  mantém a posição se reconectar dentro dele. Sem essa configuração, sair do canal encerra o protocolo.
 - ⏳ **Ao desistir antes de ser chamado, você fica 10 minutos sem poder voltar** (nem pelo painel,
   nem entrando no canal de espera). O bot informa o tempo restante — inclusive em `/posicao`.
   A administração pode reduzir/desativar esse bloqueio ou liberar você na hora.

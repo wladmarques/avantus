@@ -48,6 +48,17 @@ class CooldownService {
     return { until, minutes: this.minutes };
   }
 
+  /** Bloqueios ativos (para o painel web). */
+  list(guildId, now = Date.now()) {
+    return this.repo.listActiveSync(guildId, now).map((row) => ({
+      userId: String(row.user_id),
+      until: Number(row.until),
+      remainingSeconds: Math.max(0, Math.ceil((Number(row.until) - now) / 1000)),
+      reason: row.reason ?? null,
+      minutes: this.minutes,
+    }));
+  }
+
   async clear(guildId, userId) {
     await this.db.transaction(async () => this.repo.clearSync(guildId, userId));
   }

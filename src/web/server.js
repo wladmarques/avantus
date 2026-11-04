@@ -17,8 +17,8 @@
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
- *   GET  /api/queue            → janela de reconexão da fila + quem está aguardando
- *   PUT  /api/queue            → liga/desliga e ajusta o tempo de espera da reconexão
+ *   GET  /api/cooldown         → bloqueio de reentrada (ligado, minutos, quem está bloqueado)
+ *   PUT  /api/cooldown         → ativa/desativa e ajusta o tempo do bloqueio
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
@@ -190,14 +190,28 @@ async function applyCentralState(services, guildId, state, { actorTag = 'painel 
   return services.central.status(guildId);
 }
 
-/** Estado da janela de reconexão (quem sai do canal de espera). */
-function queuePayload(services, guildId) {
-  const enabled = Boolean(services.settings.get('wait_voice_grace_enabled'));
-  const seconds = Number(services.settings.get('wait_voice_grace_seconds')) || 0;
+/**
+ * Bloqueio de reentrada: quem sai da call antes de ser chamado fica X minutos
+ * sem poder voltar. `minutes = 0` significa desativado.
+ */
+function cooldownPayload(services, guildId) {
+  const minutes = Number(services.settings.get('rejoin_cooldown_minutes')) || 0;
+  const lastMinutes = Number(services.settings.get('rejoin_cooldown_last_minutes')) || 10;
+  const names = (() => {
+    try {
+      return services.hourBank?.names ? services.hourBank.names(guildId) : new Map();
+    } catch {
+      return new Map();
+    }
+  })();
+  const players = (services.cooldowns?.list ? services.cooldowns.list(guildId) : []).map((row) => ({
+    ...row,
+    name: names.get(row.userId) ?? null,
+  }));
+
   return {
-    waitGrace: { enabled, seconds },
-    rejoinCooldownMinutes: Number(services.settings.get('rejoin_cooldown_minutes')) || 0,
-    players: services.engine.waitGraceState ? services.engine.waitGraceState(guildId) : [],
+    cooldown: { enabled: minutes > 0, minutes, lastMinutes },
+    players,
   };
 }
 
@@ -561,48 +575,62 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
         return sendJson(res, 200, schedulePayload(services, currentGuildId));
       }
 
-      if (pathname === '/api/queue' && req.method === 'GET') {
-        return sendJson(res, 200, queuePayload(services, currentGuildId));
+      if (pathname === '/api/cooldown' && req.method === 'GET') {
+        return sendJson(res, 200, cooldownPayload(services, currentGuildId));
       }
 
-      if (pathname === '/api/queue' && req.method === 'PUT') {
+      if (pathname === '/api/cooldown' && req.method === 'PUT') {
         const body = await readBody(req);
-        const changes = [];
+        const current = Number(services.settings.get('rejoin_cooldown_minutes')) || 0;
+        const lastMinutes = Number(services.settings.get('rejoin_cooldown_last_minutes')) || 10;
+        let minutes = body.minutes === undefined ? null : Number(body.minutes);
+        let enabled = body.enabled === undefined ? null : body.enabled === true || body.enabled === 'true';
 
-        if (body.waitGraceSeconds !== undefined) {
-          const seconds = Number(body.waitGraceSeconds);
-          if (!Number.isInteger(seconds) || seconds < 10 || seconds > 900) {
+        if (minutes !== null) {
+          if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
             return sendJson(res, 400, {
-              error: 'Tempo de espera inválido: use um número inteiro entre 10 e 900 segundos.',
+              error: 'Tempo do bloqueio inválido: use um número inteiro de 0 a 1440 minutos.',
             });
           }
-          await services.settings.set('wait_voice_grace_seconds', seconds);
-          changes.push(`tempo de espera ${seconds}s`);
+          if (enabled === null) enabled = minutes > 0;
         }
 
-        if (body.waitGraceEnabled !== undefined) {
-          const enabled = body.waitGraceEnabled === true || body.waitGraceEnabled === 'true';
-          await services.settings.set('wait_voice_grace_enabled', enabled);
-          changes.push(enabled ? 'janela de reconexão ligada' : 'janela de reconexão desligada');
+        if (enabled === null) {
+          return sendJson(res, 400, { error: 'Nada para atualizar: envie enabled e/ou minutes.' });
         }
 
-        if (!changes.length) {
-          return sendJson(res, 400, { error: 'Nada para atualizar: envie waitGraceEnabled ou waitGraceSeconds.' });
+        // Desligar preserva o último tempo para quando for ligado de novo.
+        if (!enabled) {
+          if (current > 0) await services.settings.set('rejoin_cooldown_last_minutes', current);
+          await services.settings.set('rejoin_cooldown_minutes', 0);
+        } else {
+          const target = minutes && minutes > 0 ? minutes : lastMinutes || 10;
+          if (target < 1 || target > 1440) {
+            return sendJson(res, 400, { error: 'Tempo do bloqueio inválido: use de 1 a 1440 minutos.' });
+          }
+          await services.settings.set('rejoin_cooldown_last_minutes', target);
+          await services.settings.set('rejoin_cooldown_minutes', target);
         }
 
+        const after = cooldownPayload(services, currentGuildId);
         await services.audit.log({
           guildId: currentGuildId,
-          type: 'QUEUE_SETTINGS_UPDATE',
+          type: 'COOLDOWN_UPDATE',
           actorId: 'painel web',
-          message: `⚙️ O **painel web** atualizou a fila: ${changes.join(' e ')}.`,
+          message: after.cooldown.enabled
+            ? `⚙️ O **painel web** ativou o bloqueio ao sair da call: **${after.cooldown.minutes} minuto(s)** sem poder voltar à fila.`
+            : '⚙️ O **painel web** **desativou** o bloqueio ao sair da call — quem sair pode voltar na hora.',
           color: COLORS.MUTED,
+          metadata: after.cooldown,
         });
         await services.panels.refresh(currentGuildId, { immediate: true }).catch(() => null);
 
         return sendJson(res, 200, {
           ok: true,
-          message: `Fila atualizada: ${changes.join(' e ')}.`,
-          ...queuePayload(services, currentGuildId),
+          message: after.cooldown.enabled
+            ? `Bloqueio ativado: ${after.cooldown.minutes} minuto(s).`
+            : 'Bloqueio desativado.',
+          ...after,
         });
       }
 
