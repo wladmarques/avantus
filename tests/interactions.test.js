@@ -83,7 +83,7 @@ test('botão CHAMAR PRÓXIMO da staff chama o primeiro da fila', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Cliente' });
 
   const interaction = {
@@ -142,7 +142,7 @@ test('botões de avaliação registram a nota', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER);
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Avaliado' });
   const call = await env.services.attendance.callNext({
     guildId: env.guildId,

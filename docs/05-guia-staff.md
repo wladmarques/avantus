@@ -56,8 +56,17 @@ por staff com `/config definir chave:allow_staff_multi valor:true`.
 | 🟡 AUSENTE | pausa curta (almoço, AFK) |
 | ⚫ INDISPONÍVEL | fora de serviço |
 
-Ao finalizar, você volta para 🟢 DISPONÍVEL — **exceto** se você mesmo definiu 🟡 AUSENTE ou
-⚫ INDISPONÍVEL. Nesse caso sua escolha é respeitada.
+**Entrar no canal de voz de atendimento não coloca você em serviço.** Quem decide é você: no painel
+da equipe, clique em **MEU STATUS** e escolha **Disponível** (ou use
+`/status situacao:Disponível`). Enquanto estiver fora de serviço:
+
+- você **não** aparece como disponível no painel nem entra na contagem de staffs;
+- **não** é possível chamar jogador — o bot responde pedindo para você entrar em serviço (isso evita
+  atender sem o banco de horas contando);
+- o banco de horas só começa a contar quando você fica DISPONÍVEL.
+
+Ao finalizar um atendimento, você volta para 🟢 DISPONÍVEL — **exceto** se você mesmo definiu 🟡 AUSENTE
+ou ⚫ INDISPONÍVEL (sua escolha é respeitada).
 
 ## Comandos de staff
 

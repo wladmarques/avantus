@@ -11,7 +11,7 @@ async function servingEnv(t, extra = {}) {
   const env = await createTestEnv(extra);
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Voz' });
   const call = await env.services.attendance.callNext({
     guildId: env.guildId,
@@ -52,8 +52,53 @@ test('desconexão do jogador durante tolerância encerra o atendimento', async (
   assert.equal(env.services.staff.get(env.guildId, STAFF).status, 'DISPONIVEL');
 });
 
-test('staff conectado a canal válido fica disponível automaticamente', async (t) => {
+test('entrar no canal de atendimento não coloca o staff em serviço', async (t) => {
   const env = await createTestEnv();
+  t.after(env.cleanup);
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'INDISPONIVEL',
+    manual: true,
+  });
+
+  await env.services.attendance.handleStaffVoiceUpdate({
+    guildId: env.guildId,
+    userId: STAFF,
+    channelId: env.attChannelId,
+    attendanceChannelIds: [env.attChannelId],
+  });
+
+  // Continua indisponível: só o próprio staff entra em serviço (painel /status).
+  assert.equal(env.services.staff.get(env.guildId, STAFF).status, 'INDISPONIVEL');
+  assert.equal(
+    env.services.engine
+      .getState(env.guildId)
+      .staffList.find((row) => row.userId === STAFF).status,
+    'INDISPONIVEL',
+    'não aparece como disponível no painel',
+  );
+
+  // Depois de definir o status manualmente, fica disponível e o painel reflete.
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: STAFF,
+    status: 'DISPONIVEL',
+    manual: true,
+    updatedBy: STAFF,
+  });
+  assert.equal(env.services.staff.get(env.guildId, STAFF).status, 'DISPONIVEL');
+  assert.equal(
+    env.services.engine
+      .getState(env.guildId)
+      .staffList.find((row) => row.userId === STAFF).status,
+    'DISPONIVEL',
+    'painel reflete o status definido pelo staff',
+  );
+});
+
+test('com staff_auto_status_on_voice_join ligado, entrar na call fica disponível', async (t) => {
+  const env = await createTestEnv({ settings: { staff_auto_status_on_voice_join: true } });
   t.after(env.cleanup);
   await env.services.staff.setStatus({
     guildId: env.guildId,
@@ -88,7 +133,7 @@ test('staff que desconecta do canal durante atendimento é marcado indisponível
 
 test('staff que não retorna à voz tem atendimento encerrado e jogador devolvido à fila', async (t) => {
   const { env, call } = await servingEnv(t, { settings: { voice_disconnect_grace_seconds: 30 } });
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   env.gateway.staffVoice.set(STAFF, { channelId: null });
 
   await env.services.engine._handleStaffReturnTimeout(env.guildId, STAFF, call.attendance.id);
@@ -158,7 +203,7 @@ test('não entra duas vezes na fila ao se mover dentro do canal de espera', asyn
 test('staff entrando no canal de espera não entra na fila', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
-  addStaffInVoice(env.gateway, STAFF, { channelId: env.waitChannelId, channelName: 'AGUARDANDO' });
+  await addStaffInVoice(env, STAFF, { channelId: env.waitChannelId, channelName: 'AGUARDANDO' });
 
   const result = await env.services.attendance.handlePlayerVoiceUpdate({
     guildId: env.guildId,

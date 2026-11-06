@@ -96,7 +96,9 @@ waiting ──► serving ──► finished
 | Jogador entra no canal de atendimento | presença confirmada, timer cancelado |
 | Jogador não entra no prazo | **NÃO COMPARECEU** → volta à fila ou encerra (`no_show_policy`) |
 | Jogador sai do canal durante o atendimento | tolerância → **DESCONECTOU** |
+| Staff entra no canal de atendimento | **não** muda o status (só o próprio staff entra em serviço, `/status` ou MEU STATUS) |
 | Staff sai do canal | status INDISPONÍVEL, tolerância → **STAFF DESCONECTOU** + jogador volta à fila |
+| Staff fora de serviço tenta chamar (`SERVICE`) | erro `STAFF_FORA_DE_SERVICO`, fila intacta |
 | Jogador sai do servidor | encerra registro e libera vaga |
 | Staff sai do servidor | encerra atendimento e marca INDISPONÍVEL |
 | Tempo máximo de espera | remove da fila com log e DM |

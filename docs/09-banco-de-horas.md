@@ -7,9 +7,10 @@ aviso por DM antes do turno e relatórios completos em um painel web.
 
 | Momento | O que acontece |
 | --- | --- |
-| O staff fica **DISPONÍVEL** (`/status`, painel da equipe ou entrando no canal de atendimento) | a sessão de trabalho **abre** e as horas começam a contar |
+| O staff se coloca **DISPONÍVEL** (`/status` ou **MEU STATUS** no painel da equipe) | a sessão de trabalho **abre** e as horas começam a contar |
 | O staff entra **EM ATENDIMENTO** | a sessão **continua** aberta (ele segue em serviço) |
 | O staff fica **AUSENTE / INDISPONÍVEL** ou sai do canal | a sessão **fecha** e as horas são gravadas |
+| O staff só **entra no canal de atendimento** (sem mudar o status) | nada acontece: ele continua fora de serviço, sem horas contando e sem poder chamar jogador |
 | Faltam **5 minutos** para o turno cadastrado | o bot envia uma **DM de aviso** (uma única vez por turno/dia) |
 | A sessão passa de `hour_bank_max_session_hours` (padrão 12h) | é fechada automaticamente (proteção contra queda do bot) |
 

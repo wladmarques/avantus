@@ -10,8 +10,8 @@ test('relatórios contabilizam conclusões, desistências e desempenho por staff
 
   const staffA = '910000000000004001';
   const staffB = '910000000000004002';
-  addStaffInVoice(env.gateway, staffA);
-  addStaffInVoice(env.gateway, staffB, { channelName: 'ATENDIMENTO 02' });
+  await addStaffInVoice(env, staffA);
+  await addStaffInVoice(env, staffB, { channelName: 'ATENDIMENTO 02' });
 
   // três jogadores: dois atendidos (por staffs diferentes), um desiste
   for (const id of ['900000000000004001', '900000000000004002', '900000000000004003']) {

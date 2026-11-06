@@ -114,8 +114,10 @@ Enquanto faltar uma delas:
   o motivo;
 - quem já está na fila **continua** nela — a regra vale apenas para novas entradas.
 
-O staff fica disponível com `/staff status` → **Disponível** ou entrando em um canal de atendimento,
-e o painel é atualizado na hora (o botão volta a funcionar na mesma hora).
+O staff entra em serviço por conta própria, com `/status situacao:Disponível` ou pelo botão
+**MEU STATUS** do painel da equipe — entrar no canal de voz **não** muda o status
+(`staff_auto_status_on_voice_join` fica desligado por padrão). O painel é atualizado na hora
+(o botão volta a funcionar na mesma hora).
 
 ### Saída do canal de espera (regra fixa)
 
@@ -184,6 +186,7 @@ precisar de comando.
 | `voice_disconnect_grace_seconds` | `120` | Tolerância antes de encerrar por queda de voz |
 | `allow_staff_multi` | `false` | Permite staff em mais de um atendimento |
 | `staff_auto_available` | `true` | Staff volta a DISPONÍVEL ao finalizar |
+| `staff_auto_status_on_voice_join` | `false` | Entrar no canal de atendimento coloca o staff DISPONÍVEL automaticamente (desligado: só o próprio staff muda o status) |
 | `queue_policy_on_close` | `keep` | `keep` mantém a fila ao fechar; `clear` encerra tudo |
 
 ## Notificações, painéis e avaliações

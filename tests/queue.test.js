@@ -93,6 +93,14 @@ test('chamada sem estar em canal de voz de atendimento é bloqueada', async (t) 
   t.after(env.cleanup);
   addMember(env.gateway, '900000000000000006');
   env.gateway.members.set('910000000000000001', { inGuild: true, voiceChannelId: null });
+  // em serviço, porém fora do canal de voz: o erro esperado é o de voz
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: '910000000000000001',
+    status: 'DISPONIVEL',
+    updatedBy: 'teste',
+    manual: true,
+  });
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000000006', displayName: 'Eva' });
 
@@ -113,8 +121,8 @@ test('dois staffs chamando ao mesmo tempo reservam jogadores diferentes', async 
 
   addMember(env.gateway, '900000000000000010');
   addMember(env.gateway, '900000000000000011');
-  addStaffInVoice(env.gateway, '910000000000000010');
-  addStaffInVoice(env.gateway, '910000000000000011', { channelName: 'ATENDIMENTO 02' });
+  await addStaffInVoice(env, '910000000000000010');
+  await addStaffInVoice(env, '910000000000000011', { channelName: 'ATENDIMENTO 02' });
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000000010', displayName: 'F1' });
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000000011', displayName: 'F2' });
@@ -135,7 +143,7 @@ test('staff não pode atender dois jogadores ao mesmo tempo', async (t) => {
   t.after(env.cleanup);
   addMember(env.gateway, '900000000000000020');
   addMember(env.gateway, '900000000000000021');
-  addStaffInVoice(env.gateway, '910000000000000020');
+  await addStaffInVoice(env, '910000000000000020');
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000000020', displayName: 'G1' });
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000000021', displayName: 'G2' });
@@ -169,7 +177,7 @@ test('staff não pode atender dois jogadores ao mesmo tempo', async (t) => {
 test('fila vazia devolve erro claro', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
-  addStaffInVoice(env.gateway, '910000000000000030');
+  await addStaffInVoice(env, '910000000000000030');
 
   await assert.rejects(
     () =>

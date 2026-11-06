@@ -345,6 +345,21 @@ class AttendanceEngine {
   async _call({ guildId, staffId, staffTag, attendanceId, reason }) {
     const settings = this.settings.getAll();
 
+    // Primeiro as regras do próprio staff: entrar na call não o coloca em serviço,
+    // então quem está AUSENTE/INDISPONÍVEL recebe a orientação certa antes de
+    // qualquer outra checagem. EM ATENDIMENTO segue em serviço — quem controla o
+    // acúmulo de atendimentos é a checagem de ocupação abaixo.
+    const staffState = this.staff.get(guildId, staffId);
+    const inService =
+      staffState.status === STAFF_STATUS.DISPONIVEL || staffState.status === STAFF_STATUS.EM_ATENDIMENTO;
+    if (!inService) {
+      throw new AppError(
+        ERRORS.STAFF_FORA_DE_SERVICO,
+        'Você está fora de serviço. No painel da equipe, clique em **MEU STATUS** e escolha ' +
+          '**Disponível** (ou use `/status situacao:Disponível`) antes de chamar um jogador.',
+      );
+    }
+
     const voice = await this.gateway.getStaffVoiceState(guildId, staffId);
     if (!voice || !voice.connected || !voice.isAttendanceChannel) {
       throw new AppError(
@@ -1292,21 +1307,32 @@ class AttendanceEngine {
     const isAttendanceChannel = attendanceChannelIds.includes(channelId);
     const current = this.staff.get(guildId, userId);
 
+    // Entrar no canal de atendimento NÃO coloca o staff em serviço: quem define
+    // é o próprio staff (painel da equipe ou /status). O comportamento antigo
+    // (entrar na call = ficar disponível) só acontece com
+    // `staff_auto_status_on_voice_join` ligado.
     if (
       memberInGuild &&
       isAttendanceChannel &&
       current.status === STAFF_STATUS.INDISPONIVEL &&
       !this.staff.isBlocked(guildId, userId)
     ) {
-      await this._effect('marcar disponível', () =>
-        this.staff.setStatus({
-          guildId,
-          userId,
-          status: STAFF_STATUS.DISPONIVEL,
-          updatedBy: 'sistema',
-          manual: false,
-        }),
-      );
+      if (this.settings.get('staff_auto_status_on_voice_join')) {
+        await this._effect('marcar disponível', () =>
+          this.staff.setStatus({
+            guildId,
+            userId,
+            status: STAFF_STATUS.DISPONIVEL,
+            updatedBy: 'sistema',
+            manual: false,
+          }),
+        );
+      } else {
+        logger.info(
+          `[voz] ${userId} entrou no canal de atendimento e continua INDISPONÍVEL — ` +
+            'o staff define o próprio status no painel da equipe (ou /status).',
+        );
+      }
     }
 
     this._clearStaffTimer(userId);

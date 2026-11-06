@@ -11,7 +11,7 @@ async function setupWithServing(t, options = {}) {
   const env = await createTestEnv(options);
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   await env.services.queue.join({ guildId: env.guildId, userId: PLAYER, displayName: 'Jogador Teste' });
   const result = await env.services.attendance.callNext({
     guildId: env.guildId,
