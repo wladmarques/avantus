@@ -14,7 +14,7 @@ const EVAL_CHANNEL = '1560793933750210582';
 /** Chama o jogador, finaliza o atendimento e devolve o atendimento encerrado. */
 async function finishedAttendance(env, { player = PLAYER, staff = STAFF } = {}) {
   addMember(env.gateway, player, { voiceChannelId: env.waitChannelId, displayName: 'Jogador Teste' });
-  addStaffInVoice(env.gateway, staff);
+  await addStaffInVoice(env, staff);
   await env.services.queue.join({ guildId: env.guildId, userId: player, displayName: 'Jogador Teste' });
   const called = await env.services.attendance.callNext({
     guildId: env.guildId,

@@ -51,7 +51,7 @@ async function startPanel(env) {
 
 /** Staff disponível, com sessão do banco de horas aberta e na call de atendimento. */
 async function staffOnDuty(env, userId = STAFF) {
-  addStaffInVoice(env.gateway, userId);
+  await addStaffInVoice(env, userId);
   env.gateway.members.set(userId, {
     inGuild: true,
     voiceChannelId: env.attendanceChannelId ?? env.gateway.attendanceChannelId ?? null,

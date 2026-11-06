@@ -14,7 +14,7 @@ test('fila, protocolos e staff sobrevivem à reinicialização do bot', async (t
 
   addMember(env.gateway, '900000000000002001');
   addMember(env.gateway, '900000000000002002');
-  addStaffInVoice(env.gateway, '910000000000002001');
+  await addStaffInVoice(env, '910000000000002001');
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000002001', displayName: 'Um' });
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000002002', displayName: 'Dois' });
@@ -55,7 +55,7 @@ test('recuperação encerra registros de quem saiu do servidor e libera staff pr
 
   addMember(env.gateway, '900000000000002010');
   addMember(env.gateway, '900000000000002011');
-  addStaffInVoice(env.gateway, '910000000000002010');
+  await addStaffInVoice(env, '910000000000002010');
 
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000002010', displayName: 'Saiu' });
   await env.services.queue.join({ guildId: env.guildId, userId: '900000000000002011', displayName: 'Ficou' });

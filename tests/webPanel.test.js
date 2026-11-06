@@ -699,7 +699,7 @@ test('escala em dois blocos pelo painel: dias úteis + fim de semana revezado', 
 test('tirar de serviço encerra a sessão, marca indisponível e desconecta da call', async (t) => {
   const env = await createTestEnv();
   const { addStaffInVoice } = require('./helpers');
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   const panel = await startPanel(env);
   t.after(async () => {
     await panel.close();
@@ -753,7 +753,7 @@ test('tirar de serviço encerra a sessão, marca indisponível e desconecta da c
 test('tirar de serviço não desconecta de call que não é de trabalho', async (t) => {
   const env = await createTestEnv();
   const { addStaffInVoice } = require('./helpers');
-  addStaffInVoice(env.gateway, STAFF, { channelId: '888888888888888888', channelName: 'Call particular' });
+  await addStaffInVoice(env, STAFF, { channelId: '888888888888888888', channelName: 'Call particular' });
   await env.services.staff.setStatus({
     guildId: env.guildId,
     userId: STAFF,
@@ -785,7 +785,7 @@ test('tirar de serviço é recusado quando o staff está atendendo um jogador', 
   const { addMember, addStaffInVoice } = require('./helpers');
   const PLAYER = '900000000000004001';
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
-  addStaffInVoice(env.gateway, STAFF);
+  await addStaffInVoice(env, STAFF);
   await env.services.staff.setStatus({
     guildId: env.guildId,
     userId: STAFF,
@@ -857,7 +857,7 @@ const EVAL_CHANNEL = '1560793933750210582';
 async function rateOne(env, { player, staff = '900000000000000900', rating = 'MUITO_BOM' }) {
   const { addMember, addStaffInVoice } = require('./helpers');
   addMember(env.gateway, player, { voiceChannelId: env.waitChannelId, displayName: `Jogador ${player}` });
-  addStaffInVoice(env.gateway, staff);
+  await addStaffInVoice(env, staff);
   await env.services.queue.join({ guildId: env.guildId, userId: player, displayName: `Jogador ${player}` });
   const called = await env.services.attendance.callNext({
     guildId: env.guildId,
@@ -926,7 +926,10 @@ test('API de avaliações respeita o período e exige login', async (t) => {
 
   const { cookie } = await panel.login();
   const today = new Date();
-  const iso = (date) => date.toISOString().slice(0, 10);
+  // O período é interpretado no fuso do painel (America/Sao_Paulo): converter
+  // para UTC gerava "amanhã" entre 21h e 0h e o teste caía à toa.
+  const iso = (date) =>
+    new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(date);
   const inside = await panel.call(`/api/evaluations?from=${iso(today)}&to=${iso(today)}`, { cookie });
   assert.equal(inside.status, 200);
   assert.equal(inside.json.total, 1);

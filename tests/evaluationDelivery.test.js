@@ -80,7 +80,7 @@ function commandContext(env) {
 
 async function finishedAttendance(env, { player = PLAYER, staff = STAFF } = {}) {
   addMember(env.gateway, player, { voiceChannelId: env.waitChannelId, displayName: 'Jogador' });
-  addStaffInVoice(env.gateway, staff);
+  await addStaffInVoice(env, staff);
   await env.services.queue.join({ guildId: env.guildId, userId: player, displayName: 'Jogador' });
   const called = await env.services.attendance.callNext({
     guildId: env.guildId,

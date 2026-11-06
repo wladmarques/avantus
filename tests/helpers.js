@@ -79,9 +79,26 @@ function addMember(gateway, userId, { voiceChannelId = null, displayName } = {})
   gateway.members.set(userId, { inGuild: true, voiceChannelId, displayName: displayName || `Jogador ${userId}` });
 }
 
-function addStaffInVoice(gateway, staffId, { channelId = ATT_CHANNEL, channelName = 'ATENDIMENTO 01' } = {}) {
+/**
+ * Coloca o staff no canal de voz de atendimento.
+ * Aceita o `env` (para já deixá-lo em serviço) ou o gateway em memória.
+ * Entrar na call não define o status: quem define é o próprio staff, então o
+ * helper marca DISPONÍVEL para reproduzir o "staff em serviço".
+ */
+async function addStaffInVoice(target, staffId, { channelId = ATT_CHANNEL, channelName = 'ATENDIMENTO 01', available = true } = {}) {
+  const gateway = target?.gateway ?? target;
   gateway.members.set(staffId, { inGuild: true, voiceChannelId: channelId, displayName: `Staff ${staffId}` });
   gateway.staffVoice.set(staffId, { channelId, channelName });
+
+  if (available && target?.services?.staff) {
+    await target.services.staff.setStatus({
+      guildId: target.guildId ?? target.services.settings.get('guild_id'),
+      userId: staffId,
+      status: 'DISPONIVEL',
+      updatedBy: 'teste',
+      manual: true,
+    });
+  }
 }
 
 function removeMemberFromGuild(gateway, userId) {

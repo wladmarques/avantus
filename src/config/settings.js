@@ -190,6 +190,13 @@ const SETTINGS = {
     group: 'Atendimento',
     validate: asBool,
   },
+  staff_auto_status_on_voice_join: {
+    default: false,
+    type: 'boolean',
+    label: 'Staff entra em serviço ao entrar no canal de atendimento',
+    group: 'Atendimento',
+    validate: asBool,
+  },
   staff_auto_available: {
     default: true,
     type: 'boolean',
