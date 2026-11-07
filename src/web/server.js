@@ -26,6 +26,8 @@
  *   DELETE /api/staff/:id          → remove o staff da equipe
  *   PUT  /api/staff/:id/shifts → salva a escala semanal
  *   DELETE /api/staff/:id/shifts
+ *   POST /api/staff/:id/reset-hours → zera as horas de um staff
+ *   POST /api/hours/reset         → zera as horas de toda a equipe
  *   GET  /api/health
  */
 const http = require('node:http');
@@ -431,6 +433,12 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
   const nameCache = new Map();
   const NAME_TTL_MS = 10 * 60 * 1000;
   const NAME_RETRY_MS = 60 * 1000;
+
+  /** Nome exibido do staff (painel → Discord → id). Usado nos logs de auditoria. */
+  function displayNameFor(guildId, userId) {
+    const known = services.hourBank?.nameOf?.(guildId, userId);
+    return known || `Usuário ${userId}`;
+  }
 
   async function fillStaffNames(guildId, rows) {
     const gateway = services.gateway;
@@ -917,6 +925,59 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
               protocol: error.protocol,
             });
           }
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      const resetMatch = /^\/api\/staff\/(\d{5,25})\/reset-hours$/.exec(pathname);
+      if (resetMatch && req.method === 'POST') {
+        const userId = resetMatch[1];
+        try {
+          const result = await services.hourBank.resetHours({ guildId: currentGuildId, userId });
+          const staffName = displayNameFor(currentGuildId, userId);
+          await services.audit.log({
+            guildId: currentGuildId,
+            type: 'HOURS_RESET',
+            actorId: 'painel web',
+            targetId: userId,
+            message:
+              `🧹 O **painel web** zerou o banco de horas de **${staffName}**: ` +
+              `${result.sessions} sessão(ões) apagada(s), ${result.restarted} sessão(ões) em andamento reiniciada(s).`,
+            color: COLORS.MUTED,
+            metadata: { userId, ...result },
+          });
+          logger.info(`Horas de ${userId} zeradas pelo painel web.`);
+          return sendJson(res, 200, {
+            ok: true,
+            message: `Horas de ${staffName} zeradas.`,
+            staffName,
+            ...result,
+          });
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      if (pathname === '/api/hours/reset' && req.method === 'POST') {
+        try {
+          const result = await services.hourBank.resetHours({ guildId: currentGuildId });
+          await services.audit.log({
+            guildId: currentGuildId,
+            type: 'HOURS_RESET',
+            actorId: 'painel web',
+            message:
+              '🧹 O **painel web** zerou o banco de horas de **toda a equipe**: ' +
+              `${result.sessions} sessão(ões) apagada(s), ${result.restarted} sessão(ões) em andamento reiniciada(s).`,
+            color: COLORS.MUTED,
+            metadata: { ...result, all: true },
+          });
+          logger.info('Horas de toda a equipe zeradas pelo painel web.');
+          return sendJson(res, 200, {
+            ok: true,
+            message: 'Horas de toda a equipe zeradas.',
+            ...result,
+          });
+        } catch (error) {
           return sendJson(res, 400, { error: error.message });
         }
       }

@@ -699,6 +699,28 @@ class HourBankService {
     };
   }
 
+  /**
+   * Zera as horas do staff (ou de todos, sem `userId`).
+   *
+   * - Sessões encerradas são apagadas: o total do banco de horas volta a zero.
+   * - A sessão aberta (staff em serviço agora) **não** é apagada: ela recomeça
+   *   do zero a partir de agora, para o painel não mostrar horas de antes do
+   *   reset em cima da sessão em andamento.
+   *
+   * Escala, nomes e avisos de turno não são afetados.
+   */
+  async resetHours({ guildId, userId = null, now = Date.now() } = {}) {
+    const result = await this.db.transaction(async () => ({
+      sessions: this.repo.deleteClosedSessionsSync(guildId, userId),
+      restarted: this.repo.restartOpenSessionsSync(guildId, userId, now),
+    }));
+    logger.info(
+      `[banco de horas] Horas zeradas ${userId ? `para ${userId}` : 'para toda a equipe'}: ` +
+        `${result.sessions} sessão(ões) apagada(s), ${result.restarted} reiniciada(s).`,
+    );
+    return result;
+  }
+
   /** Limpa sessões antigas do banco (manutenção opcional). */
   async purgeSessionsBefore(guildId, timestamp) {
     await this.db.transaction(async () =>

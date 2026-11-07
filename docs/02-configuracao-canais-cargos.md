@@ -187,6 +187,7 @@ precisar de comando.
 | `allow_staff_multi` | `false` | Permite staff em mais de um atendimento |
 | `staff_auto_available` | `true` | Staff volta a DISPONÍVEL ao finalizar |
 | `staff_auto_status_on_voice_join` | `false` | Entrar no canal de atendimento coloca o staff DISPONÍVEL automaticamente (desligado: só o próprio staff muda o status) |
+| `wait_alert_minutes` | `3` | Avisa por DM cada staff **disponível** quando alguém espera mais de X min na sala de aguardando (`0` desliga) |
 | `queue_policy_on_close` | `keep` | `keep` mantém a fila ao fechar; `clear` encerra tudo |
 
 ## Notificações, painéis e avaliações

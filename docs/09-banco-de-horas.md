@@ -65,6 +65,20 @@ WEB_PANEL_HOST=0.0.0.0
   Se ele estiver atendendo um jogador, a ação é **recusada** (o atendimento precisa ser
   encerrado/transferido no Discord antes, para o jogador não ficar órfão).
 
+### Zerar horas
+
+Cada linha da tabela **Equipe** tem o botão **Zerar horas**, e o cabeçalho do painel tem
+**Zerar horas de todos**. Pede confirmação num modal e:
+
+- apaga as **sessões encerradas** do staff (ou de todos) — o total do banco de horas volta a zero;
+- **não** apaga a sessão aberta de quem está em serviço agora: ela recomeça a contar a partir do
+  momento do reset (o staff continua em serviço, sem horas antigas em cima);
+- **não** mexe em escala, nome, status nem bloqueio;
+- registra `HOURS_RESET` na auditoria (canal de logs), dizendo quem zerou e quantas sessões saíram.
+
+Use quando a contagem sair do controle (sessão esquecida aberta, teste, virada de período). Não há
+como desfazer — o histórico apagado não volta.
+
 ### Escala no canal (webhook)
 
 O painel publica a **escala da semana** (segunda a domingo) no canal do webhook informado.
@@ -197,6 +211,8 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | PUT | `/api/staff/:userId/block` | `{ blocked, reason? }` — bloqueia/desbloqueia o staff de entrar em serviço (encerra a sessão e deixa indisponível); 409 se estiver atendendo |
 | DELETE | `/api/staff/:userId` | remove o staff da equipe (apaga status, nome e escala; histórico de horas é mantido); 409 se estiver atendendo |
 | POST | `/api/staff/:userId/off-service` | `{ disconnectVoice?, notify? }` — encerra a sessão e marca INDISPONÍVEL; responde 409 (`EM_ATENDIMENTO`) se o staff estiver atendendo |
+| POST | `/api/staff/:userId/reset-hours` | **zera as horas** de um staff: `{ ok, message, staffName, sessions, restarted }` |
+| POST | `/api/hours/reset` | **zera as horas de toda a equipe**: `{ ok, message, sessions, restarted }` |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
 | GET | `/api/cooldown` | bloqueio de reentrada: `cooldown { enabled, minutes, lastMinutes }` e `players` (quem está bloqueado, com `remainingSeconds`) |

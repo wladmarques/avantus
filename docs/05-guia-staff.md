@@ -68,6 +68,14 @@ da equipe, clique em **MEU STATUS** e escolha **Disponível** (ou use
 Ao finalizar um atendimento, você volta para 🟢 DISPONÍVEL — **exceto** se você mesmo definiu 🟡 AUSENTE
 ou ⚫ INDISPONÍVEL (sua escolha é respeitada).
 
+## Aviso de fila parada
+
+Se alguém ficar mais de **3 minutos** na sala **⏳・aguardando-atendimento** sem ser chamado, todo
+staff **disponível** recebe uma DM com o protocolo, o nome do jogador e há quanto tempo ele espera.
+O aviso sai uma única vez por jogador (não vira spam) e é registrado no canal de logs.
+Administração pode mudar o tempo (ou desligar com `0`) em
+`/config definir chave:wait_alert_minutes`.
+
 ## Comandos de staff
 
 | Comando | Uso |

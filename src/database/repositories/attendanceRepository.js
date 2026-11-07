@@ -123,6 +123,7 @@ class AttendanceRepository {
       'closed_by',
       'last_position_notified',
       'wait_channel_id',
+      'wait_alert_at',
     ];
     const sets = [];
     const params = [];

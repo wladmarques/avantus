@@ -228,7 +228,7 @@ test('o painel tem a seção de horário ligada ao app.js', async () => {
     assert.match(html, new RegExp(`id="${id}"`), `HTML contém #${id}`);
     assert.match(app, new RegExp(`\\$\\('${id}'\\)`), `app.js usa #${id}`);
   }
-  assert.match(html, /<h2>Horário de funcionamento<\/h2>/);
+  assert.match(html, /Horário de funcionamento<\/h[23]>/);
   assert.match(app, /\/api\/schedule/);
   assert.match(app, /function collectSchedule/);
   assert.match(app, /function buildDay/);

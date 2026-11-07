@@ -99,6 +99,41 @@ tbody td.num .btn:first-child { margin-left: 0; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ---------------- navegação entre seções ---------------- */
+.section-nav {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; gap: 4px; flex-wrap: wrap;
+  background: rgba(9, 10, 11, .94);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 9px; margin-bottom: 20px;
+}
+.nav-item {
+  color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid transparent; border-radius: 999px; padding: 6px 13px;
+  transition: color .12s ease, border-color .12s ease, background .12s ease;
+}
+.nav-item:hover { color: var(--text); border-color: var(--line); }
+.nav-item.active { color: var(--text); border-color: var(--red); background: #141416; }
+
+/* ---------------- blocos (seções) ---------------- */
+.block { margin-bottom: 26px; scroll-margin-top: 70px; }
+.block-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.block-title {
+  font-size: 12px; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text); margin: 0;
+}
+.block-title::before {
+  content: ""; display: inline-block; width: 3px; height: 12px;
+  background: var(--red); border-radius: 2px; margin-right: 9px; vertical-align: -1px;
+}
+.panel-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .period-buttons { display: flex; gap: 6px; }
 .chip {
@@ -206,7 +241,8 @@ tbody td.num .btn:first-child { margin-left: 0; }
   padding: 16px 18px 6px; margin-bottom: 16px;
 }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.panel-head h2 { font-size: 14px; margin: 0; letter-spacing: .3px; text-transform: uppercase; }
+.panel-head h2,
+.panel-head h3 { font-size: 13px; margin: 0; letter-spacing: .3px; text-transform: uppercase; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
@@ -308,4 +344,6 @@ dialog p { margin: 0 0 14px; }
 @media (max-width: 760px) {
   .cards { grid-template-columns: repeat(2, 1fr); }
   .time-row { flex-wrap: wrap; }
+  .section-nav { overflow-x: auto; flex-wrap: nowrap; }
+  .nav-item { white-space: nowrap; }
 }

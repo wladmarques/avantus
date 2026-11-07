@@ -986,7 +986,7 @@ test('o painel tem a seção de avaliações ligada ao app.js', async () => {
   }
   assert.match(app, /\/api\/evaluations/);
   assert.match(app, /\/api\/evaluations\/channel/);
-  assert.match(html, /<h2>Avaliações<\/h2>/);
+  assert.match(html, /<h2 class="block-title">Avaliações<\/h2>/);
 });
 
 test('avaliações: filtro por atendente e opções do seletor', async (t) => {

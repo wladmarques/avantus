@@ -68,6 +68,11 @@ class AttendanceService {
   handleStaffVoiceUpdate(args) {
     return this.engine.handleStaffVoiceUpdate(args);
   }
+
+  /** Aviso de espera longa (DM para os staff disponíveis). */
+  checkWaitAlerts(guildId, now = Date.now()) {
+    return this.engine.checkWaitAlerts(guildId, now);
+  }
 }
 
 module.exports = { AttendanceService };
