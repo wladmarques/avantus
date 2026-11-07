@@ -283,9 +283,18 @@ STAFF_PANEL_ROLE_IDS=1566903220968624188
 
 - Aceita vários cargos separados por vírgula: qualquer um deles coloca a pessoa no painel.
 - O cache de cargos é carregado no boot, atualizado a cada 5 minutos e imediatamente quando alguém
-  recebe ou perde um cargo (`guildMemberUpdate`).
+  recebe ou perde um cargo (`guildMemberUpdate`). Só os membros com esses cargos são consultados,
+  o que deixa a sincronização leve e menos sujeita a limite de requisições do Discord.
 - Enquanto o cache ainda não existe (primeiros segundos após o boot), ninguém é escondido.
 - Os contadores de staff seguem a mesma lista: o painel nunca mostra "3 na equipe" listando 2.
+- **O painel nunca esvazia a equipe por falha de sincronização.** Se o Discord recusar a consulta
+  (limite de requisições, queda momentânea) ou devolver uma lista vazia, o bot mantém a última
+  lista boa — antes, esse vazio entrava no cache e a EQUIPE desaparecia, os *Disponíveis* iam para 0
+  e a entrada na fila ficava bloqueada até a próxima sincronização (o sintoma "sumiu a equipe e
+  voltou do nada"). Com `staff_panel_role_ids` configurado e o cache vazio,
+  o painel lista todos os staff registrados em vez de não listar ninguém.
+- **Diagnóstico**: `/diagnostico` mostra `EQUIPE do painel (cargos)` com quantos membros foram
+  carregados, há quanto tempo ocorreu a sincronização e o último erro (se houver).
 
 ## Configurações
 

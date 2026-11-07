@@ -2,6 +2,12 @@
 
 const { STAFF_STATUS, STAFF_STATUS_META } = require('../../config/theme');
 const { AppError, ERRORS } = require('../../services/errors');
+const { createLogger } = require('../../utils/logger');
+
+const logger = createLogger('staff');
+
+// Rajadas de sincronização (evento de cargo + timer) viram uma única consulta.
+const ROLE_SYNC_MIN_INTERVAL_MS = 20 * 1000;
 
 /**
  * Disponibilidade da equipe.
@@ -18,6 +24,7 @@ class StaffService {
     // Cargos por membro (userId → [roleId]), carregados do Discord.
     this.roleCache = new Map();
     this.roleCacheAt = new Map();
+    this.roleSyncError = new Map();
   }
 
   /** Mantém o banco de horas alinhado com o status (nunca lança erro). */
@@ -144,24 +151,69 @@ class StaffService {
 
   /**
    * Recarrega os cargos dos membros no Discord.
-   * Falha silenciosa: sem cache, o painel continua listando todos.
+   *
+   * Regra de ouro: **nunca trocar um cache bom por um vazio por causa de erro
+   * de API**. Se a consulta falhar (rate limit, queda do gateway) ou voltar
+   * vazia, mantemos a última lista conhecida — senão o painel esconde a equipe
+   * inteira, os "Disponíveis" caem para 0 e a entrada na fila fecha sozinha
+   * até a próxima sincronização ("sumiu todo mundo e voltou do nada").
+   *
+   * @returns {Promise<Map<string, string[]>|null>} cargos por membro
    */
-  async refreshRoleCache(guildId) {
+  async refreshRoleCache(guildId, { force = false } = {}) {
     if (typeof this.gateway?.listMemberRoles !== 'function') return null;
-    try {
-      const roles = await this.gateway.listMemberRoles(guildId);
-      if (!roles) return null;
-      this.roleCache.set(guildId, roles);
-      this.roleCacheAt.set(guildId, Date.now());
-      return roles;
-    } catch {
+
+    // Sem filtro configurado o cache não é usado: nem vale gastar uma consulta.
+    const roleIds = this.panelRoleIds();
+    if (roleIds.length === 0) {
+      this.roleCache.delete(guildId);
+      this.roleCacheAt.delete(guildId);
+      this.roleSyncError.delete(guildId);
       return null;
     }
+
+    const previous = this.roleCache.get(guildId) ?? null;
+    const lastAt = this.roleCacheAt.get(guildId) ?? 0;
+    if (!force && previous && Date.now() - lastAt < ROLE_SYNC_MIN_INTERVAL_MS) {
+      return previous;
+    }
+
+    let roles = null;
+    try {
+      roles = await this.gateway.listMemberRoles(guildId, { roleIds });
+    } catch (error) {
+      roles = null;
+      this.roleSyncError.set(guildId, error.message);
+    }
+
+    if (!roles) {
+      this.roleSyncError.set(guildId, this.roleSyncError.get(guildId) ?? 'lista de membros indisponível');
+      logger.warn(
+        'Não foi possível sincronizar os cargos do painel da equipe; mantendo a última lista conhecida.',
+      );
+      return previous;
+    }
+
+    // Resposta vazia com equipe já conhecida é sinal de problema (API parcial),
+    // não de "todo mundo perdeu o cargo": preserva a lista anterior.
+    if (roles.size === 0 && previous && previous.size > 0) {
+      this.roleSyncError.set(guildId, 'lista de membros vazia');
+      logger.warn(
+        'Sincronização de cargos voltou vazia; mantendo a equipe anterior no painel (evita sumir todo mundo).',
+      );
+      return previous;
+    }
+
+    this.roleCache.set(guildId, roles);
+    this.roleCacheAt.set(guildId, Date.now());
+    this.roleSyncError.delete(guildId);
+    return roles;
   }
 
   /**
    * Lista para o painel da equipe: aplica o filtro de cargos quando configurado.
-   * Sem cache carregado (cold start) não esconde ninguém.
+   * Sem cache carregado (cold start) não esconde ninguém, e o filtro nunca
+   * esvazia a EQUIPE inteira por causa de cache incompleto.
    */
   listForPanel(guildId) {
     const rows = this.list(guildId);
@@ -171,11 +223,32 @@ class StaffService {
     const cache = this.roleCache.get(guildId);
     if (!cache) return rows;
 
-    return rows.filter((row) => {
+    const filtered = rows.filter((row) => {
       const roles = cache.get(row.userId);
       if (!roles) return false; // não é membro do servidor (ou saiu)
       return roles.some((roleId) => roleIds.includes(roleId));
     });
+
+    if (filtered.length === 0 && rows.length > 0) {
+      logger.warn(
+        'Filtro de cargos esvaziaria a EQUIPE do painel; mantendo todos os staff registrados.',
+      );
+      return rows;
+    }
+    return filtered;
+  }
+
+  /** Estado do cache de cargos (usado pelo /diagnostico). */
+  roleCacheInfo(guildId) {
+    const cache = this.roleCache.get(guildId);
+    const at = this.roleCacheAt.get(guildId) ?? null;
+    return {
+      synced: Boolean(cache),
+      members: cache ? cache.size : 0,
+      ageSeconds: at ? Math.max(0, Math.round((Date.now() - at) / 1000)) : null,
+      error: this.roleSyncError.get(guildId) ?? null,
+      roleIds: this.panelRoleIds(),
+    };
   }
 
   /** Contadores do painel a partir da lista já filtrada. */

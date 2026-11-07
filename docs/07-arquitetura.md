@@ -108,6 +108,11 @@ waiting ──► serving ──► finished
 - Layout em `dashboard/panels/*` (JSON puro, sem client) → testável.
 - IDs dos componentes são **fixos e persistentes** (`pub:join`, `staff:call_next`...), então botões
   continuam funcionando depois de reinícios.
+- O painel é reconstruído a cada `panel_refresh_seconds`; o horário do cabeçalho é sempre o **agora**
+  da última edição, não a hora em que a central abriu.
+- O bloco **EQUIPE** depende do cache de cargos (`staff_panel_role_ids`). Esse cache só é trocado por
+  uma sincronização bem-sucedida e não-vazia — falha de API nunca esconde a equipe (ver
+  `docs/09-banco-de-horas.md`).
 - Atualização: debounce de 1,2s nas mudanças + refresh periódico para os contadores de tempo.
 
 ## Tratamento de erros

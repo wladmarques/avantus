@@ -136,6 +136,21 @@ module.exports = {
         : 'desligado (defina WEB_PANEL_PASSWORD no .env)',
     );
 
+    // ---- EQUIPE do painel (filtro por cargo) ----
+    const roleCache = services.staff.roleCacheInfo?.(guildId) ?? null;
+    if (roleCache) {
+      const filtered = (roleCache.roleIds || []).length > 0;
+      push(
+        !filtered || (roleCache.synced && !roleCache.error),
+        'EQUIPE do painel (cargos)',
+        !filtered
+          ? 'sem filtro — todos os staff registrados aparecem'
+          : roleCache.error
+            ? `última sincronização falhou (${roleCache.error}); o painel segue com a lista anterior`
+            : `${roleCache.members} membro(s) com o cargo • sincronizado há ${roleCache.ageSeconds ?? 0}s`,
+      );
+    }
+
     push(settings.staff_role_ids.length > 0, 'Cargos de staff', `${settings.staff_role_ids.length} configurado(s)`);
     push(settings.admin_role_ids.length > 0, 'Cargos administrativos', `${settings.admin_role_ids.length} configurado(s)`);
 
