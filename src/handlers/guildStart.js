@@ -94,7 +94,7 @@ async function startGuild({ client, context, guildId }) {
   if ((services.settings.get('staff_panel_role_ids') || []).length) {
     // Carrega os cargos agora e mantém atualizado (cargo trocado no Discord
     // precisa refletir no painel sem reiniciar o bot).
-    await services.staff.refreshRoleCache(guildId);
+    await services.staff.refreshRoleCache(guildId, { force: true });
     const roleTimer = setInterval(() => {
       services.staff.refreshRoleCache(guildId).catch(() => null);
     }, 5 * 60 * 1000);

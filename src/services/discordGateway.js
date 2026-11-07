@@ -125,18 +125,45 @@ class DiscordGateway {
   }
 
   /**
-   * Cargos de todos os membros do servidor (Map userId → [roleId]).
+   * Cargos dos membros do servidor (Map userId → [roleId]).
    * Usado para filtrar quem aparece em EQUIPE no painel da staff.
+   *
+   * - `roleIds` informado: busca só quem tem esses cargos (mais leve que baixar
+   *   o servidor inteiro a cada sincronização).
+   * - Retorna `null` quando a API falha (rate limit, queda de conexão). Antes
+   *   devolvia um Map vazio, e esse vazio era guardado no cache — o painel
+   *   escondia a equipe inteira e a entrada na fila fechava por alguns minutos.
    */
-  async listMemberRoles(guildId) {
+  async listMemberRoles(guildId, { roleIds = [] } = {}) {
     const guild = this._guild(guildId);
-    const members = await guild.members.fetch().catch(() => null);
+    const wanted = (roleIds || []).map(String).filter(Boolean);
     const result = new Map();
-    if (!members) return result;
-    for (const member of members.values()) {
-      if (member.user?.bot) continue;
-      result.set(member.id, [...member.roles.cache.keys()]);
+
+    const collect = (members) => {
+      for (const member of members.values()) {
+        if (member.user?.bot) continue;
+        result.set(member.id, [...member.roles.cache.keys()]);
+      }
+    };
+
+    if (wanted.length > 0) {
+      for (const roleId of wanted) {
+        const members = await guild.members.fetch({ role: roleId }).catch(() => null);
+        if (!members) {
+          logger.warn(`Falha ao buscar membros do cargo ${roleId} (painel da equipe).`);
+          return null;
+        }
+        collect(members);
+      }
+      return result;
     }
+
+    const members = await guild.members.fetch().catch(() => null);
+    if (!members) {
+      logger.warn('Falha ao buscar membros do servidor para o painel da equipe.');
+      return null;
+    }
+    collect(members);
     return result;
   }
 
@@ -324,11 +351,14 @@ class MemoryGateway {
     };
   }
 
-  async listMemberRoles() {
+  async listMemberRoles(guildId, { roleIds = [] } = {}) {
+    const wanted = (roleIds || []).map(String).filter(Boolean);
     const result = new Map();
     for (const [userId, entry] of this.members.entries()) {
       if (entry.inGuild === false) continue;
-      result.set(userId, entry.staffRoles ?? entry.roleIds ?? []);
+      const roles = entry.staffRoles ?? entry.roleIds ?? [];
+      if (wanted.length > 0 && !roles.some((roleId) => wanted.includes(roleId))) continue;
+      result.set(userId, roles);
     }
     return result;
   }

@@ -20,7 +20,8 @@ module.exports = {
 
     // Cargo mudou: o painel precisa refletir em QUEM aparece em EQUIPE.
     logger.debug(`Cargos de ${newMember.id} mudaram — atualizando o painel da equipe.`);
-    await services.staff.refreshRoleCache(guildId).catch(() => null);
+    // `force`: a troca de cargo precisa refletir já (o throttle evita rajadas).
+    await services.staff.refreshRoleCache(guildId, { force: true }).catch(() => null);
     await services.panels.refresh(guildId).catch((error) => logger.warn(`Painel: ${error.message}`));
   },
 };
