@@ -47,10 +47,9 @@ Você também é avisado quando sua posição melhora — sem spam: os avisos re
   nem entrando no canal de voz) — tente novamente mais tarde.
 - **Sair do canal de espera remove você da fila na hora** — inclusive se você for movido para
   outro canal ou cair a conexão.
-- ⏳ **Ao desistir antes de ser chamado, você fica 10 minutos sem poder voltar** (nem pelo painel,
-  nem entrando no canal de espera). O bot informa o tempo restante — inclusive em `/posicao`.
-  A administração pode reduzir/desativar esse bloqueio ou liberar você na hora.
-- Seu protocolo é encerrado como **JOGADOR DESISTIU** e o acesso ao canal de espera é removido.
+- **Ninguém é expulso do canal**: ao sair da fila o bot não desconecta você e não bloqueia a volta —
+  pode entrar no canal de espera e na fila de novo na mesma hora.
+- Seu protocolo é encerrado como **JOGADOR DESISTIU**.
 - Se você sair do servidor, o bot remove você da fila automaticamente.
 
 ## Depois do atendimento

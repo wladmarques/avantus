@@ -41,7 +41,6 @@ class AttendanceEngine {
     audit,
     panels,
     schedule,
-    cooldowns = null,
   }) {
     this.db = db;
     this.repos = repositories;
@@ -52,7 +51,6 @@ class AttendanceEngine {
     this.audit = audit;
     this.panels = panels;
     this.schedule = schedule;
-    this.cooldowns = cooldowns;
     this.timers = new Map();
     this.positionCooldowns = new Map();
     this.warnedMissingWaitChannel = false;
@@ -152,9 +150,6 @@ class AttendanceEngine {
   }
 
   async joinQueue({ guildId, userId, displayName = null, source = 'painel', requireWaitChannel = false }) {
-    // Quem saiu da fila antes de ser chamado precisa aguardar o bloqueio.
-    this.cooldowns?.assertAllowed(guildId, userId);
-
     const availability = this.availability(guildId);
     if (!availability.available) {
       if (availability.reason === 'sem_staff') {
@@ -281,21 +276,10 @@ class AttendanceEngine {
 
     this._clearTimer(closed.id);
 
-    // Desistiu antes de ser chamado? Aplica o bloqueio de reentrada.
-    let cooldown = null;
-    if (outcome === OUTCOMES.DESISTIU && closed.started_at === null) {
-      cooldown = await this.cooldowns?.apply({
-        guildId,
-        userId,
-        reason: reason || 'Saiu da fila antes de ser chamado',
-      });
-    }
-
+    // O bot NUNCA tira o jogador do canal de voz por causa da fila: quem saiu da
+    // fila continua livre para ficar (ou voltar) na sala de aguardando.
     await this._effect('remover acesso de voz', () =>
       this.gateway.revokeVoiceAccess(guildId, closed.voice_channel_id, userId),
-    );
-    await this._effect('desconectar da espera', () =>
-      this.gateway.disconnectFromVoice(guildId, userId),
     );
 
     if (!silent) {
@@ -305,7 +289,6 @@ class AttendanceEngine {
           userId,
           protocol: closed.protocol,
           reason: reason || (outcome === OUTCOMES.DESISTIU ? 'Você desistiu do atendimento.' : null),
-          cooldownMinutes: cooldown?.minutes ?? 0,
         }),
       );
     }
@@ -693,7 +676,11 @@ class AttendanceEngine {
     await this._effect('remover acesso', () =>
       this.gateway.revokeVoiceAccess(guildId, closed.voice_channel_id, closed.user_id),
     );
-    await this._effect('desconectar', () => this.gateway.disconnectFromVoice(guildId, closed.user_id));
+    // Só desconecta quem estava no canal de atendimento. Quem aguardava na sala
+    // de espera não é expulso — o bot nunca tira o jogador do canal de espera.
+    if (closed.started_at) {
+      await this._effect('desconectar', () => this.gateway.disconnectFromVoice(guildId, closed.user_id));
+    }
     await this._effect('avisar jogador', () =>
       this.notifications.removed({ guildId, userId: closed.user_id, protocol: closed.protocol, reason }),
     );
@@ -1057,34 +1044,6 @@ class AttendanceEngine {
     const waitChannelId = this.settings.get('wait_channel_id');
     const active = this.repos.attendance.findActiveByUserSync(guildId, userId);
 
-    // 0) Tentou voltar ao canal de espera durante o bloqueio → remove do canal
-    if (!isStaff && !active && channelId && waitChannelId && channelId === waitChannelId) {
-      const cooldown = this.cooldowns?.check(guildId, userId);
-      if (cooldown?.active) {
-        await this._effect('remover do canal de espera', () =>
-          this.gateway.disconnectFromVoice(guildId, userId),
-        );
-        await this._effect('avisar bloqueio', () =>
-          this.notifications.cooldownBlocked({
-            guildId,
-            userId,
-            remainingSeconds: cooldown.remainingSeconds,
-            minutes: this.cooldowns.minutes,
-          }),
-        );
-        await this.audit.log({
-          guildId,
-          type: 'COOLDOWN_BLOCKED',
-          actorId: userId,
-          targetId: userId,
-          message: `⏳ **${displayName ?? `<@${userId}>`}** tentou voltar ao canal de espera durante o bloqueio (${this.cooldowns.message(cooldown)}).`,
-          color: COLORS.MUTED,
-          metadata: { remainingSeconds: cooldown.remainingSeconds },
-        });
-        return { cooldownBlocked: true, remainingSeconds: cooldown.remainingSeconds };
-      }
-    }
-
     // 1) Entrou no canal de espera sem estar na fila → entra automaticamente
     const joinedWaitChannel = Boolean(channelId) && Boolean(waitChannelId) && channelId === waitChannelId;
 
@@ -1140,24 +1099,6 @@ class AttendanceEngine {
           );
           return { skipped: 'central fechada' };
         }
-        if (error.code === ERRORS.EM_COOLDOWN) {
-          await this._effect('remover do canal de espera', () =>
-            this.gateway.disconnectFromVoice(guildId, userId),
-          );
-          await this._effect('avisar bloqueio', () =>
-            this.notifications.cooldownBlocked({
-              guildId,
-              userId,
-              remainingSeconds: error.meta?.remainingSeconds ?? 0,
-              minutes: this.cooldowns?.minutes ?? 0,
-            }),
-          );
-          logger.info(
-            `[voz] ${displayName ?? userId} entrou no canal de espera durante o bloqueio de reentrada — removido do canal.`,
-          );
-          return { skipped: 'bloqueio de reentrada', remainingSeconds: error.meta?.remainingSeconds ?? 0 };
-        }
-
         // Qualquer outra falha precisa chegar ao jogador (antes: silêncio total).
         logger.warn(`[voz] falha ao entrar na fila automaticamente (${userId}): ${error.message}`);
         await this._effect('avisar falha de entrada', () =>
@@ -1181,8 +1122,9 @@ class AttendanceEngine {
       if (!leftWaitChannel) return null;
 
       // Regra fixa: sair do canal de espera tira o jogador da fila na hora —
-      // incluindo quando ele é desconectado ou movido para outro canal. A saída
-      // também alimenta o bloqueio de reentrada.
+      // incluindo quando ele é desconectado ou movido para outro canal. O bot não
+      // desconecta ninguém e não bloqueia a volta: ele pode entrar de novo quando
+      // quiser (ver "O bot nunca tira o jogador do canal de espera" na doc).
       const closed = await this.leaveQueue({
         guildId,
         userId,
@@ -1191,16 +1133,13 @@ class AttendanceEngine {
         outcome: OUTCOMES.DESISTIU,
       });
 
-      const cooldown = this.cooldowns ? this.cooldowns.check(guildId, userId) : null;
       await this.audit.log({
         guildId,
         type: 'QUEUE_LEFT_WAIT_VOICE',
         actorId: userId,
         targetId: userId,
         protocol: closed.protocol,
-        message:
-          `**${closed.username}** saiu do canal de espera e foi removido da fila automaticamente` +
-          (cooldown?.active ? ` (reentrada bloqueada por ${this.formatSeconds(cooldown.remainingSeconds)}).` : '.'),
+        message: `**${closed.username}** saiu do canal de espera, então saiu da fila. Pode voltar quando quiser.`,
         color: COLORS.MUTED,
       });
       return { leftQueue: true };
@@ -1433,7 +1372,6 @@ class AttendanceEngine {
           reason: `Tempo máximo de espera excedido (${limitMinutes} minutos).`,
         }),
       );
-      await this._effect('desconectar', () => this.gateway.disconnectFromVoice(guildId, row.user_id));
     }
 
     if (results.length > 0) {
@@ -1626,7 +1564,6 @@ class AttendanceEngine {
           reason: reason || 'A central de atendimento foi encerrada.',
         }),
       );
-      await this._effect('desconectar', () => this.gateway.disconnectFromVoice(guildId, closed.user_id));
     }
 
     if (all.length > 0) {

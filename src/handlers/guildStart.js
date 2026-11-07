@@ -120,11 +120,6 @@ async function startGuild({ client, context, guildId }) {
     services.attendance
       .checkWaitAlerts(guildId)
       .catch((error) => logger.warn(`Aviso de espera longa: ${error.message}`));
-    try {
-      services.repositories.cooldowns.purgeExpiredSync();
-    } catch (error) {
-      logger.warn(`Limpeza de bloqueios: ${error.message}`);
-    }
   }, 60 * 1000);
   expireTimer.unref?.();
   runtime.expireTimer = expireTimer;

@@ -155,18 +155,6 @@ tbody td.num .btn:first-child { margin-left: 0; }
 .stat strong { font-size: 24px; font-weight: 800; letter-spacing: .2px; }
 .stat.highlight { border-left: 3px solid var(--red); }
 
-/* ---------------- bloqueio ao sair da call ---------------- */
-.cooldown-actions { margin-top: 10px; }
-.cooldown-actions .switch { background: transparent; border: none; padding: 0; gap: 10px; }
-.cooldown-actions .switch:hover { border: none; }
-.cooldown-actions input[type="number"] { width: 92px; padding: 7px 9px; font-size: 12.5px; }
-.queue-grace-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.queue-grace-row {
-  display: flex; align-items: center; gap: 10px; font-size: 12px;
-  border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; background: var(--card-2);
-}
-.queue-grace-row .countdown { margin-left: auto; font-weight: 700; color: #ffb020; }
-
 /* ---------------- horário de funcionamento ---------------- */
 .central-state {
   border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;

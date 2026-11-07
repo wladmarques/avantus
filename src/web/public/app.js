@@ -391,85 +391,6 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Bloqueio ao sair da call (cooldown de reentrada)                    */
-  /* ------------------------------------------------------------------ */
-
-  function fmtRemaining(seconds) {
-    const total = Math.max(0, Math.ceil(seconds));
-    const minutes = Math.floor(total / 60);
-    const rest = total % 60;
-    if (minutes === 0) return `${rest}s`;
-    return rest === 0 ? `${minutes} min` : `${minutes} min ${String(rest).padStart(2, '0')}s`;
-  }
-
-  function renderCooldown(data) {
-    const cooldown = data.cooldown || {};
-    $('cooldown-enabled').checked = Boolean(cooldown.enabled);
-    $('cooldown-minutes').value = cooldown.minutes > 0 ? cooldown.minutes : cooldown.lastMinutes || 10;
-    $('cooldown-minutes').disabled = !cooldown.enabled;
-
-    $('cooldown-status').textContent = cooldown.enabled
-      ? `ativo • ${cooldown.minutes} minuto(s)`
-      : 'desativado • volta na hora';
-
-    const players = data.players || [];
-    const list = $('cooldown-list');
-    list.innerHTML = '';
-
-    if (!cooldown.enabled) {
-      $('cooldown-players').textContent = 'Bloqueio desligado: ninguém está impedido de voltar.';
-      return;
-    }
-    if (!players.length) {
-      $('cooldown-players').textContent = 'Ninguém bloqueado neste momento.';
-      return;
-    }
-    $('cooldown-players').textContent = `${players.length} jogador(es) bloqueado(s) agora:`;
-    for (const player of players) {
-      const row = el('div', 'queue-grace-row');
-      row.appendChild(el('strong', null, player.name || player.userId));
-      row.appendChild(el('span', 'muted small', player.userId));
-      if (player.reason) row.appendChild(el('span', 'muted small', player.reason));
-      row.appendChild(el('span', 'countdown', fmtRemaining(player.remainingSeconds)));
-      list.appendChild(row);
-    }
-  }
-
-  async function loadCooldown() {
-    try {
-      renderCooldown(await api('/api/cooldown'));
-    } catch (error) {
-      if (error.message !== 'unauthorized') toast(error.message);
-    }
-  }
-
-  async function saveCooldownConfig() {
-    const button = $('cooldown-save');
-    const enabled = $('cooldown-enabled').checked;
-    const minutes = Number($('cooldown-minutes').value);
-    button.disabled = true;
-    button.textContent = 'Salvando…';
-    try {
-      const data = await api('/api/cooldown', {
-        method: 'PUT',
-        body: JSON.stringify({ enabled, minutes: enabled ? minutes : undefined }),
-      });
-      renderCooldown(data);
-      toast(
-        data.cooldown.enabled
-          ? `Bloqueio ativado: ${data.cooldown.minutes} minuto(s) sem poder voltar.`
-          : 'Bloqueio desativado: quem sair da call pode voltar na hora.',
-      );
-    } catch (error) {
-      toast(error.message);
-      await loadCooldown();
-    } finally {
-      button.disabled = false;
-      button.textContent = 'Salvar';
-    }
-  }
-
-  /* ------------------------------------------------------------------ */
   /* Horário de funcionamento                                            */
   /* ------------------------------------------------------------------ */
 
@@ -1427,7 +1348,6 @@
       await loadWebhook();
       await loadEvaluations();
       await loadSchedule();
-      await loadCooldown();
       clearInterval(state.timer);
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch (requestError) {
@@ -1484,10 +1404,6 @@
   $('eval-alert-save').addEventListener('click', saveAlertThreshold);
   $('eval-export').addEventListener('click', exportEvaluationsCsv);
   $('schedule-save').addEventListener('click', saveScheduleConfig);
-  $('cooldown-save').addEventListener('click', saveCooldownConfig);
-  $('cooldown-enabled').addEventListener('change', () => {
-    $('cooldown-minutes').disabled = !$('cooldown-enabled').checked;
-  });
   $('central-close').addEventListener('click', () => setCentralState('closed'));
   $('central-open').addEventListener('click', () => setCentralState('open'));
   $('central-auto').addEventListener('click', () => setCentralState('auto'));
@@ -1567,7 +1483,6 @@
       await loadWebhook();
       await loadEvaluations();
       await loadSchedule();
-      await loadCooldown();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
     } catch {
       showLogin();

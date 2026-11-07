@@ -127,9 +127,9 @@ configuração para manter alguém na fila fora do canal. Vale para:
 - desconexão voluntária, quedas de conexão e remoções feitas pela moderação;
 - mudança para qualquer outro canal de voz (inclusive o de atendimento antes de ser chamado).
 
-A saída encerra o protocolo como **JOGADOR DESISTIU**, envia DM ao jogador e aplica o bloqueio de
-reentrada (`rejoin_cooldown_minutes`, editável no painel web — `0` desativa). O evento fica
-registrado como `QUEUE_LEFT_WAIT_VOICE`.
+A saída encerra o protocolo como **JOGADOR DESISTIU** e envia DM ao jogador. O bot **não**
+desconecta ninguém e **não** bloqueia a volta: quem quiser pode entrar no canal e na fila de novo na
+mesma hora. O evento fica registrado como `QUEUE_LEFT_WAIT_VOICE`.
 
 ### O jogador entrou no canal de espera e não entrou na fila
 
@@ -142,7 +142,6 @@ registra o motivo no log (`[voz] …`) e o `/diagnostico` mostra o estado de cad
 | O jogador entrou **nesse** canal (não em outro de voz) | log `[voz] … entrou no canal X; canal de espera configurado: Y` |
 | `auto_queue_on_voice_join` está ligado | `/diagnostico` → *Entrada automática pelo canal de espera*; `/config definir chave:auto_queue_on_voice_join valor:true` |
 | A central está **aberta** no horário configurado | o jogador recebe DM de central fechada |
-| O jogador **não** está bloqueado por reentrada | `/fila ver` lista os bloqueados; `/fila liberar jogador:@x` |
 | O jogador **não** tem registro pendente (`hold`) nem atendimento em andamento | `/diagnostico` → *Registros pendentes (hold)* |
 | O jogador **não** é da equipe (cargo de staff/admin) | staff e administradores nunca entram na fila automaticamente |
 | `guild_id` é o mesmo servidor do evento | `/diagnostico` avisa quando diverge |
@@ -151,33 +150,23 @@ registra o motivo no log (`[voz] …`) e o `/diagnostico` mostra o estado de cad
 > Qualquer outra falha (fila cheia, erro inesperado) agora gera **mensagem privada** ao jogador —
 > antes ele ficava no canal sem saber o que aconteceu.
 
-### Bloqueio de reentrada (anti-abandono)
+### O bot nunca tira o jogador do canal de espera
 
-Quem entra na fila (pelo painel **ou** pelo canal de voz) e sai **antes de ser chamado** fica
-bloqueado por `rejoin_cooldown_minutes` (padrão **10 minutos**):
+Regra fixa (não configurável): **o bot não desconecta jogadores**.
 
-- **clicar em Entrar na fila** → resposta efêmera com o tempo restante;
-- **entrar no canal de espera** → o bot remove do canal e avisa no privado;
-- **`/posicao`** → mostra o tempo restante;
-- **`/fila ver`** → lista os jogadores bloqueados e quando liberam.
+- Sair da fila (comando, remoção da equipe, saída do canal, tempo esgotado ou central fechada) **não**
+  expulsa ninguém do canal de voz — o jogador continua livre para ficar ou voltar.
+- Entrar no canal de espera **sempre** coloca na fila; não existe bloqueio de reentrada.
+- Quem saiu da fila pode voltar imediatamente (pelo canal, pelo botão do painel ou por `/entrar`).
 
-O bloqueio **não** é aplicado quando: houve atendimento (staff chamou), a remoção foi feita pela
-equipe, o jogador não compareceu, ou `rejoin_cooldown_minutes=0`.
-
-```bash
-/config definir chave:rejoin_cooldown_minutes valor:5   # 5 minutos (0 = desativado)
-/fila liberar jogador:@fulano                          # libera na hora
-```
-
-O painel web (seção **Bloqueio ao sair da call**) liga/desliga esse bloqueio e define o tempo, sem
-precisar de comando.
+> A desconexão continua existindo só no fim de um **atendimento** (o jogador é retirado do canal
+> `🔉・suporteⁿ`) e para staff que é tirado de serviço pelo painel.
 
 ## Comportamento da fila e do atendimento
 
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
 | `auto_queue_on_voice_join` | `true` | Entrar no canal de espera coloca o jogador na fila automaticamente |
-| `rejoin_cooldown_minutes` | `10` | Bloqueio para voltar à fila depois de desistir antes de ser chamado (0 = desativado; editável no painel web) |
 | `max_queue_size` | `0` | Limite de jogadores na fila (0 = ilimitado) |
 | `max_wait_minutes` | `0` | Remove quem esperar mais que isso (0 = sem limite) |
 | `skip_policy` | `end` | `end` = pulado vai ao final; `hold` = fica pendente |

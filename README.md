@@ -37,8 +37,8 @@ exclusivo da equipe, controle administrativo completo e histórico persistente.
   entrar no canal de espera coloca na fila automaticamente (sair do canal remove da fila).
 - **Entrada controlada**: o botão *Entrar na Fila* fica desabilitado fora do horário de atendimento
   ou quando nenhum staff está disponível — nenhum caminho (botão, `/entrar` ou voz) fura a regra.
-- **Bloqueio de reentrada**: quem desiste antes de ser chamado fica 10 minutos sem voltar
-  (configurável em `rejoin_cooldown_minutes`, liberável com `/fila liberar`).
+- **Sem expulsão**: sair da fila não desconecta o jogador do canal e não bloqueia a volta — quem
+  quiser pode entrar de novo na mesma hora.
 - Vários staffs atendendo ao mesmo tempo, com controle de concorrência (ninguém pega o mesmo jogador).
 - Bloqueio de atendimento duplicado por jogador e por staff (com liberação configurável).
 - Perda de presença, desconexão de voz e saída do servidor tratadas automaticamente.
@@ -114,7 +114,7 @@ src/
   database/
     connection.js         SQLite (sql.js), transações e persistência atômica
     migrations.js         schema versionado
-    repositories/         settings, attendance, staff, evaluations, audit, panels, counters, cooldowns, hourBank
+    repositories/         settings, attendance, staff, evaluations, audit, panels, counters, hourBank
   systems/
     queue/                fachada da fila
     attendance/           motor de atendimento (regras, timers, recuperação)
