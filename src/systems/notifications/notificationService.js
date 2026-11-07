@@ -132,38 +132,18 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
-  removed({ guildId, userId, protocol, reason, cooldownMinutes = 0 }) {
+  removed({ guildId, userId, protocol, reason }) {
     const embed = card({
       title: '🚫 Você saiu da fila',
       description: [
         `**Protocolo:** \`#${String(protocol).padStart(4, '0')}\``,
         reason ? `**Motivo:** ${reason}` : null,
         '',
-        cooldownMinutes > 0
-          ? `⏳ Você poderá entrar na fila novamente em **${cooldownMinutes} minutos**.`
-          : 'Você pode entrar novamente na fila quando precisar.',
+        'Você pode entrar novamente na fila quando precisar.',
       ]
         .filter(Boolean)
         .join('\n'),
       color: COLORS.DANGER,
-    });
-    return this._send(userId, { embeds: [embed] }, guildId);
-  }
-
-  cooldownBlocked({ guildId, userId, remainingSeconds, minutes }) {
-    const embed = card({
-      title: '⏳ Aguarde para entrar novamente',
-      description: [
-        'Você saiu da fila antes de ser chamado.',
-        '',
-        `**Tempo restante:** ${this.formatRemaining(remainingSeconds)}`,
-        minutes ? `**Bloqueio configurado:** ${minutes} minutos` : null,
-        '',
-        'Entre no canal de espera ou clique em **Entrar na fila** quando o tempo acabar.',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      color: COLORS.WARNING,
     });
     return this._send(userId, { embeds: [embed] }, guildId);
   }

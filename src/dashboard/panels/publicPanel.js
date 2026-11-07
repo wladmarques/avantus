@@ -131,11 +131,7 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   const waitChannel = settings.wait_channel_id
     ? `Entre em <#${settings.wait_channel_id}> e clique no botão para entrar na fila. `
     : 'Entre no canal de voz de espera e clique no botão para entrar na fila. ';
-  const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
-  const exitNote =
-    cooldownMinutes > 0
-      ? `Sair da espera remove você da fila e bloqueia a reentrada por ${cooldownMinutes} min.`
-      : 'Sair da espera remove você da fila.';
+  const exitNote = 'Sair da espera remove você da fila.';
 
   const scheduleLines = describeScheduleCompact(schedule.schedule)
     .slice(0, 3)

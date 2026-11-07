@@ -12,7 +12,6 @@ const { CounterRepository } = require('../database/repositories/counterRepositor
 const { EvaluationRepository } = require('../database/repositories/evaluationRepository');
 const { AuditRepository } = require('../database/repositories/auditRepository');
 const { PanelRepository } = require('../database/repositories/panelRepository');
-const { CooldownRepository } = require('../database/repositories/cooldownRepository');
 const { HourBankRepository } = require('../database/repositories/hourBankRepository');
 
 const { NotificationService } = require('../systems/notifications/notificationService');
@@ -23,7 +22,6 @@ const { CentralService } = require('../systems/schedule/centralService');
 const { AttendanceEngine } = require('../systems/attendance/attendanceEngine');
 const { AttendanceService } = require('../systems/attendance/attendanceService');
 const { QueueService } = require('../systems/queue/queueService');
-const { CooldownService } = require('../systems/queue/cooldownService');
 const { PanelService } = require('../systems/panels/panelService');
 const { StatisticsService } = require('../systems/statistics/statisticsService');
 const { EvaluationService } = require('../systems/evaluations/evaluationService');
@@ -43,7 +41,6 @@ async function createServices({ db, gateway }) {
     evaluations: new EvaluationRepository(db),
     audit: new AuditRepository(db),
     panels: new PanelRepository(db),
-    cooldowns: new CooldownRepository(db),
     hourBank: new HourBankRepository(db),
   };
 
@@ -54,12 +51,6 @@ async function createServices({ db, gateway }) {
   settings.load();
   // o gateway consulta configurações (canais/cargos) em tempo de execução
   if (gateway && 'settings' in gateway) gateway.settings = settings;
-
-  const cooldownService = new CooldownService({
-    db,
-    repo: repositories.cooldowns,
-    settings,
-  });
 
   const notificationService = new NotificationService({ gateway, settings });
   const auditService = new AuditService({
@@ -112,7 +103,6 @@ async function createServices({ db, gateway }) {
     audit: auditService,
     panels: panelFacade,
     schedule: scheduleService,
-    cooldowns: cooldownService,
   });
 
   const statisticsService = new StatisticsService({ db, repos: repositories, settings });
@@ -174,7 +164,6 @@ async function createServices({ db, gateway }) {
     panelsFacade: panelFacade,
     central: centralService,
     queue: queueService,
-    cooldowns: cooldownService,
     hourBank: hourBankService,
     scheduleBroadcast: scheduleBroadcastService,
     attendance: attendanceService,

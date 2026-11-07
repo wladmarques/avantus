@@ -101,7 +101,8 @@ waiting ──► serving ──► finished
 | Staff fora de serviço tenta chamar (`SERVICE`) | erro `STAFF_FORA_DE_SERVICO`, fila intacta |
 | Jogador sai do servidor | encerra registro e libera vaga |
 | Staff sai do servidor | encerra atendimento e marca INDISPONÍVEL |
-| Tempo máximo de espera | remove da fila com log e DM |
+| Tempo máximo de espera | remove da fila com log e DM (sem desconectar do canal) |
+| Jogador sai da fila / é removido / fila encerrada | encerra o protocolo e avisa por DM — **nunca** desconecta do canal de voz |
 | Jogador esperando mais de `wait_alert_minutes` (padrão 3) | DM para cada staff **disponível**, uma vez por jogador (`wait_alert_at` no banco), com protocolo e tempo de espera |
 
 ## Painéis

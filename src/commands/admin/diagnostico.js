@@ -99,24 +99,12 @@ module.exports = {
 
     push(true, 'Saída automática ao sair do canal de espera', 'sempre ativa (sai da fila na hora)');
 
-    const cooldownMinutes = Number(settings.rejoin_cooldown_minutes) || 0;
-    push(
-      true,
-      'Bloqueio de reentrada',
-      cooldownMinutes > 0 ? `${cooldownMinutes} min após desistir antes de ser chamado` : 'desligado',
-    );
-
     const holdCount = services.repositories.attendance.countByStatusSync(guildId, 'hold');
     push(
       holdCount === 0,
       'Registros pendentes (hold)',
       holdCount === 0 ? 'nenhum' : `${holdCount} jogador(es) — eles não entram na fila automaticamente`,
     );
-
-    const blocked = services.repositories.cooldowns.listActiveSync(guildId);
-    if (blocked.length > 0) {
-      push(false, 'Jogadores em bloqueio', `${blocked.length} aguardando liberar`);
-    }
 
     // ---- banco de horas ----
     const openSessions = services.repositories.hourBank.listOpenSync(guildId).length;

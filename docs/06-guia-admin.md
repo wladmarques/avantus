@@ -57,8 +57,7 @@ edita a mesma mensagem. Reiniciar o bot não duplica nada.
 ## Fila
 
 ```
-/fila ver                             # inclui quem está bloqueado e quando libera
-/fila liberar jogador:@fulano         # remove o bloqueio de reentrada
+/fila ver                             # fila, atendimentos e pendentes
 /fila pular jogador:@fulano motivo:"Sem resposta"
 /fila remover jogador:@fulano motivo:"Conduta inadequada"
 /fila reativar jogador:@fulano

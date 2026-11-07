@@ -138,26 +138,22 @@ test('fila cheia avisa o jogador em vez de falhar em silêncio', async (t) => {
   assert.equal(env.services.engine.getState(env.guildId).waiting.length, 1);
 });
 
-test('jogador em bloqueio de reentrada é removido do canal de espera', async (t) => {
+test('quem sai e volta para o canal de espera entra na fila de novo, sem bloqueio', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
-  addMember(env.gateway, PLAYER);
+  addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });
 
-  await env.services.cooldowns.apply({ guildId: env.guildId, userId: PLAYER, reason: 'teste' });
+  await dispatch(env, { from: null, to: env.waitChannelId });
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 1);
 
-  const result = await env.services.attendance.handlePlayerVoiceUpdate({
-    guildId: env.guildId,
-    userId: PLAYER,
-    channelId: env.waitChannelId,
-    oldChannelId: null,
-    attendanceChannelIds: [env.attChannelId],
-    displayName: 'Bloqueado',
-  });
-
-  assert.equal(result.cooldownBlocked, true, 'bloqueio barrado antes de qualquer tentativa de fila');
-  assert.ok(result.remainingSeconds > 0);
+  // Sai do canal (sai da fila, mas NÃO é expulso nem bloqueado).
+  await dispatch(env, { from: env.waitChannelId, to: null });
   assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
-  assert.ok(countDms(env.gateway, PLAYER) > 0, 'aviso do bloqueio é enviado');
+
+  // Volta na hora: precisa entrar na fila normalmente (sem bloqueio, sem expulsão).
+  await dispatch(env, { from: null, to: env.waitChannelId });
+  assert.equal(env.services.engine.getState(env.guildId).waiting.length, 1, 'voltou para a fila na hora');
+  assert.equal(env.gateway.disconnects.length, 0, 'o bot não desconectou ninguém');
 });
 
 test('membro fora do cache é resolvido pelo gateway e entra na fila', async (t) => {
@@ -196,7 +192,7 @@ test('sair do canal de espera (evento) remove o jogador da fila na hora', async 
   const record = env.services.repositories.attendance.listByUserSync(env.guildId, PLAYER)[0];
   assert.equal(record.status, 'finished');
   assert.equal(record.outcome, 'JOGADOR_DESISTIU');
-  assert.equal(env.services.cooldowns.check(env.guildId, PLAYER).active, true, 'bloqueio de reentrada aplicado');
+  assert.equal(env.gateway.disconnects.length, 0, 'sair da fila não expulsa do canal de voz');
 });
 
 test('sair do canal de espera sem estar na fila não gera erro', async (t) => {

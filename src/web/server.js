@@ -17,8 +17,6 @@
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
- *   GET  /api/cooldown         → bloqueio de reentrada (ligado, minutos, quem está bloqueado)
- *   PUT  /api/cooldown         → ativa/desativa e ajusta o tempo do bloqueio
  *   GET  /api/evaluations      → avaliações do período (notas, média, ranking)
  *   PUT  /api/evaluations/channel → define o canal do Discord que recebe as avaliações
  *   POST /api/staff/:id/off-service → tira o staff de serviço (encerra a sessão)
@@ -190,31 +188,6 @@ async function applyCentralState(services, guildId, state, { actorTag = 'painel 
   });
   await services.panels.refresh(guildId, { immediate: true }).catch(() => null);
   return services.central.status(guildId);
-}
-
-/**
- * Bloqueio de reentrada: quem sai da call antes de ser chamado fica X minutos
- * sem poder voltar. `minutes = 0` significa desativado.
- */
-function cooldownPayload(services, guildId) {
-  const minutes = Number(services.settings.get('rejoin_cooldown_minutes')) || 0;
-  const lastMinutes = Number(services.settings.get('rejoin_cooldown_last_minutes')) || 10;
-  const names = (() => {
-    try {
-      return services.hourBank?.names ? services.hourBank.names(guildId) : new Map();
-    } catch {
-      return new Map();
-    }
-  })();
-  const players = (services.cooldowns?.list ? services.cooldowns.list(guildId) : []).map((row) => ({
-    ...row,
-    name: names.get(row.userId) ?? null,
-  }));
-
-  return {
-    cooldown: { enabled: minutes > 0, minutes, lastMinutes },
-    players,
-  };
 }
 
 /** Aceita { mon: [{open, close}] } (ou um único objeto por dia). */
@@ -581,65 +554,6 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
 
       if (pathname === '/api/schedule' && req.method === 'GET') {
         return sendJson(res, 200, schedulePayload(services, currentGuildId));
-      }
-
-      if (pathname === '/api/cooldown' && req.method === 'GET') {
-        return sendJson(res, 200, cooldownPayload(services, currentGuildId));
-      }
-
-      if (pathname === '/api/cooldown' && req.method === 'PUT') {
-        const body = await readBody(req);
-        const current = Number(services.settings.get('rejoin_cooldown_minutes')) || 0;
-        const lastMinutes = Number(services.settings.get('rejoin_cooldown_last_minutes')) || 10;
-        let minutes = body.minutes === undefined ? null : Number(body.minutes);
-        let enabled = body.enabled === undefined ? null : body.enabled === true || body.enabled === 'true';
-
-        if (minutes !== null) {
-          if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
-            return sendJson(res, 400, {
-              error: 'Tempo do bloqueio inválido: use um número inteiro de 0 a 1440 minutos.',
-            });
-          }
-          if (enabled === null) enabled = minutes > 0;
-        }
-
-        if (enabled === null) {
-          return sendJson(res, 400, { error: 'Nada para atualizar: envie enabled e/ou minutes.' });
-        }
-
-        // Desligar preserva o último tempo para quando for ligado de novo.
-        if (!enabled) {
-          if (current > 0) await services.settings.set('rejoin_cooldown_last_minutes', current);
-          await services.settings.set('rejoin_cooldown_minutes', 0);
-        } else {
-          const target = minutes && minutes > 0 ? minutes : lastMinutes || 10;
-          if (target < 1 || target > 1440) {
-            return sendJson(res, 400, { error: 'Tempo do bloqueio inválido: use de 1 a 1440 minutos.' });
-          }
-          await services.settings.set('rejoin_cooldown_last_minutes', target);
-          await services.settings.set('rejoin_cooldown_minutes', target);
-        }
-
-        const after = cooldownPayload(services, currentGuildId);
-        await services.audit.log({
-          guildId: currentGuildId,
-          type: 'COOLDOWN_UPDATE',
-          actorId: 'painel web',
-          message: after.cooldown.enabled
-            ? `⚙️ O **painel web** ativou o bloqueio ao sair da call: **${after.cooldown.minutes} minuto(s)** sem poder voltar à fila.`
-            : '⚙️ O **painel web** **desativou** o bloqueio ao sair da call — quem sair pode voltar na hora.',
-          color: COLORS.MUTED,
-          metadata: after.cooldown,
-        });
-        await services.panels.refresh(currentGuildId, { immediate: true }).catch(() => null);
-
-        return sendJson(res, 200, {
-          ok: true,
-          message: after.cooldown.enabled
-            ? `Bloqueio ativado: ${after.cooldown.minutes} minuto(s).`
-            : 'Bloqueio desativado.',
-          ...after,
-        });
       }
 
       if (pathname === '/api/central' && req.method === 'PUT') {

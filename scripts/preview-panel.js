@@ -24,7 +24,6 @@ const outFile = path.join(root, 'preview', 'panel.html');
 const settings = {
   message_panel_title: 'ATENDIMENTO | VANTUS',
   wait_channel_id: '000000000000000000',
-  rejoin_cooldown_minutes: 10,
 };
 
 const scenarios = {
@@ -81,9 +80,7 @@ function buildModel(scenario) {
     footerTitle: 'Fila por canal de voz',
     footerText:
       'Entre no canal AGUARDANDO ATENDIMENTO e clique no botão para entrar na fila. ' +
-      (Number(settings.rejoin_cooldown_minutes) > 0
-        ? `Sair da espera remove você da fila e bloqueia a reentrada por ${settings.rejoin_cooldown_minutes} min.`
-        : 'Sair da espera remove você da fila.'),
+      'Sair da espera remove você da fila.',
     canJoin,
     unavailableNote,
     hints:

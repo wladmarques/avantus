@@ -215,8 +215,6 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | POST | `/api/hours/reset` | **zera as horas de toda a equipe**: `{ ok, message, sessions, restarted }` |
 | GET | `/api/schedule` | agenda da central: `schedule` (7 dias), `days` (com rótulos), `centralManual`, `status` (`open`, `manual`, `label`, `nextOpen`, `today`), `timezone` |
 | PUT | `/api/schedule` | `{ schedule? , centralManual? }` — salva horários e/ou estado da central (`auto`/`open`/`closed`); 400 em `HH:MM` inválido, abertura = fechamento ou dia desconhecido |
-| GET | `/api/cooldown` | bloqueio de reentrada: `cooldown { enabled, minutes, lastMinutes }` e `players` (quem está bloqueado, com `remainingSeconds`) |
-| PUT | `/api/cooldown` | `{ enabled?, minutes? }` — `minutes: 0` desativa; 1–1440 quando ativo; audita e atualiza os painéis |
 | PUT | `/api/central` | `{ state, reason? }` — `closed` fecha a central mesmo dentro do horário, `open` abre fora dele, `auto` volta ao horário; devolve o payload de `/api/schedule` + `message` e `queueCleared` |
 | GET | `/api/schedule/webhook` | webhook + envio automático (`{ url, configured, auto, day, dayLabel, time, lastWeek }`) |
 | PUT | `/api/schedule/webhook` | `{ url, auto, day, time }` — campos omitidos são mantidos (`url: ""` remove e desliga o automático) |
@@ -260,18 +258,6 @@ CSS antigo em cache. A versão é o hash dos três arquivos de `src/web/public`.
 /banco escala membro:@fulano dia:Segunda inicio:12:00 fim:18:00   # adiciona um turno (admin)
 /banco limpar membro:@fulano     # remove a escala (admin)
 ```
-
-### Bloqueio ao sair da call
-
-A seção **Bloqueio ao sair da call** liga/desliga o castigo de reentrada
-(`rejoin_cooldown_minutes`): quem sai do canal **⏳・aguardando-atendimento** antes de ser chamado
-fica o tempo configurado sem poder voltar à fila (por botão, comando ou canal de voz).
-
-- **Desligado** (`0`): o jogador pode voltar na hora — útil para servidores com conexão instável.
-- **Ligado**: tempo em minutos (1 a 1440). O último valor usado é lembrado ao reativar.
-- Abaixo do formulário aparece quem está bloqueado agora, com o tempo restante.
-- A alteração vale imediatamente, fica no canal de log (`COOLDOWN_UPDATE`) e também pode ser feita
-  em `/config definir chave:rejoin_cooldown_minutes valor:10`.
 
 ### Bloquear e remover staff### Bloquear e remover staff
 

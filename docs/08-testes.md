@@ -21,12 +21,11 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/hourBank.test.js` | escala (substituição, turno noturno, validação), sessão aberta/fechada pelo status, atendimento mantendo a contagem, atraso, relatório, resumo, aviso de 5 min sem duplicar, fechamento de sessão esquecida e desligamento do módulo |
 | `tests/webPanel.test.js` | autenticação do painel (401, senha errada, sessão, logout), painel desligado sem senha, salvar/remover escala pela API, relatório e sessões, assets estáticos |
 | `tests/availability.test.js` | entrada na fila só com staff disponível e central aberta: botão desabilitado (V2 e clássico), recusa com `SEM_STAFF`, staff ocupado, liberação imediata, entrada por voz bloqueada |
-| `tests/voiceAutoJoin.test.js` | fluxo real do evento `voiceStateUpdate` (entra na fila ao entrar no canal de espera), servidor divergente, entrada automática desligada, canal de espera ausente, outro canal de voz, fila cheia com aviso ao jogador, bloqueio de reentrada, membro fora do cache, saída do canal tirando da fila (evento) |
+| `tests/voiceAutoJoin.test.js` | fluxo real do evento `voiceStateUpdate` (entra na fila ao entrar no canal de espera), servidor divergente, entrada automática desligada, canal de espera ausente, outro canal de voz, fila cheia com aviso ao jogador, volta imediata após sair da fila, membro fora do cache, saída do canal tirando da fila (evento) |
 | `tests/persistence.test.js` | fila/protocolos/staff após reinício, recuperação de registros órfãos, painel não duplicado e retomado |
 | `tests/panels.test.js` | painel V2 (container único, barra `#ff2200`, sem avatar, sem descrição, status sem rótulo/emoji, indicadores sem emojis, botão único neutro), status disponível/indisponível, layout clássico, troca de estilo sem duplicar, fallback, painel staff, reconstrução, central fechada |
 | `tests/statistics.test.js` | conclusões, desistências, rankings, histórico com responsável, logs no canal |
 | `tests/schedule.test.js` | janelas normais, fechamento, virada de madrugada, dia sem janela, fuso de São Paulo, períodos |
-| `tests/cooldown.test.js` | bloqueio de 10 min ao desistir, DM com tempo restante, expulsão do canal de espera, expiração, staff não gera bloqueio, configuração 0/3 min, `/fila liberar` |
 | `tests/commands.test.js` | contexto do comando (`client`/`env`/`runtime`), `/setup` e `/diagnostico` ponta a ponta |
 | `tests/permissions.test.js` | cargos, Administrator, dono do servidor, mensagens de erro |
 | `tests/interactions.test.js` | botão entrar, bloqueio de permissão, chamar próximo, menu de seleção, modal de remoção, avaliação |
@@ -34,7 +33,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/hoursReset.test.js` | painel web: zerar horas de um staff e de toda a equipe, sessão em andamento reiniciada (não apagada), login obrigatório e auditoria `HOURS_RESET` |
 | `tests/staffPanelRoles.test.js` | filtro da EQUIPE por cargo + resiliência do cache (falha/vazio não esvazia o painel), throttle da sincronização, `roleCacheInfo` do `/diagnostico` |
 | `tests/staffServiceStatus.test.js` | entrar na call não coloca o staff em serviço (nem abre sessão do banco de horas), staff fora de serviço não chama jogador, chamada após definir Disponível, `allow_staff_multi` |
-| `tests/cooldownPanel.test.js` | bloqueio ao sair da call pelo painel: desativar libera a volta, ativar com novo tempo, reativar restaurando o último valor, validações e auditoria |
+| `tests/noWaitKick.test.js` | o bot nunca tira o jogador do canal de espera (sair da fila, remoção pela equipe, fechar a central, tempo esgotado), volta imediata liberada e ausência do bloqueio de reentrada |
 | `tests/staffAdmin.test.js` | bloquear staff (sai de serviço, não volta pelo `/status`, nem pela call, nem no status em massa/recuperação), desbloquear, remover da equipe, 409 em atendimento, exigência de login |
 | `tests/evaluationDelivery.test.js` | payload dos botões de nota, fallback no canal do painel com DM fechada, botão Avaliar atendimento, `/avaliar` sem protocolo |
 
