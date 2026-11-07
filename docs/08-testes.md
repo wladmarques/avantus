@@ -30,6 +30,8 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/commands.test.js` | contexto do comando (`client`/`env`/`runtime`), `/setup` e `/diagnostico` ponta a ponta |
 | `tests/permissions.test.js` | cargos, Administrator, dono do servidor, mensagens de erro |
 | `tests/interactions.test.js` | botão entrar, bloqueio de permissão, chamar próximo, menu de seleção, modal de remoção, avaliação |
+| `tests/waitAlert.test.js` | aviso de espera longa: DM para staff disponível após 3 min, uma vez por jogador, sem avisar quem está fora de serviço/bloqueado, limite configurável e `0` desliga |
+| `tests/hoursReset.test.js` | painel web: zerar horas de um staff e de toda a equipe, sessão em andamento reiniciada (não apagada), login obrigatório e auditoria `HOURS_RESET` |
 | `tests/staffPanelRoles.test.js` | filtro da EQUIPE por cargo + resiliência do cache (falha/vazio não esvazia o painel), throttle da sincronização, `roleCacheInfo` do `/diagnostico` |
 | `tests/staffServiceStatus.test.js` | entrar na call não coloca o staff em serviço (nem abre sessão do banco de horas), staff fora de serviço não chama jogador, chamada após definir Disponível, `allow_staff_multi` |
 | `tests/cooldownPanel.test.js` | bloqueio ao sair da call pelo painel: desativar libera a volta, ativar com novo tempo, reativar restaurando o último valor, validações e auditoria |

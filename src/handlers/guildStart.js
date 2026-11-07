@@ -114,9 +114,12 @@ async function startGuild({ client, context, guildId }) {
   runtime.panelTimer = panelTimer;
   logger.info(`Atualização de painéis a cada ${seconds}s`);
 
-  // Expirados por tempo máximo de espera
+  // Expirados por tempo máximo de espera + aviso de espera longa para a equipe
   const expireTimer = setInterval(() => {
     services.queue.expire(guildId).catch((error) => logger.warn(`Expiração: ${error.message}`));
+    services.attendance
+      .checkWaitAlerts(guildId)
+      .catch((error) => logger.warn(`Aviso de espera longa: ${error.message}`));
     try {
       services.repositories.cooldowns.purgeExpiredSync();
     } catch (error) {
@@ -125,6 +128,13 @@ async function startGuild({ client, context, guildId }) {
   }, 60 * 1000);
   expireTimer.unref?.();
   runtime.expireTimer = expireTimer;
+
+  const waitAlertMinutes = services.settings.get('wait_alert_minutes');
+  logger.info(
+    waitAlertMinutes > 0
+      ? `Aviso de espera longa ativo: DM para a equipe em serviço após ${waitAlertMinutes} min`
+      : 'Aviso de espera longa desligado (wait_alert_minutes = 0)',
+  );
 
   // Banco de horas: aviso 5 min antes do turno + fechamento de sessões esquecidas
   runtime.stopHourBankWatcher = services.hourBank.startWatcher(guildId);

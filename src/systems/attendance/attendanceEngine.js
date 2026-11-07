@@ -19,6 +19,7 @@ const {
   COLORS,
 } = require('../../config/theme');
 const { createLogger } = require('../../utils/logger');
+const { formatDurationShort } = require('../../utils/time');
 
 const logger = createLogger('attendance');
 
@@ -1447,6 +1448,73 @@ class AttendanceEngine {
       await this.panels.refresh(guildId);
     }
     return results;
+  }
+
+  /**
+   * Aviso de espera longa: quando alguém passa do limite configurado
+   * (`wait_alert_minutes`, padrão 3) ainda na sala de aguardando, os staff
+   * **disponíveis** recebem uma DM. Cada jogador gera um aviso só (`wait_alert_at`),
+   * então chamar isto a cada minuto não vira spam.
+   */
+  async checkWaitAlerts(guildId, now = Date.now()) {
+    const minutes = Number(this.settings.get('wait_alert_minutes')) || 0;
+    if (minutes <= 0) return { alerted: [], notified: 0 };
+
+    const limitMs = minutes * 60000;
+    const overdue = this.repos.attendance
+      .listWaitingSync(guildId)
+      .filter((row) => !row.wait_alert_at && now - row.joined_at >= limitMs);
+    if (overdue.length === 0) return { alerted: [], notified: 0 };
+
+    // Só quem está em serviço precisa saber (bloqueado não resolve nada).
+    const onDuty = this.staff
+      .list(guildId)
+      .filter((row) => row.status === STAFF_STATUS.DISPONIVEL && !row.blocked);
+
+    const players = overdue.map((row) => ({
+      protocol: row.protocol,
+      name: row.username,
+      userId: row.user_id,
+      waitingSeconds: Math.max(0, Math.floor((now - row.joined_at) / 1000)),
+      waitingLabel: formatDurationShort(Math.max(0, Math.floor((now - row.joined_at) / 1000))),
+    }));
+
+    // Marca antes de enviar: se o DM falhar não repetimos a cada minuto.
+    await this.db.transaction(async () => {
+      for (const row of overdue) {
+        this.repos.attendance.updateSync(guildId, row.id, { wait_alert_at: now });
+      }
+    });
+
+    let notified = 0;
+    for (const staff of onDuty) {
+      const sent = await this.notifications
+        .waitAlert({ guildId, userId: staff.userId, minutes, players })
+        .catch(() => null);
+      if (sent && sent.ok !== false) notified += 1;
+    }
+
+    logger.info(
+      `[espera] ${players.length} jogador(es) aguardando há mais de ${minutes} min; ` +
+        `${notified} staff(s) em serviço avisado(s) por DM.`,
+    );
+
+    if (notified > 0) {
+      await this._effect('registrar aviso de espera', () =>
+        this.audit.log({
+          guildId,
+          type: 'WAIT_ALERT',
+          actorId: 'sistema',
+          message:
+            `⏰ Aviso de espera longa: ${players.length} jogador(es) aguardando há mais de ${minutes} min ` +
+            `— ${notified} staff(s) avisado(s) por DM.`,
+          color: COLORS.WARNING,
+          metadata: { minutes, protocols: players.map((player) => player.protocol), notified },
+        }),
+      );
+    }
+
+    return { alerted: players.map((player) => player.protocol), notified };
   }
 
   /** Chamado na inicialização: valida fila, atendimentos e presenças. */

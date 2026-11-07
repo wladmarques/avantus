@@ -141,6 +141,13 @@ const SETTINGS = {
     group: 'Fila',
     validate: asInt(0, 500),
   },
+  wait_alert_minutes: {
+    default: 3,
+    type: 'number',
+    label: 'Avisar a equipe por DM quando alguém esperar mais de X minutos (0 = desativado)',
+    group: 'Fila',
+    validate: asInt(0, 120),
+  },
   max_wait_minutes: {
     default: 0,
     type: 'number',

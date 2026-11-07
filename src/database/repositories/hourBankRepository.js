@@ -164,6 +164,31 @@ class HourBankRepository {
     return this.db.all(sql, params);
   }
 
+  /**
+   * Apaga as sessões já encerradas (zerar horas sem perder a sessão em
+   * andamento de quem está em serviço agora).
+   */
+  deleteClosedSessionsSync(guildId, userId = null) {
+    const sql = userId
+      ? 'DELETE FROM staff_sessions WHERE guild_id = ? AND user_id = ? AND ended_at IS NOT NULL'
+      : 'DELETE FROM staff_sessions WHERE guild_id = ? AND ended_at IS NOT NULL';
+    const params = userId ? [guildId, userId] : [guildId];
+    return this.db.run(sql, params).changes;
+  }
+
+  /**
+   * Reinicia a sessão aberta: a contagem recomeça do zero a partir de `at`,
+   * sem perder o vínculo com o turno em andamento.
+   */
+  restartOpenSessionsSync(guildId, userId = null, at = Date.now()) {
+    const sql = `UPDATE staff_sessions
+                    SET started_at = ?, minutes = NULL, late_minutes = 0, early_leave_minutes = 0,
+                        updated_at = ?
+                  WHERE guild_id = ? AND ended_at IS NULL${userId ? ' AND user_id = ?' : ''}`;
+    const params = userId ? [at, at, guildId, userId] : [at, at, guildId];
+    return this.db.run(sql, params).changes;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Avisos antes do turno                                               */
   /* ------------------------------------------------------------------ */

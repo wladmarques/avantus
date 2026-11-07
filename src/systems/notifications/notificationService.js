@@ -53,6 +53,34 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
+  /**
+   * Aviso para os staff em serviço de que tem jogador esperando além do limite.
+   * Vai um único DM por staff com todos os jogadores atrasados (nada de uma
+   * mensagem por jogador, que viraria spam em dia movimentado).
+   */
+  waitAlert({ guildId, userId, minutes, players = [] }) {
+    const linhas = players
+      .slice(0, 10)
+      .map(
+        (player) =>
+          `**#${String(player.protocol).padStart(4, '0')}** — ${player.name} • esperando ${player.waitingLabel}`,
+      );
+    if (players.length > 10) linhas.push(`_… e mais ${players.length - 10} jogador(es)._`);
+
+    const embed = card({
+      title: '⏰ Jogador esperando na sala de aguardando',
+      description: [
+        `Tem jogador na sala de aguardando há mais de **${minutes} minuto(s)**.`,
+        '',
+        ...linhas,
+        '',
+        'Chame o próximo pelo painel da equipe (ou `/chamar`) para liberar a fila.',
+      ].join('\n'),
+      color: COLORS.ORANGE,
+    });
+    return this._send(userId, { embeds: [embed] }, guildId);
+  }
+
   positionUpdate({ guildId, userId, protocol, position }) {
     const embed = card({
       title: '📢 Sua posição na fila mudou',

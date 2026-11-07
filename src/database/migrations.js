@@ -273,6 +273,16 @@ const migrations = [
       `);
     },
   },
+  {
+    version: 9,
+    name: 'aviso_de_espera_longa',
+    up(db) {
+      // wait_alert_at = quando a equipe foi avisada (DM) de que este jogador
+      // está esperando além do limite. Evita repetir o aviso e sobrevive a
+      // reinícios do bot (nada de DM duplicada depois de um deploy).
+      db.exec('ALTER TABLE attendance ADD COLUMN wait_alert_at INTEGER;');
+    },
+  },
 ];
 
 /**

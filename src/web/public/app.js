@@ -13,6 +13,8 @@
     offService: null,
     blocking: null,
     removing: null,
+    resetting: null,
+    resetAll: false,
     evaluations: null,
     timer: null,
     // Grupo do revezamento da semana (A/B) — vem do /api/overview.
@@ -305,9 +307,12 @@
       block.addEventListener('click', () =>
         row.blocked ? toggleBlock(row, false) : openBlock(row),
       );
+      const reset = el('button', 'btn tiny', 'Zerar horas');
+      reset.title = 'Apagar o histórico de horas deste staff (a contagem volta a zero)';
+      reset.addEventListener('click', () => openReset(row));
       const remove = el('button', 'btn tiny danger', 'Remover');
       remove.addEventListener('click', () => openRemove(row));
-      actions.append(block, remove);
+      actions.append(reset, block, remove);
 
       for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
       body.appendChild(tr);
@@ -1165,6 +1170,45 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Modal: zerar horas (um staff ou toda a equipe)                      */
+  /* ------------------------------------------------------------------ */
+
+  function openReset(row = null) {
+    state.resetting = row;
+    state.resetAll = !row;
+    const name = row ? row.staffName || `Usuário ${row.userId}` : 'toda a equipe';
+    $('reset-title').textContent = row ? `Zerar horas • ${name}` : 'Zerar horas de toda a equipe';
+    $('reset-text').textContent = row
+      ? `${name} volta a zero no banco de horas. A sessão aberta (se houver) recomeça a contar agora.`
+      : 'Todos os staff voltam a zero no banco de horas. As sessões abertas recomeçam a contar agora.';
+    $('reset-error').hidden = true;
+    $('reset-confirm').textContent = row ? 'Zerar horas' : 'Zerar todas';
+    $('reset-modal').showModal();
+  }
+
+  async function submitReset(event) {
+    event.preventDefault();
+    const button = $('reset-confirm');
+    button.disabled = true;
+    button.textContent = 'Zerando…';
+    try {
+      const path = state.resetAll ? '/api/hours/reset' : `/api/staff/${state.resetting.userId}/reset-hours`;
+      const data = await api(path, { method: 'POST' });
+      $('reset-modal').close();
+      const detail = data.sessions > 0 ? ` ${data.sessions} sessão(ões) apagada(s).` : '';
+      toast(`${data.message || 'Horas zeradas.'}${detail}`);
+      await refresh({ silent: true });
+    } catch (error) {
+      const node = $('reset-error');
+      node.textContent = error.message;
+      node.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = state.resetAll ? 'Zerar todas' : 'Zerar horas';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Modal de sessões                                                    */
   /* ------------------------------------------------------------------ */
 
@@ -1462,7 +1506,52 @@
   $('block-cancel').addEventListener('click', () => $('block-modal').close());
   $('remove-form').addEventListener('submit', submitRemove);
   $('remove-cancel').addEventListener('click', () => $('remove-modal').close());
+  $('reset-form').addEventListener('submit', submitReset);
+  $('reset-cancel').addEventListener('click', () => $('reset-modal').close());
+  $('reset-all-hours').addEventListener('click', () => openReset(null));
+  bindSectionNav();
   $('name-discord').addEventListener('click', () => submitName(''));
+
+  /* ------------------------------------------------------------------ */
+  /* Navegação entre as seções                                           */
+  /* ------------------------------------------------------------------ */
+
+  function bindSectionNav() {
+    const nav = $('section-nav');
+    if (!nav) return;
+    const links = Array.from(nav.querySelectorAll('.nav-item'));
+    const sections = links
+      .map((link) => document.getElementById(link.dataset.section))
+      .filter(Boolean);
+    if (!sections.length) return;
+
+    const activate = (id) => {
+      for (const link of links) link.classList.toggle('active', link.dataset.section === id);
+    };
+
+    for (const link of links) {
+      link.addEventListener('click', () => activate(link.dataset.section));
+    }
+
+    // Marca a seção visível conforme a rolagem (sem depender de IntersectionObserver).
+    const nextFrame =
+      typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => fn();
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      nextFrame(() => {
+        ticking = false;
+        const reference = 140; // altura do cabeçalho + navegação
+        let current = sections[0];
+        for (const section of sections) {
+          if (section.getBoundingClientRect().top <= reference) current = section;
+        }
+        activate(current.id);
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
 
   // Sessão existente? Abre direto no painel.
   (async () => {
