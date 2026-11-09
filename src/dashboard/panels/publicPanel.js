@@ -133,7 +133,9 @@ function statusInfo({ open, availableStaff, nextOpen }) {
   }
   return {
     indicator: '🟡',
-    headline: 'ATENDIMENTO INDISPONÍVEL',
+    // Mesma palavra do painel de referência: a fila está aberta, o que falta é
+    // alguém da equipe entrar em serviço.
+    headline: 'AGUARDANDO STAFF',
     note: 'Fila aberta • aguardando staff disponível',
   };
 }
@@ -169,21 +171,20 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   /**
    * Caixa de indicador: rótulo pequeno em cima, número grande embaixo.
    *
-   * O Discord não permite aninhar containers, então cada caixa é um container
-   * próprio na mensagem — empilhados, eles formam o mesmo bloqueio visual da
-   * referência (uma caixa embaixo da outra) e o número ganha o dobro do corpo
-   * do texto normal.
+   * A referência mostra os quatro indicadores lado a lado; a API do Discord não
+   * tem colunas (containers não podem ser aninhados nem dividir a linha), então
+   * os três ficam **no mesmo bloco**, um abaixo do outro — é o mais próximo
+   * possível de "um agrupamento de indicadores" em vez de três caixas soltas.
    */
-  const metricBox = (label, value) =>
-    card(null, [text([`-# ${label}`, `# ${value}`].join('\n'))]);
+  const metric = (label, value) => text([`-# ${label}`, `# ${value}`].join('\n'));
 
   const components = [
-    // Caixa principal: título, status (com o relógio à direita) e horário.
+    // Caixa de status: título, estado (com o relógio à direita) e a nota.
     card(open && available > 0 ? COLORS.SUCCESS : open ? COLORS.WARNING : COLORS.ACCENT, [
       text(`## ${titleWithIcon(settings.message_panel_title)}`),
       section(
         [
-          text(`-# STATUS DA CENTRAL`),
+          text('-# STATUS DA CENTRAL'),
           text(`# ${status.headline}`),
           text(`-# ${status.note}`),
         ],
@@ -191,18 +192,18 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
       ),
     ]),
 
-    // Horário em caixa própria (a referência mostra status e horário separados).
-    card(null, [text(['-# **HORÁRIO DE ATENDIMENTO**', ...scheduleLines].join('\n'))]),
-
-    // Indicadores: só com a central aberta (fechada, o painel mostra apenas o
-    // status e o horário, como na referência).
-    ...(open
-      ? [
-          metricBox('NA FILA', state.waiting.length),
-          metricBox('STAFFS DISPONÍVEIS', available),
-          metricBox('EM ANDAMENTO', state.serving.length),
-        ]
-      : []),
+    // Corpo: indicadores e horário no mesmo bloco (fechada, só o horário).
+    card(null, [
+      ...(open
+        ? [
+            metric('NA FILA', state.waiting.length),
+            metric('STAFFS DISPONÍVEIS', available),
+            metric('EM ANDAMENTO', state.serving.length),
+            separator(1),
+          ]
+        : []),
+      text(['-# **HORÁRIO DE ATENDIMENTO**', ...scheduleLines].join('\n')),
+    ]),
 
     // Rodapé: texto à esquerda, botão à direita.
     card(COLORS.ACCENT, [

@@ -216,28 +216,27 @@ Todos os painéis e botões usam a mesma paleta (fonte única: `src/config/theme
 
 ## Estilo do painel público
 
-O painel público usa **Components V2** (`panel_style=modern`) em **caixas empilhadas**, uma por
-informação:
+O painel público usa **Components V2** (`panel_style=modern`) em **três caixas**:
 
 | Ordem | Caixa | Conteúdo |
 | --- | --- | --- |
 | 1 | **status** | cabeçalho 🎧 + título, rótulo *STATUS DA CENTRAL*, manchete grande e o **relógio** à direita |
-| 2 | **horário** | *HORÁRIO DE ATENDIMENTO* com as janelas agrupadas por dia |
-| 3–5 | **indicadores** | *NA FILA*, *STAFFS DISPONÍVEIS* e *EM ANDAMENTO*, cada um em sua caixa (rótulo pequeno + número grande) |
-| 6 | **rodapé** | *Fila por canal de voz* + botão **Entrar na Fila** e a dica de `/sair` `/posicao` |
+| 2 | **corpo** | *NA FILA*, *STAFFS DISPONÍVEIS* e *EM ANDAMENTO* (rótulo pequeno + número grande), uma linha divisória e o *HORÁRIO DE ATENDIMENTO* |
+| 3 | **rodapé** | *Fila por canal de voz* + botão **Entrar na Fila**, a dica de `/sair` `/posicao` e o botão de avaliação |
 
-- **Fora do horário** a manchete é **FORA DO HORÁRIO DE ATENDIMENTO** e as caixas de indicador
-  **não aparecem** — sobram o status (com o horário) e o rodapé, como na referência.
-- A barra da caixa de status acompanha o estado: verde (disponível), âmbar (aberta sem staff) ou
-  vermelho (fechada). Horário e indicadores são caixas neutras (sem barra) e o rodapé fica sempre
-  em `#ff2200`.
+- As manchetes de estado são **ATENDIMENTO DISPONÍVEL** (verde), **AGUARDANDO STAFF** (âmbar, fila
+  aberta sem ninguém em serviço) e **FORA DO HORÁRIO DE ATENDIMENTO** (vermelho).
+- **Fora do horário** os indicadores **não aparecem**: o corpo mostra só o horário.
+- A barra da caixa de status acompanha o estado. O corpo é caixa neutra (sem barra) e o rodapé fica
+  sempre em `#ff2200`.
 - O **relógio** é uma arte PNG enviada junto com a mensagem (`assets/central-*.png`, geradas por
   `npm run art`) e exibida como acessório da seção — no Discord não existe largura de imagem
   configurável, então o tamanho é o do arquivo.
 - A espera média continua fora do painel (os números ficam em `/estatisticas`).
 
-> **Limitação da API do Discord:** um container **não pode** ser colocado dentro de outro, então as
-> caixas são containers irmãos empilhados (e não cards lado a lado). A prévia em
+> **Limitação da API do Discord:** containers **não podem ser aninhados** e não existe layout em
+> colunas — os indicadores não podem ficar lado a lado como nos cards da referência. Eles ficam no
+> mesmo bloco, um abaixo do outro, que é o mais próximo possível. A prévia em
 > `npm run preview:panel` é renderizada a partir do payload real do painel.
 
 Prévias locais (abrem no navegador, com os dois painéis):

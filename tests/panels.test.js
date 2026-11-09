@@ -22,13 +22,13 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   // Caixas empilhadas: status + três indicadores + rodapé. O Discord não
   // permite aninhar containers, então cada caixa é um container irmão.
   const boxes = panelCards(message.payload).filter((box) => box.type === 17);
-  assert.equal(boxes.length, 6, 'caixas empilhadas, como na referência');
+  assert.equal(boxes.length, 3, 'status + corpo + rodapé');
 
   const text = panelText(message.payload);
   assert.match(text, /ATENDIMENTO \| VANTUS/);
   assert.ok(!/🎧 🎧/.test(text), 'ícone do cabeçalho não duplica');
   assert.match(text, /STATUS DA CENTRAL/, 'rótulo do bloco de status');
-  assert.match(text, /ATENDIMENTO INDISPONÍVEL/, 'sem staff: indisponível');
+  assert.match(text, /AGUARDANDO STAFF/, 'sem staff: aguardando alguém da equipe');
   assert.match(text, /-# NA FILA\n# 0/, 'indicador em caixa própria, número grande');
   assert.match(text, /-# STAFFS DISPONÍVEIS\n# 0/);
   assert.match(text, /-# EM ANDAMENTO\n# 0/);
@@ -49,8 +49,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   // Cores: caixa de status pelo estado (âmbar sem staff) e rodapé na marca.
   assert.equal(boxes[0].accent_color, 0xf0b429, 'status âmbar: aberta sem staff');
   assert.equal(boxes.at(-1).accent_color, 0xff2200, 'rodapé na cor da marca (#ff2200)');
-  assert.equal(boxes[1].accent_color, undefined, 'a caixa do horário é neutra');
-  assert.equal(boxes[2].accent_color, undefined, 'as caixas de indicador são neutras');
+  assert.equal(boxes[1].accent_color, undefined, 'o corpo (indicadores + horário) é neutro');
 
   // O status usa o relógio grande à direita (section + thumbnail).
   const statusSection = boxes[0].components.find((component) => component.type === 9);

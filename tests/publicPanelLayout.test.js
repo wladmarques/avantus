@@ -52,24 +52,31 @@ const textOf = (container) =>
     .concat(container.components.filter((c) => c.type === 10).map((c) => c.content))
     .join('\n');
 
-test('central aberta: status, horário, três indicadores e o rodapé', () => {
+test('central aberta: status, corpo (indicadores + horário) e rodapé', () => {
   const payload = build({ state: state({ waiting: [1, 2], serving: [1], staffCounts: { DISPONIVEL: 1 } }) });
   const boxes = containers(payload);
 
-  assert.equal(boxes.length, 6, 'status + horário + 3 indicadores + rodapé');
+  assert.equal(boxes.length, 3, 'status + corpo + rodapé');
   assert.deepEqual(
-    boxes.slice(2, 5).map((box) => textOf(box)),
-    ['-# NA FILA\n# 2', '-# STAFFS DISPONÍVEIS\n# 1', '-# EM ANDAMENTO\n# 1'],
+    boxes[1].components.filter((c) => c.type === 10).map((c) => c.content),
+    [
+      '-# NA FILA\n# 2',
+      '-# STAFFS DISPONÍVEIS\n# 1',
+      '-# EM ANDAMENTO\n# 1',
+      '-# **HORÁRIO DE ATENDIMENTO**\n-# Seg–Sex: 12:00 às 02:00\n-# Sáb–Dom: 12:00 às 00:00',
+    ],
+    'indicadores e horário no mesmo bloco, separados por uma linha',
   );
 });
 
-test('central fechada: sem caixas de indicador (só status, horário e rodapé)', () => {
+test('central fechada: sem indicadores (só status, horário e rodapé)', () => {
   const payload = build({ schedule: CLOSED });
   const boxes = containers(payload);
 
   assert.equal(boxes.length, 3);
   assert.ok(!containers(payload).some((box) => /NA FILA/.test(textOf(box))));
   assert.match(textOf(boxes[0]), /FORA DO HORÁRIO/);
+  assert.match(textOf(boxes[1]), /HORÁRIO DE ATENDIMENTO/);
 });
 
 test('o status usa o relógio como imagem à direita (section + thumbnail)', () => {
@@ -101,11 +108,15 @@ test('a imagem é enviada junto com a mensagem e existe no pacote', () => {
   }
 });
 
-test('o horário tem caixa própria, logo abaixo do status', () => {
+test('o horário fica no corpo, abaixo dos indicadores', () => {
   const boxes = containers(build());
   assert.match(textOf(boxes[1]), /HORÁRIO DE ATENDIMENTO/);
   assert.match(textOf(boxes[1]), /Seg–Sex/);
   assert.ok(!/HORÁRIO DE ATENDIMENTO/.test(textOf(boxes[0])), 'o status não repete o horário');
+  assert.ok(
+    boxes[1].components.some((c) => c.type === 14),
+    'uma linha separa os indicadores do horário',
+  );
 });
 
 test('o rodapé mantém o botão de entrada e a avaliação', () => {
@@ -124,10 +135,10 @@ test('com staff disponível o botão de entrada libera', () => {
   assert.equal(footer.components.find((c) => c.type === 9).accessory.disabled, false);
 });
 
-test('todo container tem barra de destaque ou é a caixa neutra dos indicadores', () => {
+test('só status e rodapé têm barra colorida', () => {
   const boxes = containers(build({ state: state({ staffCounts: { DISPONIVEL: 1 } }) }));
   const semAccent = boxes.filter((box) => box.accent_color === undefined);
-  assert.equal(semAccent.length, 4, 'horário e os três indicadores são caixas neutras');
+  assert.equal(semAccent.length, 1, 'o corpo (indicadores + horário) é neutro');
 });
 
 test('nenhum container é aninhado (a API não permite)', () => {
