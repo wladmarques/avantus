@@ -319,6 +319,9 @@ A tabela de staff do painel web é dividida em dois grupos:
 | **Escala fixa** | staff com algum cargo de `staff_panel_role_ids` (ex. `1566903220968624188`) | têm horário de atendimento cadastrado e são cobrados por ele |
 | **Apoio** | todo o resto da equipe | atendem em horários aleatórios, sem escala fixa |
 
+- A tabela do painel web é a **união** de duas fontes, igual à EQUIPE do Discord: todos os staff
+  cadastrados (`staff_status`, que formam o grupo *Apoio* quando não têm o cargo) **+** os membros que
+  têm o cargo e nunca entraram em serviço (grupo *Escala fixa*, com `sem escala`).
 - O agrupamento usa o **mesmo** `staff_panel_role_ids` do painel do Discord — um só lugar para configurar.
 - Os cargos são sincronizados do Discord no `/api/overview` (throttle interno de 20s); falha de API não
   quebra o painel, o cache anterior continua valendo.

@@ -587,8 +587,21 @@ class HourBankService {
       shiftsByUser.get(shift.userId).push(shift);
     }
 
+    // Base da lista: **todos** os staff cadastrados + quem tem o cargo da
+    // equipe no Discord e ainda não tem status (`staff_panel_role_ids`).
+    //
+    // Só `list()` escondia quem tem o cargo e nunca entrou em serviço (aparecia
+    // na EQUIPE do Discord e sumia do painel web). Só `listForPanel()` escondia
+    // os staff sem o cargo, que aqui formam o grupo "apoio".
+    const registered = this.staff.list(guildId);
+    const rosterOnly =
+      typeof this.staff.rosterOnly === 'function'
+        ? this.staff.rosterOnly(guildId, { exclude: new Set(registered.map((row) => row.userId)) })
+        : [];
+    const baseRows = [...registered, ...rosterOnly];
+
     const staffRows = new Map();
-    for (const row of this.staff.list(guildId)) {
+    for (const row of baseRows) {
       staffRows.set(row.userId, {
         userId: row.userId,
         staffName: null,

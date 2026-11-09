@@ -205,3 +205,69 @@ test('rosterIds lista apenas quem tem o cargo configurado', async (t) => {
   assert.ok(!ids.has(APOIO));
   assert.ok(!ids.has(SEM_CARGO_NA_ESCALA));
 });
+
+test('quem tem o cargo e nunca entrou em serviço aparece no painel web', async (t) => {
+  // Regressão: o painel web montava a lista a partir de `staff_status` e
+  // escondia quem só tinha o cargo — aparecia na EQUIPE do Discord e sumia
+  // do painel web.
+  const env = await createTestEnv({ staff: false });
+  t.after(env.cleanup);
+  const panel = await startPanel(env);
+  t.after(() => panel.close());
+
+  const SO_CARGO = '960000000000003001';
+  const JA_EM_SERVICO = '960000000000003002';
+  const SEM_CARGO = '960000000000003003';
+
+  member(env, SO_CARGO, [ROLE], { name: 'so-cargo' });
+  member(env, JA_EM_SERVICO, [ROLE], { name: 'ja-servico' });
+  member(env, SEM_CARGO, ['123456789012345678'], { name: 'sem-cargo' });
+
+  // Só um dos três tem linha em staff_status.
+  await env.services.staff.setStatus({
+    guildId: env.guildId,
+    userId: JA_EM_SERVICO,
+    status: 'INDISPONIVEL',
+    updatedBy: 'teste',
+    manual: true,
+  });
+
+  await env.services.settings.set('staff_panel_role_ids', [ROLE]);
+  await env.services.staff.refreshRoleCache(env.guildId, { force: true });
+
+  const { cookie } = await panel.login();
+  const response = await panel.call('/api/overview', { cookie });
+  assert.equal(response.status, 200);
+
+  const byUser = new Map(response.json.staff.map((row) => [row.userId, row]));
+  assert.ok(byUser.has(SO_CARGO), 'quem só tem o cargo aparece no painel web');
+  assert.equal(byUser.get(SO_CARGO).group, 'ESCALA');
+  assert.equal(byUser.get(SO_CARGO).statusLabel, 'INDISPONÍVEL');
+  assert.equal(byUser.get(SO_CARGO).shifts.length, 0, 'sem escala cadastrada');
+  assert.equal(byUser.get(JA_EM_SERVICO).group, 'ESCALA');
+  assert.ok(!byUser.has(SEM_CARGO), 'sem o cargo continua fora da tabela');
+
+  assert.equal(response.json.roster.members, 2, 'cache achou os dois com o cargo');
+});
+
+test('painel web e EQUIPE do Discord mostram as mesmas pessoas', async (t) => {
+  const env = await createTestEnv({ staff: false });
+  t.after(env.cleanup);
+  const panel = await startPanel(env);
+  t.after(() => panel.close());
+
+  const IDS = ['960000000000004001', '960000000000004002', '960000000000004003'];
+  for (const userId of IDS) member(env, userId, [ROLE], { name: `staff-${userId}` });
+  await env.services.settings.set('staff_panel_role_ids', [ROLE]);
+  await env.services.staff.refreshRoleCache(env.guildId, { force: true });
+
+  const { cookie } = await panel.login();
+  const web = await panel.call('/api/overview', { cookie });
+  const discordList = env.services.staff.listForPanel(env.guildId);
+
+  assert.deepEqual(
+    web.json.staff.map((row) => row.userId).sort(),
+    discordList.map((row) => row.userId).sort(),
+    'mesma lista nos dois painéis',
+  );
+});

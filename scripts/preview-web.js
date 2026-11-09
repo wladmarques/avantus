@@ -133,6 +133,14 @@ async function main() {
     });
   }
 
+  // Staff com o cargo que NUNCA entrou em serviço: antes sumia do painel web
+  // (não tinha linha em staff_status). Aparece em "Escala fixa" com "sem escala".
+  gateway.members.set('900000000000000006', {
+    inGuild: true,
+    displayName: 'escala.sem-status',
+    staffRoles: [ROSTER_ROLE],
+  });
+
   // Exemplo de nome resolvido automaticamente pelo Discord (membro do servidor).
   // Este NÃO tem o cargo: entra no grupo "apoio", com atendimentos aleatórios.
   gateway.members.set('900000000000000005', {

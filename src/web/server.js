@@ -427,11 +427,14 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
   function rosterPayload(guildId) {
     const roleIds = services.staff?.panelRoleIds?.() ?? [];
     const info = services.staff?.roleCacheInfo?.(guildId) ?? null;
+    const rosterIds = services.staff?.rosterIds?.(guildId) ?? null;
     return {
       roleIds,
       // `false` = ainda sem cache: o painel cai na regra "tem turno cadastrado".
       synced: Boolean(info?.synced),
       error: info?.error ?? null,
+      // Quantos membros com o cargo o cache encontrou (diagnóstico do painel).
+      members: rosterIds ? rosterIds.size : 0,
     };
   }
 
