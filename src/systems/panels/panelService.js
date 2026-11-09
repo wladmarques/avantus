@@ -29,6 +29,12 @@ class PanelService {
     this._refreshing = new Set();
   }
 
+  /** Intervalo da atualização automática, usado no rodapé dos painéis. */
+  get refreshSeconds() {
+    const value = Number(this.settings.get('panel_refresh_seconds'));
+    return Number.isFinite(value) && value >= 10 ? value : 30;
+  }
+
   buildPayload(guildId, key) {
     const state = this.engine.getState(guildId);
     const openInfo = this.schedule.isOpen(guildId);
@@ -49,6 +55,7 @@ class PanelService {
           schedule: this.schedule.getSchedule(guildId),
         },
         iconUrl: this.gateway.guildIconUrl ? this.gateway.guildIconUrl(guildId) : null,
+        refreshSeconds: this.refreshSeconds,
       });
       return { state, payload: built.payload, format: built.format };
     }
@@ -62,6 +69,7 @@ class PanelService {
         schedule: openInfo,
         todayWindow,
         escalas: this.staffSchedules(guildId),
+        refreshSeconds: this.refreshSeconds,
       }),
       format: 'embed',
     };

@@ -259,6 +259,10 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
 - **Quem tem o cargo aparece sempre**: a EQUIPE é a união de quem já entrou em serviço com quem tem o
   cargo no Discord. Membro com o cargo e sem status registrado entra em **FORA DE SERVIÇO** com
   `sem escala` — não fica invisível até o primeiro turno.
+- **Rodapé enxuto**: `Painel restrito à equipe • atualiza a cada 30s`. A marca já está no título e a
+  hora vem do `timestamp` do embed (o "Hoje às 11:07" que o Discord cola no fim do rodapé) — repetir
+  "VANTUS", "Central de Atendimento" e "Atualização automática" só duplicava informação. O valor de
+  segundos segue `panel_refresh_seconds`.
 - Os botões ficam em **duas linhas** (`CHAMAR · ESCOLHER · PULAR · DEVOLVER · FINALIZAR` e
   `ATUALIZAR · MEU STATUS · REATIVAR · REMOVER`). Os rótulos têm todos **5 a 10 caracteres** de
   propósito: o Discord dimensiona o botão pelo texto, então tamanhos parecidos mantêm as colunas

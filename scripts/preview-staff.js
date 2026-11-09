@@ -87,6 +87,7 @@ function build() {
     todayWindow: { text: '12:00 às 02:00' },
     now,
     escalas: state.escalas,
+    refreshSeconds: 30,
   });
   return { payload, state };
 }
