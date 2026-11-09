@@ -164,14 +164,64 @@ test('turno em andamento aparece como "em turno até"', async (t) => {
   assert.ok(team.includes(`<@${DISPONIVEL_1}> — em turno até 20:00`));
 });
 
-test('disponível aparece antes de em atendimento dentro de DE SERVIÇO', async (t) => {
+test('empate de horário: status desempata (disponível antes de em atendimento)', async (t) => {
   const env = await envComEquipe(t);
   const { team } = render(env);
 
-  const deServico = team.split('**FORA DE SERVIÇO')[0];
+  // Nenhum dos dois tem escala: ambos caem no fim, e o status decide.
+  const deServico = team.slice(0, team.indexOf('**FORA DE SERVIÇO'));
   assert.ok(
     deServico.indexOf(`<@${DISPONIVEL_1}>`) < deServico.indexOf(`<@${ATENDENDO}>`),
     'disponíveis vêm primeiro',
+  );
+});
+
+test('EQUIPE é ordenada pelo horário da escala, do mais cedo para o mais tarde', async (t) => {
+  const env = await envComEquipe(t);
+  // Cadastrados de propósito fora de ordem alfabética e de status.
+  await schedule(env, AUSENTE, [{ weekday: FRIDAY, start: '19:12', end: '20:24' }]);
+  await schedule(env, DISPONIVEL_2, [{ weekday: FRIDAY, start: '13:12', end: '14:24' }]);
+  await schedule(env, INDISPONIVEL, [{ weekday: FRIDAY, start: '16:48', end: '18:00' }]);
+  await schedule(env, BLOQUEADO, [{ weekday: FRIDAY, start: '15:36', end: '16:48' }]);
+  await schedule(env, DISPONIVEL_1, [{ weekday: FRIDAY, start: '20:24', end: '21:36' }]);
+  await schedule(env, ATENDENDO, [{ weekday: FRIDAY, start: '12:00', end: '16:00' }]);
+
+  const { team } = render(env);
+  const marcador = '**FORA DE SERVIÇO';
+  const deServico = team.slice(0, team.indexOf(marcador));
+  const fora = team.slice(team.indexOf(marcador));
+
+  const ordem = (bloco) =>
+    bloco
+      .split('\n')
+      .filter((linha) => linha.includes('<@'))
+      .map((linha) => /<@(\d+)>/.exec(linha)[1]);
+
+  assert.deepEqual(ordem(deServico), [ATENDENDO, DISPONIVEL_2, DISPONIVEL_1], '12:00 → 13:12 → 20:24');
+  assert.deepEqual(ordem(fora), [BLOQUEADO, INDISPONIVEL, AUSENTE], '15:36 → 16:48 → 19:12');
+});
+
+test('quem não tem escala vai para o fim do grupo', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, DISPONIVEL_2, [{ weekday: FRIDAY, start: '22:00', end: '23:00' }]);
+
+  const { team } = render(env);
+  const deServico = team.slice(0, team.indexOf('**FORA DE SERVIÇO'));
+  const linhas = deServico.split('\n').filter((l) => l.includes('<@'));
+  assert.ok(linhas[0].includes(`<@${DISPONIVEL_2}>`), 'o único com escala hoje vem primeiro');
+  assert.ok(linhas.at(-1).includes('sem escala'), 'sem escala fica no fim');
+});
+
+test('a ordenação por escala vale também para FORA DE SERVIÇO', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, AUSENTE, [{ weekday: FRIDAY, start: '21:00', end: '22:00' }]);
+  await schedule(env, INDISPONIVEL, [{ weekday: FRIDAY, start: '09:00', end: '10:00' }]);
+
+  const { team } = render(env);
+  const fora = team.slice(team.indexOf('**FORA DE SERVIÇO'));
+  assert.ok(
+    fora.indexOf(`<@${INDISPONIVEL}>`) < fora.indexOf(`<@${AUSENTE}>`),
+    '09:00 antes de 21:00',
   );
 });
 

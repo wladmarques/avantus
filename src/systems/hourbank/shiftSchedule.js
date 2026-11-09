@@ -212,7 +212,7 @@ function dayPrefixFor(startTs, reference, timeZone = undefined) {
 }
 
 /**
- * Resumo curto da escala de um staff, para o bloco EQUIPE do painel.
+ * Resumo da escala de um staff para o bloco EQUIPE do painel.
  *
  * Substitui o rótulo de status (DISPONÍVEL/INDISPONÍVEL): o grupo já diz quem
  * está de serviço, então a linha mostra **quando** a pessoa trabalha.
@@ -223,28 +223,50 @@ function dayPrefixFor(startTs, reference, timeZone = undefined) {
  * 3. próximo turno em até `horizonDays` → `amanhã 14:00 às 22:00` / `Qua 14:00 às 22:00`
  * 4. nenhum turno → `sem escala`
  *
+ * Além do texto, devolve `sortKey`: o início do turno que gerou a linha. É o que
+ * ordena a EQUIPE no painel — quem trabalha mais cedo aparece primeiro, quem
+ * não tem escala vai para o fim.
+ *
  * @param {Array<object>} shifts turnos do staff (`toShift`)
- * @returns {string} texto pronto para o painel
+ * @returns {{label: string, sortKey: number, hasShift: boolean}}
  */
-function describeSchedule(shifts, now = new Date(), { horizonDays = 7, timeZone = undefined } = {}) {
+function scheduleSummary(shifts, now = new Date(), { horizonDays = 7, timeZone = undefined } = {}) {
   const list = Array.isArray(shifts) ? shifts.filter(Boolean) : [];
-  if (list.length === 0) return 'sem escala';
+  const semEscala = { label: 'sem escala', sortKey: Number.POSITIVE_INFINITY, hasShift: false };
+  if (list.length === 0) return semEscala;
 
   const ts = now instanceof Date ? now.getTime() : Number(now);
 
   const active = findActiveShift(list, ts, timeZone);
-  if (active) return `em turno até ${active.shift.end}`;
+  if (active) {
+    return { label: `em turno até ${active.shift.end}`, sortKey: active.startTs, hasShift: true };
+  }
 
   const todayWeekday = weekdayOf(ts, 0, timeZone);
   const today = list
     .filter((shift) => shift.weekday === todayWeekday && shiftAppliesToWeek(shift, ts, timeZone))
     .sort((a, b) => a.startMinutes - b.startMinutes);
-  if (today.length) return `hoje ${today.map(windowLabel).join(' / ')}`;
+  if (today.length) {
+    const first = today[0];
+    const startTs = occurrenceFor(first, ts, 0, timeZone).startTs;
+    return { label: `hoje ${today.map(windowLabel).join(' / ')}`, sortKey: startTs, hasShift: true };
+  }
 
   const next = findNextShift(list, ts, { horizonMs: horizonDays * 24 * 3600000, timeZone });
-  if (next) return `${dayPrefixFor(next.startTs, ts, timeZone)} ${windowLabel(next.shift)}`;
+  if (next) {
+    return {
+      label: `${dayPrefixFor(next.startTs, ts, timeZone)} ${windowLabel(next.shift)}`,
+      sortKey: next.startTs,
+      hasShift: true,
+    };
+  }
 
-  return 'sem escala';
+  return semEscala;
+}
+
+/** Texto do resumo da escala (ver `scheduleSummary`). */
+function describeSchedule(shifts, now = new Date(), options = {}) {
+  return scheduleSummary(shifts, now, options).label;
 }
 
 /**
@@ -283,6 +305,7 @@ module.exports = {
   localDayShifted,
   shiftsByWeekday,
   describeSchedule,
+  scheduleSummary,
   windowLabel,
   latenessFor,
   earlyLeaveFor,

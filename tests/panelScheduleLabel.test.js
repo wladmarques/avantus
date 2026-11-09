@@ -9,7 +9,12 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { describeSchedule, toShift, weekParity } = require('../src/systems/hourbank/shiftSchedule');
+const {
+  describeSchedule,
+  scheduleSummary,
+  toShift,
+  weekParity,
+} = require('../src/systems/hourbank/shiftSchedule');
 const { tzParts } = require('../src/utils/time');
 
 // Sexta-feira, 12:00 em America/Sao_Paulo (fuso padrão do ambiente de teste).
@@ -111,4 +116,33 @@ test('janela do próximo turno é limitada: semana inteira sem turno → "sem es
     describeSchedule([shift((FRIDAY + 2) % 7, '06:00', '08:00', { parity: other })], NOW, horizon),
     'sem escala',
   );
+});
+
+test('scheduleSummary devolve a chave de ordenação: início do turno mostrado', () => {
+  const summary = scheduleSummary([shift(FRIDAY, '14:00', '22:00')], NOW, { timeZone: TZ });
+  assert.equal(summary.label, 'hoje 14:00 às 22:00');
+  assert.equal(summary.hasShift, true);
+  const inicio = new Date(summary.sortKey);
+  assert.equal(tzParts(inicio, TZ).hour, 14);
+  assert.equal(tzParts(inicio, TZ).weekday, FRIDAY);
+});
+
+test('dois turnos no dia: a chave de ordenação é o mais cedo', () => {
+  const shifts = [shift(FRIDAY, '18:00', '22:00', { id: 2 }), shift(FRIDAY, '08:00', '12:00', { id: 1 })];
+  const summary = scheduleSummary(shifts, NOW, { timeZone: TZ });
+  assert.equal(tzParts(new Date(summary.sortKey), TZ).hour, 8);
+});
+
+test('sem escala: chave infinita (vai para o fim da lista)', () => {
+  const summary = scheduleSummary([], NOW, { timeZone: TZ });
+  assert.equal(summary.label, 'sem escala');
+  assert.equal(summary.sortKey, Number.POSITIVE_INFINITY);
+  assert.equal(summary.hasShift, false);
+});
+
+test('turno de amanhã ordena depois de qualquer turno de hoje', () => {
+  const hoje = scheduleSummary([shift(FRIDAY, '22:00', '23:00')], NOW, { timeZone: TZ });
+  const amanha = scheduleSummary([shift((FRIDAY + 1) % 7, '08:00', '12:00')], NOW, { timeZone: TZ });
+  assert.ok(amanha.sortKey > hoje.sortKey);
+  assert.equal(amanha.label, 'amanhã 08:00 às 12:00');
 });

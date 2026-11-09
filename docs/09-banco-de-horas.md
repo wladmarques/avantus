@@ -299,6 +299,11 @@ Regras do texto (`describeSchedule`, `systems/hourbank/shiftSchedule.js`):
 
 - O revezamento de fim de semana (grupos A/B) é respeitado: um turno da semana oposta não aparece
   como "hoje".
+- **Ordem da lista**: a EQUIPE é ordenada pelo horário mostrado, do turno mais cedo para o mais tarde
+  (`13:12 → 15:36 → 16:48 → 20:24`). O `scheduleSummary()` devolve `sortKey` = início do turno que
+  gerou a linha; turno de amanhã fica depois de qualquer turno de hoje e `sem escala` (chave infinita)
+  vai para o fim do grupo. Empate de horário desempata por status e depois por id, para a lista não
+  ficar trocando de ordem a cada atualização.
 - Os rótulos DISPONÍVEL / INDISPONÍVEL / AUSENTE saíram da linha — o grupo *DE SERVIÇO* /
   *FORA DE SERVIÇO* já informa a disponibilidade. Continuam apenas `• em atendimento` e
   `• bloqueado`, que não são disponibilidade.

@@ -47,12 +47,19 @@ function demoState() {
     { userId: '900000000000000004', status: 'INDISPONIVEL', blocked: false, meta: { emoji: '⚫', label: 'INDISPONÍVEL' } },
   ];
 
-  // Escala de cada staff (o painel mostra o horário do turno no lugar do status).
+  // Escala de cada staff (o painel mostra o horário do turno no lugar do status
+  // e ordena a EQUIPE por esse horário). `sortKey` = início do turno.
+  const hoje = (hhmm) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date(now);
+    d.setHours(h, m, 0, 0);
+    return d.getTime();
+  };
   const escalas = new Map([
-    ['900000000000000001', 'hoje 12:00 às 20:00'],
-    ['900000000000000002', 'hoje 14:00 às 22:00'],
-    ['900000000000000003', 'amanhã 14:00 às 22:00'],
-    ['900000000000000004', 'sem escala'],
+    ['900000000000000001', { label: 'hoje 12:00 às 20:00', sortKey: hoje('12:00') }],
+    ['900000000000000002', { label: 'hoje 14:00 às 22:00', sortKey: hoje('14:00') }],
+    ['900000000000000003', { label: 'amanhã 14:00 às 22:00', sortKey: hoje('14:00') + 86400000 }],
+    ['900000000000000004', { label: 'sem escala', sortKey: Number.POSITIVE_INFINITY }],
   ]);
   return {
     waiting,

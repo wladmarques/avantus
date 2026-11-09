@@ -31,8 +31,8 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/interactions.test.js` | botão entrar, bloqueio de permissão, chamar próximo, menu de seleção, modal de remoção, avaliação |
 | `tests/waitAlert.test.js` | aviso de espera longa: DM para staff disponível após 3 min, uma vez por jogador, sem avisar quem está fora de serviço/bloqueado, limite configurável e `0` desliga |
 | `tests/hoursReset.test.js` | painel web: zerar horas de um staff e de toda a equipe, sessão em andamento reiniciada (não apagada), login obrigatório e auditoria `HOURS_RESET` |
-| `tests/staffPanelGroups.test.js` | EQUIPE separada em DE SERVIÇO / FORA DE SERVIÇO: quem entra em cada grupo, bloqueado nunca como de serviço, ordem interna, horário da escala na linha (hoje/amanhã/em turno/sem escala), textos de grupo vazio e corte da lista longa |
-| `tests/panelScheduleLabel.test.js` | `describeSchedule`: turno em andamento, dois turnos no dia, virada de madrugada, próximo dia, dia da semana, revezamento A/B e `sem escala` |
+| `tests/staffPanelGroups.test.js` | EQUIPE separada em DE SERVIÇO / FORA DE SERVIÇO: quem entra em cada grupo, bloqueado nunca como de serviço, ordem interna, horário da escala na linha (hoje/amanhã/em turno/sem escala) e **ordem da lista pelo horário da escala**, textos de grupo vazio e corte da lista longa |
+| `tests/panelScheduleLabel.test.js` | `scheduleSummary`/`describeSchedule`: turno em andamento, dois turnos no dia, virada de madrugada, próximo dia, dia da semana, revezamento A/B e `sem escala` |
 | `tests/staffPanelRoles.test.js` | filtro da EQUIPE por cargo + resiliência do cache (falha/vazio não esvazia o painel), throttle da sincronização, `roleCacheInfo` do `/diagnostico` |
 | `tests/staffServiceStatus.test.js` | entrar na call não coloca o staff em serviço (nem abre sessão do banco de horas), staff fora de serviço não chama jogador, chamada após definir Disponível, `allow_staff_multi` |
 | `tests/noWaitKick.test.js` | o bot nunca tira o jogador do canal de espera (sair da fila, remoção pela equipe, fechar a central, tempo esgotado), volta imediata liberada e ausência do bloqueio de reentrada |
