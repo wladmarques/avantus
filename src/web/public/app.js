@@ -19,6 +19,8 @@
     timer: null,
     // Grupo do revezamento da semana (A/B) — vem do /api/overview.
     weekParity: null,
+    // Não entrada em serviço (faltas/atrasos de turno).
+    absences: [],
   };
 
   const $ = (id) => document.getElementById(id);
@@ -433,6 +435,88 @@
       card.appendChild(list);
       container.appendChild(card);
     }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Presença (não entrada em serviço)                                   */
+  /* ------------------------------------------------------------------ */
+
+  const ABSENCE_BADGE = { FALTOU: 'Faltou', ATRASADO: 'Em atraso', ATRASOU: 'Compareceu' };
+
+  /** Linha da tabela de ausências. */
+  function absenceRow(absence) {
+    const row = el('tr');
+
+    const day = el('td');
+    day.appendChild(el('span', 'absence-day', absence.day));
+    row.appendChild(day);
+
+    const who = el('td');
+    const box = el('div', 'who');
+    box.appendChild(el('strong', null, absence.staffName || 'Sem nome'));
+    box.appendChild(el('span', null, `ID ${absence.userId}`));
+    who.appendChild(box);
+    row.appendChild(who);
+
+    row.appendChild(el('td', null, `${absence.startLabel} às ${absence.endLabel}`));
+
+    const situation = el('td');
+    situation.appendChild(
+      el('span', `absence-badge ${absence.status.toLowerCase()}`, ABSENCE_BADGE[absence.status] || absence.status),
+    );
+    situation.appendChild(el('span', 'absence-detail', ` ${absence.statusLabel}`));
+    row.appendChild(situation);
+
+    const registered = el('td', 'absence-registered');
+    registered.appendChild(el('strong', null, absence.detectedLabel));
+    if (absence.returnedLabel) {
+      registered.appendChild(el('span', null, ` • chegou ${absence.returnedLabel}`));
+    }
+    row.appendChild(registered);
+
+    return row;
+  }
+
+  /** Preenche a seção Presença (cartões + tabela). */
+  function renderAbsences(overview) {
+    const absences = Array.isArray(overview.absences) ? overview.absences : [];
+    const summary = overview.absencesSummary || {};
+    state.absences = absences;
+
+    const alert = overview.absenceAlert || {};
+    const rule = $('absence-rule');
+    if (rule) {
+      if (!alert.graceMinutes) {
+        rule.textContent = 'Registro automático desligado (hour_bank_absence_minutes = 0).';
+      } else {
+        const roles = (alert.roleIds || []).length
+          ? `os cargos ${alert.roleIds.join(', ')}`
+          : 'nenhum cargo (aviso desligado)';
+        rule.textContent =
+          `Registra após ${alert.graceMinutes} min do início do turno e avisa ${roles} no Discord.`;
+      }
+    }
+
+    $('stat-absences-missed').textContent = String(summary.missed ?? 0);
+    $('stat-absences-late').textContent = String(summary.late ?? 0);
+    $('stat-absences-showed').textContent = String(summary.showed ?? 0);
+    $('stat-absences-minutes').textContent = summary.lateMinutes ? fmtMinutes(summary.lateMinutes) : '—';
+
+    const body = $('absence-body');
+    const empty = $('absence-empty');
+    body.textContent = '';
+    if (!absences.length) {
+      const row = el('tr');
+      const cell = el('td', 'empty', 'Nenhuma falta ou atraso registrado no período.');
+      cell.colSpan = 5;
+      row.appendChild(cell);
+      body.appendChild(row);
+      if (empty) empty.hidden = true;
+      return;
+    }
+
+    if (empty) empty.hidden = true;
+    for (const absence of absences) body.appendChild(absenceRow(absence));
   }
 
   function renderStats(overview) {
@@ -880,6 +964,7 @@
       $('guild').textContent = overview.guildId ? `Servidor ${overview.guildId}` : '';
       renderStats(overview);
       renderStaff(overview);
+      renderAbsences(overview);
       renderScheduleList(overview.staff);
       await loadEvaluations();
       if (!silent) toast('Dados atualizados.');
@@ -1541,6 +1626,7 @@
       state.weekParity = overview.weekParity || null;
       renderStats(overview);
       renderStaff(overview);
+      renderAbsences(overview);
       renderScheduleList(overview.staff);
       await loadWebhook();
       await loadEvaluations();

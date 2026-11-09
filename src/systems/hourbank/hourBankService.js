@@ -12,7 +12,15 @@
  * - Aviso por DM configurável (padrão 5 minutos) antes do turno começar.
  */
 const { createLogger } = require('../../utils/logger');
-const { formatDuration, formatTime, formatDate, dayKey, startOfDay, addDays, tzParts } = require('../../utils/time');
+const {
+  formatDuration,
+  formatTime,
+  formatDate,
+  dayKey,
+  startOfDay,
+  addDays,
+  tzParts,
+} = require('../../utils/time');
 const { STAFF_STATUS } = require('../../config/theme');
 const {
   normalizeShift,
@@ -24,6 +32,9 @@ const {
   latenessFor,
   earlyLeaveFor,
   minutesToHHMM,
+  occurrenceFor,
+  weekdayOf,
+  shiftAppliesToWeek,
 } = require('./shiftSchedule');
 
 const logger = createLogger('hourbank');
@@ -65,6 +76,41 @@ class HourBankService {
   get reminderMinutes() {
     const value = Number(this.settings.get('hour_bank_reminder_minutes'));
     return Number.isFinite(value) && value >= 0 ? value : DEFAULT_REMINDER_MINUTES;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Não entrada em serviço (faltas e atrasos)                           */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Tolerância (minutos) depois do início do turno antes de registrar que o
+   * staff não entrou em serviço. `0` desliga o registro automático.
+   */
+  get absenceGraceMinutes() {
+    const value = Number(this.settings.get('hour_bank_absence_minutes'));
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(240, Math.round(value));
+  }
+
+  /** Janela (horas) para recuperar turnos perdidos enquanto o bot estava fora. */
+  get absenceCatchupHours() {
+    const value = Number(this.settings.get('hour_bank_absence_catchup_hours'));
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return Math.min(72, Math.round(value));
+  }
+
+  /** Cargos avisados no Discord quando alguém não entra em serviço. */
+  get absenceRoleIds() {
+    const value = this.settings.get('hour_bank_absence_role_ids');
+    if (!Array.isArray(value)) return [];
+    return value.filter((id) => /^\d{17,20}$/.test(String(id))).map(String);
+  }
+
+  /** Canal do aviso (vazio = canal do painel da staff). */
+  get absenceChannelId() {
+    const value = this.settings.get('hour_bank_absence_channel_id');
+    if (value && /^\d{17,20}$/.test(String(value))) return String(value);
+    return this.settings.get('staff_channel_id') ?? null;
   }
 
   get maxSessionHours() {
@@ -190,6 +236,15 @@ class HourBankService {
           : null,
       }),
     );
+
+    // Se havia um registro de "não entrou em serviço" para este turno, a
+    // chegada (mesmo atrasada) fecha o ciclo: o painel passa a mostrar
+    // "atrasou X" em vez de "faltou".
+    if (active) {
+      await this.db.transaction(async () =>
+        this.repo.markAbsenceReturnedSync(guildId, userId, { returnedAt: at, lateMinutes }),
+      );
+    }
 
     logger.info(
       `[banco de horas] ${resolvedName ?? userId} começou a contar${lateMinutes ? ` (atraso de ${lateMinutes} min)` : ''}.`,
@@ -323,11 +378,228 @@ class HourBankService {
     return due.length;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Não entrada em serviço                                              */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Ocorrências de turno em que o staff **não entrou em serviço** no horário.
+   *
+   * Regra: passou a tolerância (`hour_bank_absence_minutes`) do início do turno
+   * e nenhuma sessão de trabalho do staff encostou na janela do turno. Quem
+   * começou a contar horas antes do turno (já disponível) conta como presente.
+   *
+   * Turnos que terminaram antes do bot subir também entram, dentro da janela
+   * `hour_bank_absence_catchup_hours` — é o que faz o painel registrar a falta
+   * mesmo se o bot estava reiniciando no horário marcado.
+   *
+   * @returns {Array<{userId: string, staffName: string|null, shift: object,
+   *   startTs: number, endTs: number, dayKey: string, lateMinutes: number,
+   *   ended: boolean}>}
+   */
+  dueAbsences(guildId, now = Date.now()) {
+    const graceMinutes = this.absenceGraceMinutes;
+    if (!graceMinutes) return [];
+    const graceMs = graceMinutes * 60000;
+    const catchupMs = this.absenceCatchupHours * 3600000;
+
+    const shifts = this.listShifts(guildId);
+    if (shifts.length === 0) return [];
+
+    // Staff bloqueado pela administração não pode entrar em serviço: cobrar
+    // falta dele seria injusto (e o painel já mostra o bloqueio).
+    const blocked = new Set();
+    if (typeof this.staff?.list === 'function') {
+      for (const row of this.staff.list(guildId)) {
+        if (row.blocked) blocked.add(row.userId);
+      }
+    }
+
+    const shiftsByUser = new Map();
+    for (const shift of shifts) {
+      if (!shiftsByUser.has(shift.userId)) shiftsByUser.set(shift.userId, []);
+      shiftsByUser.get(shift.userId).push(shift);
+    }
+
+    // Sessões dos últimos dias bastam para saber se o staff apareceu no turno.
+    const sessionsByUser = new Map();
+    const since = now - 2 * 24 * 3600000 - catchupMs;
+    for (const row of this.repo.listSessionsSync(guildId, { from: since, to: now })) {
+      if (!sessionsByUser.has(row.user_id)) sessionsByUser.set(row.user_id, []);
+      sessionsByUser.get(row.user_id).push(row);
+    }
+
+    const due = [];
+    for (const [userId, userShifts] of shiftsByUser) {
+      if (blocked.has(userId)) continue;
+      const sessions = sessionsByUser.get(userId) ?? [];
+      for (const shift of userShifts) {
+        // offset -1 cobre turnos que começaram ontem e viram a meia-noite.
+        for (const offset of [-1, 0]) {
+          if (weekdayOf(now, offset, this.timeZone) !== shift.weekday) continue;
+          const occurrence = occurrenceFor(shift, now, offset, this.timeZone);
+          if (!shiftAppliesToWeek(shift, occurrence.startTs, this.timeZone)) continue;
+          if (now < occurrence.startTs + graceMs) continue;
+          if (now > occurrence.endTs + catchupMs) continue;
+
+          const windowEnd = Math.min(now, occurrence.endTs);
+          const present = sessions.some(
+            (session) =>
+              session.started_at <= windowEnd &&
+              (session.ended_at === null || session.ended_at === undefined || session.ended_at >= occurrence.startTs),
+          );
+          if (present) continue;
+          if (this.repo.findAbsenceSync(guildId, userId, shift.shiftId, occurrence.dayKey)) continue;
+
+          due.push({
+            userId,
+            staffName: shift.staffName ?? null,
+            shift,
+            startTs: occurrence.startTs,
+            endTs: occurrence.endTs,
+            dayKey: occurrence.dayKey,
+            lateMinutes: Math.max(0, Math.round((now - occurrence.startTs) / 60000)),
+            ended: now >= occurrence.endTs,
+          });
+        }
+      }
+    }
+    return due;
+  }
+
+  /** Grava os registros de ausência pendentes (idempotente). */
+  async registerAbsences(guildId, now = Date.now()) {
+    const due = this.dueAbsences(guildId, now);
+    if (due.length === 0) return [];
+    const names = this.names(guildId);
+    const created = [];
+    for (const item of due) {
+      const row = await this.db.transaction(async () =>
+        this.repo.openAbsenceSync(guildId, item.userId, {
+          staffName: names.get(item.userId) ?? item.staffName,
+          shiftId: item.shift.shiftId,
+          shiftDay: item.dayKey,
+          scheduledStart: item.startTs,
+          scheduledEnd: item.endTs,
+          detectedAt: now,
+        }),
+      );
+      if (!row) continue;
+      created.push({ ...item, record: row });
+      logger.warn(
+        `[banco de horas] ${row.staff_name ?? item.userId} não entrou em serviço no turno ` +
+          `${item.shift.start} às ${item.shift.end} (${formatDate(new Date(item.startTs), this.timeZone)}).`,
+      );
+    }
+    return created;
+  }
+
+  /**
+   * Avisa os cargos configurados sobre quem não entrou em serviço.
+   * Cada registro recebe **um** aviso (marcado em `notified_at`), então
+   * reiniciar o bot não repete a mensagem.
+   */
+  async dispatchAbsenceAlerts(guildId, now = Date.now()) {
+    await this.registerAbsences(guildId, now);
+    const pending = this.repo.listPendingAbsencesSync(guildId);
+    if (pending.length === 0) return 0;
+
+    const channelId = this.absenceChannelId;
+    const roleIds = this.absenceRoleIds;
+    if (!channelId || !this.notifications?.shiftAbsence) return 0;
+
+    let sent = 0;
+    for (const row of pending) {
+      try {
+        const lateMinutes = Math.max(0, Math.round((now - row.scheduled_start) / 60000));
+        await this.notifications.shiftAbsence({
+          guildId,
+          channelId,
+          roleIds,
+          userId: row.user_id,
+          staffName: row.staff_name,
+          startsAt: row.scheduled_start,
+          endsAt: row.scheduled_end,
+          lateMinutes,
+          ended: now >= row.scheduled_end,
+        });
+        await this.db.transaction(async () => this.repo.markAbsenceNotifiedSync(row.id, now));
+        sent += 1;
+      } catch (error) {
+        logger.warn(`Falha ao avisar a ausência de ${row.user_id}: ${error.message}`);
+      }
+    }
+    return sent;
+  }
+
+  /** Watcher: registra ausências e avisa os cargos. */
+  async checkAbsences(guildId, now = Date.now()) {
+    if (!this.enabled) return { registered: 0, notified: 0 };
+    try {
+      const registered = await this.registerAbsences(guildId, now);
+      const notified = await this.dispatchAbsenceAlerts(guildId, now);
+      return { registered: registered.length, notified };
+    } catch (error) {
+      logger.error('Falha ao registrar a não entrada em serviço', error);
+      return { registered: 0, notified: 0 };
+    }
+  }
+
+  /**
+   * Lista as ausências do período com o estado já resolvido.
+   *
+   * - `ATRASOU`  → entrou em serviço depois do horário (compareceu)
+   * - `ATRASADO` → o turno está correndo e a pessoa ainda não apareceu
+   * - `FALTOU`   → o turno terminou sem ela
+   */
+  absences(guildId, { from = null, to = null, now = Date.now() } = {}) {
+    const rows = this.repo.listAbsencesSync(guildId, {
+      from: from ?? now - 30 * 24 * 3600000,
+      to: to ?? now,
+    });
+
+    return rows.map((row) => {
+      const returned = row.returned_at !== null && row.returned_at !== undefined;
+      const ended = now >= row.scheduled_end;
+      const status = returned ? 'ATRASOU' : ended ? 'FALTOU' : 'ATRASADO';
+      const lateMinutes = returned
+        ? Number(row.returned_late_minutes) || 0
+        : Math.max(0, Math.round((Math.min(now, row.scheduled_end) - row.scheduled_start) / 60000));
+      const statusLabel =
+        status === 'FALTOU'
+          ? 'faltou'
+          : status === 'ATRASOU'
+            ? `atrasou ${formatDuration(lateMinutes * 60)}`
+            : `atrasado há ${formatDuration(lateMinutes * 60)}`;
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        staffName: row.staff_name,
+        day: formatDate(new Date(row.scheduled_start), this.timeZone),
+        dayKey: row.shift_day,
+        startLabel: formatTime(new Date(row.scheduled_start), this.timeZone),
+        endLabel: formatTime(new Date(row.scheduled_end), this.timeZone),
+        scheduledStart: row.scheduled_start,
+        scheduledEnd: row.scheduled_end,
+        detectedAt: row.detected_at,
+        detectedLabel: formatTime(new Date(row.detected_at), this.timeZone),
+        notifiedAt: row.notified_at ?? null,
+        returnedAt: row.returned_at ?? null,
+        returnedLabel: returned ? formatTime(new Date(row.returned_at), this.timeZone) : null,
+        lateMinutes,
+        status,
+        statusLabel,
+      };
+    });
+  }
+
   /** Watcher de 1 minuto: avisos + fechamento de sessões esquecidas. */
   startWatcher(guildId, { intervalMs = 60000 } = {}) {
     const tick = async () => {
       try {
         await this.dispatchReminders(guildId);
+        await this.checkAbsences(guildId);
         await this.closeStaleSessions(guildId);
         this.repo.purgeRemindersSync();
       } catch (error) {
@@ -718,10 +990,31 @@ class HourBankService {
 
     staff.sort((a, b) => Number(b.available) - Number(a.available) || b.totals.minutes - a.totals.minutes);
 
+    // Quem estava escalado e não entrou em serviço no período (o painel web
+    // mostra a lista e o resumo dos cartões).
+    const absences = this.absences(guildId, {
+      from: report.period.fromTs,
+      to: now,
+      now,
+    });
+    const absencesSummary = {
+      total: absences.length,
+      missed: absences.filter((item) => item.status === 'FALTOU').length,
+      late: absences.filter((item) => item.status === 'ATRASADO').length,
+      showed: absences.filter((item) => item.status === 'ATRASOU').length,
+      // Só atrasos contam minutos: quem faltou perdeu o turno inteiro, o que
+      // distorceria o total (e o número já aparece em "faltas").
+      lateMinutes: absences
+        .filter((item) => item.status !== 'FALTOU')
+        .reduce((sum, item) => sum + item.lateMinutes, 0),
+    };
+
     return {
       generatedAt: now,
       period: report.period,
       totals: report.totals,
+      absences,
+      absencesSummary,
       // Grupo do revezamento nesta semana: quem tem escala 'A' só trabalha nas
       // semanas 'A' (as semanas alternam A/B).
       weekParity: weekParity(now, this.timeZone),

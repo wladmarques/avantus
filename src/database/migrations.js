@@ -283,6 +283,40 @@ const migrations = [
       db.exec('ALTER TABLE attendance ADD COLUMN wait_alert_at INTEGER;');
     },
   },
+  {
+    version: 10,
+    name: 'nao_entrada_em_servico',
+    up(db) {
+      // Registro de quem estava escalado e não entrou em serviço no horário.
+      //
+      // Uma linha por ocorrência de turno (shift_day = dia do início), criada
+      // pelo watcher assim que o atraso passa da tolerância. Se a pessoa entra
+      // em serviço depois, `returned_at` marca que ela compareceu — o registro
+      // continua existindo (o atraso é histórico e aparece no painel web).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS staff_absences (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          guild_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          staff_name TEXT,
+          shift_id INTEGER,
+          shift_day TEXT NOT NULL,
+          scheduled_start INTEGER NOT NULL,
+          scheduled_end INTEGER NOT NULL,
+          detected_at INTEGER NOT NULL,
+          notified_at INTEGER,
+          returned_at INTEGER,
+          returned_late_minutes INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE (guild_id, user_id, shift_id, shift_day)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_staff_absences_period
+          ON staff_absences(guild_id, scheduled_start);
+      `);
+    },
+  },
 ];
 
 /**

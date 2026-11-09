@@ -214,6 +214,99 @@ class HourBankRepository {
   purgeRemindersSync(before = Date.now() - 7 * 24 * 60 * 60 * 1000) {
     this.db.run('DELETE FROM staff_shift_reminders WHERE sent_at < ?', [before]);
   }
+
+  /* ------------------------------------------------------------------ */
+  /* Não entrada em serviço (faltas e atrasos)                           */
+  /* ------------------------------------------------------------------ */
+
+  findAbsenceSync(guildId, userId, shiftId, shiftDay) {
+    return this.db.get(
+      `SELECT * FROM staff_absences
+        WHERE guild_id = ? AND user_id = ? AND shift_id = ? AND shift_day = ?`,
+      [guildId, userId, shiftId, shiftDay],
+    );
+  }
+
+  /**
+   * Abre o registro de ausência (idempotente pela chave
+   * `guild_id + user_id + shift_id + shift_day`).
+   */
+  openAbsenceSync(guildId, userId, {
+    staffName = null,
+    shiftId = null,
+    shiftDay,
+    scheduledStart,
+    scheduledEnd,
+    detectedAt = Date.now(),
+  }) {
+    const now = Date.now();
+    this.db.run(
+      `INSERT INTO staff_absences
+         (guild_id, user_id, staff_name, shift_id, shift_day, scheduled_start, scheduled_end,
+          detected_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(guild_id, user_id, shift_id, shift_day) DO NOTHING`,
+      [guildId, userId, staffName, shiftId, shiftDay, scheduledStart, scheduledEnd, detectedAt, now, now],
+    );
+    return this.findAbsenceSync(guildId, userId, shiftId, shiftDay);
+  }
+
+  markAbsenceNotifiedSync(id, notifiedAt = Date.now()) {
+    this.db.run('UPDATE staff_absences SET notified_at = ?, updated_at = ? WHERE id = ?', [
+      notifiedAt,
+      Date.now(),
+      id,
+    ]);
+    return this.db.get('SELECT * FROM staff_absences WHERE id = ?', [id]);
+  }
+
+  /**
+   * Marca que o staff apareceu (entrou em serviço) depois do horário.
+   *
+   * Só considera o registro cujo **turno contém** o instante da chegada — senão
+   * uma falta de ontem seria fechada como "atraso" por alguém que entrou em
+   * serviço hoje.
+   */
+  markAbsenceReturnedSync(guildId, userId, { returnedAt = Date.now(), lateMinutes = 0 } = {}) {
+    const row = this.db.get(
+      `SELECT * FROM staff_absences
+        WHERE guild_id = ? AND user_id = ? AND returned_at IS NULL
+          AND scheduled_start <= ? AND scheduled_end > ?
+        ORDER BY scheduled_start DESC LIMIT 1`,
+      [guildId, userId, returnedAt, returnedAt],
+    );
+    if (!row) return null;
+    this.db.run(
+      `UPDATE staff_absences
+          SET returned_at = ?, returned_late_minutes = ?, updated_at = ?
+        WHERE id = ?`,
+      [returnedAt, lateMinutes, Date.now(), row.id],
+    );
+    return this.db.get('SELECT * FROM staff_absences WHERE id = ?', [row.id]);
+  }
+
+  /** Registros de ausência do período (por início do turno). */
+  listAbsencesSync(guildId, { from = 0, to = Number.MAX_SAFE_INTEGER, userId = null } = {}) {
+    const params = [guildId, from, to];
+    let sql = `SELECT * FROM staff_absences
+                WHERE guild_id = ? AND scheduled_start >= ? AND scheduled_start <= ?`;
+    if (userId) {
+      sql += ' AND user_id = ?';
+      params.push(userId);
+    }
+    sql += ' ORDER BY scheduled_start DESC';
+    return this.db.all(sql, params);
+  }
+
+  /** Ausências ainda sem aviso enviado (para o watcher não repetir). */
+  listPendingAbsencesSync(guildId) {
+    return this.db.all(
+      `SELECT * FROM staff_absences
+        WHERE guild_id = ? AND notified_at IS NULL AND returned_at IS NULL
+        ORDER BY scheduled_start ASC`,
+      [guildId],
+    );
+  }
 }
 
 module.exports = { HourBankRepository };

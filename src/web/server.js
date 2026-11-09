@@ -14,6 +14,7 @@
  *   GET  /api/overview         → staff + escala + horas do período
  *   GET  /api/report           → relatório agregado
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
+ *   GET  /api/absences         → não entrada em serviço (faltas e atrasos de turno)
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
@@ -565,6 +566,13 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           reminderMinutes: services.hourBank.reminderMinutes,
           enabled: services.hourBank.enabled,
           roster: rosterPayload(currentGuildId),
+          // Como o registro de não entrada em serviço está configurado (o painel
+          // mostra isso no cabeçalho da seção Presença).
+          absenceAlert: {
+            graceMinutes: services.hourBank.absenceGraceMinutes,
+            roleIds: services.hourBank.absenceRoleIds,
+            channelId: services.hourBank.absenceChannelId,
+          },
           ...overview,
         });
       }
@@ -585,6 +593,19 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           to: url.searchParams.get('to'),
         });
         return sendJson(res, 200, { sessions: sessionsList });
+      }
+
+      if (pathname === '/api/absences' && req.method === 'GET') {
+        const range = periodRange(url, { timeZone: env.timezone ?? undefined });
+        const absenceList = services.hourBank.absences(currentGuildId, range);
+        return sendJson(res, 200, {
+          absences: absenceList,
+          alert: {
+            graceMinutes: services.hourBank.absenceGraceMinutes,
+            roleIds: services.hourBank.absenceRoleIds,
+            channelId: services.hourBank.absenceChannelId,
+          },
+        });
       }
 
       if (pathname === '/api/schedule' && req.method === 'GET') {
