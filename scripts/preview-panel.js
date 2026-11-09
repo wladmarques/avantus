@@ -20,7 +20,7 @@ const outFile = path.join(root, 'preview', 'panel.html');
 const STATUS_COLORS = { 'central-fechada': '#ff2200', 'central-sem-staff': '#f0b429', 'central-disponivel': '#22c55e' };
 
 const settings = {
-  message_panel_title: 'ATENDIMENTO | HYPE',
+  message_panel_title: 'ATENDIMENTO | VANTUS',
   wait_channel_id: '000000000000000000',
 };
 
