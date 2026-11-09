@@ -310,6 +310,25 @@ Regras do texto (`describeSchedule`, `systems/hourbank/shiftSchedule.js`):
 - A escala é cadastrada no painel web (`PUT /api/staff/:id/shifts`) ou pelo webhook da escala; o
   painel do Discord só reflete o que está salvo.
 
+## Painel web: escala fixa × apoio
+
+A tabela de staff do painel web é dividida em dois grupos:
+
+| Grupo | Quem entra | O que significa |
+| --- | --- | --- |
+| **Escala fixa** | staff com algum cargo de `staff_panel_role_ids` (ex. `1566903220968624188`) | têm horário de atendimento cadastrado e são cobrados por ele |
+| **Apoio** | todo o resto da equipe | atendem em horários aleatórios, sem escala fixa |
+
+- O agrupamento usa o **mesmo** `staff_panel_role_ids` do painel do Discord — um só lugar para configurar.
+- Os cargos são sincronizados do Discord no `/api/overview` (throttle interno de 20s); falha de API não
+  quebra o painel, o cache anterior continua valendo.
+- **Sem cargo configurado** (ou cache ainda vazio), o painel cai na regra "tem turno cadastrado?":
+  quem tem escala cadastrada aparece em *Escala fixa*, o resto em *Apoio*. O cabeçalho avisa quando
+  os cargos ainda não sincronizaram.
+- Staff com o cargo mas **sem turno** continua em *Escala fixa* e mostra `sem escala` na coluna do
+  turno — é justamente a pendência de cadastro.
+- A exportação CSV ganhou a coluna `grupo` (`escala` / `apoio`).
+
 ## Filtro da EQUIPE por cargo
 
 O bloco **EQUIPE** do painel da central lista apenas os membros que têm o cargo definido em

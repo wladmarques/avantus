@@ -211,6 +211,28 @@ class StaffService {
   }
 
   /**
+   * IDs de quem **faz parte da escala** (tem algum cargo de `staff_panel_role_ids`,
+   * ex.: `1566903220968624188`).
+   *
+   * Diferente de `listForPanel`, aqui não há fallback: se o filtro não está
+   * configurado ou o cache de cargos ainda não chegou, devolve `null` e quem
+   * chama decide o que fazer (o painel web cai na regra "tem turno cadastrado").
+   *
+   * @returns {Set<string>|null}
+   */
+  rosterIds(guildId) {
+    const roleIds = this.panelRoleIds();
+    if (roleIds.length === 0) return null;
+    const cache = this.roleCache.get(guildId);
+    if (!cache) return null;
+    const ids = new Set();
+    for (const [userId, roles] of cache) {
+      if (Array.isArray(roles) && roles.some((roleId) => roleIds.includes(roleId))) ids.add(userId);
+    }
+    return ids;
+  }
+
+  /**
    * Lista para o painel da equipe: aplica o filtro de cargos quando configurado.
    * Sem cache carregado (cold start) não esconde ninguém, e o filtro nunca
    * esvazia a EQUIPE inteira por causa de cache incompleto.

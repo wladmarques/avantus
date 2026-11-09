@@ -41,6 +41,10 @@ const STAFF = [
 // nome (botão "Definir nome") — ou até o nome ser resolvido pelo Discord.
 const SEM_NOME = '271052015704997888';
 
+// Cargo de escala no Discord: quem tem esse cargo é "escala fixa" na tabela do
+// painel web; quem não tem aparece no grupo "apoio" (atendimentos aleatórios).
+const ROSTER_ROLE = '1566903220968624188';
+
 function hhmm(minutes) {
   const value = ((minutes % 1440) + 1440) % 1440;
   return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -119,8 +123,23 @@ async function main() {
     });
   }
 
+  // Cargo da escala nos 4 staff com horário fixo (grupo "escala fixa").
+  await services.settings.set('staff_panel_role_ids', [ROSTER_ROLE]);
+  for (const staff of STAFF) {
+    gateway.members.set(staff.id, {
+      inGuild: true,
+      displayName: staff.name,
+      staffRoles: [ROSTER_ROLE],
+    });
+  }
+
   // Exemplo de nome resolvido automaticamente pelo Discord (membro do servidor).
-  gateway.members.set('900000000000000005', { inGuild: true, displayName: 'renan.br' });
+  // Este NÃO tem o cargo: entra no grupo "apoio", com atendimentos aleatórios.
+  gateway.members.set('900000000000000005', {
+    inGuild: true,
+    displayName: 'renan.br',
+    staffRoles: ['900000000000000777'],
+  });
   await services.staff.setStatus({
     guildId: GUILD,
     userId: '900000000000000005',
@@ -130,6 +149,11 @@ async function main() {
   });
 
   // Exemplo do caso sem nome nenhum (nem no painel, nem no Discord).
+  gateway.members.set(SEM_NOME, {
+    inGuild: true,
+    displayName: 'apoio.sem-nome',
+    staffRoles: ['900000000000000777'],
+  });
   await services.staff.setStatus({
     guildId: GUILD,
     userId: SEM_NOME,

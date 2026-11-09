@@ -244,6 +244,16 @@ tbody tr.clickable:hover { background: #15161a; }
 .num { text-align: right; }
 .empty { text-align: center; color: var(--dim); padding: 22px 0; }
 
+/* Cabeçalho de grupo dentro da tabela de staff (Escala fixa / Apoio). */
+tbody tr.group-row td { padding: 14px 10px 7px; border-bottom: 1px solid var(--line); background: #0e0f11; }
+.group-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.group-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text); }
+.group-count {
+  font-size: 10.5px; font-weight: 700; color: var(--red);
+  border: 1px solid #3a1a14; background: #1a1110; border-radius: 999px; padding: 1px 7px;
+}
+.group-hint { font-size: 11px; color: var(--dim); }
+
 .who { display: flex; flex-direction: column; gap: 2px; }
 .who .unnamed { color: var(--muted); font-style: italic; font-weight: 600; }
 .who strong { font-weight: 700; }

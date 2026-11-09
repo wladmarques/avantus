@@ -229,6 +229,37 @@
     return 'sem escala';
   }
 
+  /**
+   * Grupo de cada staff no painel web.
+   *
+   * - `ESCALA`: tem o cargo da escala no Discord (`staff_panel_role_ids`, ex.
+   *   `1566903220968624188`) — quem tem horário fixo de atendimento.
+   * - `APOIO`: os demais, que atendem em horários aleatórios.
+   *
+   * O servidor já manda `row.group`; a regra repetida aqui é só rede de
+   * segurança para uma aba aberta antes da atualização.
+   */
+  function staffGroup(row) {
+    if (row.group === 'ESCALA' || row.group === 'APOIO') return row.group;
+    if (row.onRoster === true) return 'ESCALA';
+    if (row.onRoster === false) return 'APOIO';
+    return row.shifts && row.shifts.length ? 'ESCALA' : 'APOIO';
+  }
+
+  /** Cabeçalho de grupo dentro da tabela (Escala fixa / Apoio). */
+  function groupHeaderRow(label, count, hint) {
+    const tr = el('tr', 'group-row');
+    const cell = el('td');
+    cell.colSpan = 8;
+    const box = el('div', 'group-head');
+    box.appendChild(el('span', 'group-title', label));
+    box.appendChild(el('span', 'group-count', String(count)));
+    if (hint) box.appendChild(el('span', 'group-hint', hint));
+    cell.appendChild(box);
+    tr.appendChild(cell);
+    return tr;
+  }
+
   function renderStaff(overview) {
     const body = $('staff-body');
     body.innerHTML = '';
@@ -242,81 +273,109 @@
       return;
     }
 
-    for (const row of overview.staff) {
-      const tr = el('tr', 'clickable');
-      tr.addEventListener('click', (event) => {
-        if (event.target.closest('button')) return;
-        openSessions(row);
-      });
+    const groups = { ESCALA: [], APOIO: [] };
+    for (const row of overview.staff) groups[staffGroup(row)].push(row);
 
-      const who = el('td');
-      const whoBox = el('div', 'who');
-      whoBox.appendChild(
-        row.staffName
-          ? el('strong', null, row.staffName)
-          : el('strong', 'unnamed', `Usuário ${row.userId}`),
+    const rosterRoles = (overview.roster && overview.roster.roleIds) || [];
+    const roleHint = rosterRoles.length ? `Cargo ${rosterRoles.join(' / ')}` : 'Sem cargo configurado';
+    const rolesPending = rosterRoles.length > 0 && overview.roster && overview.roster.synced === false;
+
+    if (groups.ESCALA.length) {
+      body.appendChild(
+        groupHeaderRow(
+          'Escala fixa',
+          groups.ESCALA.length,
+          rolesPending
+            ? `${roleHint} • cargos ainda não sincronizados, usando quem tem turno cadastrado`
+            : roleHint,
+        ),
       );
-      whoBox.appendChild(el('span', null, row.userId));
-      who.appendChild(whoBox);
-
-      const status = el('td');
-      const statusBox = el('span', 'status');
-      statusBox.appendChild(el('span', statusDotClass(row.status)));
-      statusBox.appendChild(el('span', null, row.session ? `EM SERVIÇO ${row.session.entry}` : row.statusLabel));
-      if (row.blocked) {
-        const badge = el('span', 'badge blocked', 'BLOQUEADO');
-        badge.title = row.blockedReason ? `Motivo: ${row.blockedReason}` : 'Bloqueado de entrar em serviço';
-        statusBox.appendChild(badge);
-      }
-      status.appendChild(statusBox);
-      if (row.blocked) tr.classList.add('is-blocked');
-
-      const shift = el('td', null, shiftTextForToday(row));
-      const entry = el('td', null, row.session ? row.session.entry : row.totals.entryLabel);
-      const exit = el('td', null, row.session ? '—' : row.totals.exitLabel);
-      const hours = el('td', 'num', fmtMinutes(row.totals.minutes));
-      const late = el('td', 'num');
-      if (row.totals.lateCount > 0) {
-        late.className = 'num late';
-        late.textContent = `${row.totals.lateCount}× (${fmtMinutes(row.totals.lateMinutes)})`;
-      } else {
-        late.className = 'num ok';
-        late.textContent = '—';
-      }
-
-      const actions = el('td', 'num');
-      const rename = el('button', 'btn tiny', row.staffName ? 'Nome' : 'Definir nome');
-      rename.addEventListener('click', () => openName(row));
-      const edit = el('button', 'btn tiny', 'Editar escala');
-      edit.addEventListener('click', () => openSchedule(row));
-      actions.append(rename, edit);
-      // Só faz sentido quando o staff está em serviço (sessão aberta ou disponível).
-      if (row.session || row.available) {
-        const off = el('button', 'btn tiny', 'Tirar de serviço');
-        off.addEventListener('click', () => openOffService(row));
-        actions.appendChild(off);
-      }
-      const block = el(
-        'button',
-        row.blocked ? 'btn tiny' : 'btn tiny danger',
-        row.blocked ? 'Desbloquear' : 'Bloquear',
-      );
-      block.title = row.blocked
-        ? 'Permitir que o staff volte a entrar em serviço'
-        : 'Impedir que o staff entre em serviço';
-      block.addEventListener('click', () =>
-        row.blocked ? toggleBlock(row, false) : openBlock(row),
-      );
-      const reset = el('button', 'btn tiny', 'Zerar horas');
-      reset.title = 'Apagar o histórico de horas deste staff (a contagem volta a zero)';
-      reset.addEventListener('click', () => openReset(row));
-      const remove = el('button', 'btn tiny danger', 'Remover');
-      remove.addEventListener('click', () => openRemove(row));
-      actions.append(reset, block, remove);
-
-      for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
-      body.appendChild(tr);
+      for (const row of groups.ESCALA) body.appendChild(staffRow(row));
     }
+
+    if (groups.APOIO.length) {
+      body.appendChild(
+        groupHeaderRow('Apoio', groups.APOIO.length, 'Atendimentos aleatórios, sem escala fixa'),
+      );
+      for (const row of groups.APOIO) body.appendChild(staffRow(row));
+    }
+  }
+
+  /** Linha da tabela de um staff (usada pelos dois grupos). */
+  function staffRow(row) {
+    const tr = el('tr', 'clickable');
+    tr.addEventListener('click', (event) => {
+      if (event.target.closest('button')) return;
+      openSessions(row);
+    });
+
+    const who = el('td');
+    const whoBox = el('div', 'who');
+    whoBox.appendChild(
+      row.staffName
+        ? el('strong', null, row.staffName)
+        : el('strong', 'unnamed', `Usuário ${row.userId}`),
+    );
+    whoBox.appendChild(el('span', null, row.userId));
+    who.appendChild(whoBox);
+
+    const status = el('td');
+    const statusBox = el('span', 'status');
+    statusBox.appendChild(el('span', statusDotClass(row.status)));
+    statusBox.appendChild(el('span', null, row.session ? `EM SERVIÇO ${row.session.entry}` : row.statusLabel));
+    if (row.blocked) {
+      const badge = el('span', 'badge blocked', 'BLOQUEADO');
+      badge.title = row.blockedReason ? `Motivo: ${row.blockedReason}` : 'Bloqueado de entrar em serviço';
+      statusBox.appendChild(badge);
+    }
+    status.appendChild(statusBox);
+    if (row.blocked) tr.classList.add('is-blocked');
+
+    const shift = el('td', null, shiftTextForToday(row));
+    const entry = el('td', null, row.session ? row.session.entry : row.totals.entryLabel);
+    const exit = el('td', null, row.session ? '—' : row.totals.exitLabel);
+    const hours = el('td', 'num', fmtMinutes(row.totals.minutes));
+    const late = el('td', 'num');
+    if (row.totals.lateCount > 0) {
+      late.className = 'num late';
+      late.textContent = `${row.totals.lateCount}× (${fmtMinutes(row.totals.lateMinutes)})`;
+    } else {
+      late.className = 'num ok';
+      late.textContent = '—';
+    }
+
+    const actions = el('td', 'num');
+    const rename = el('button', 'btn tiny', row.staffName ? 'Nome' : 'Definir nome');
+    rename.addEventListener('click', () => openName(row));
+    const edit = el('button', 'btn tiny', 'Editar escala');
+    edit.addEventListener('click', () => openSchedule(row));
+    actions.append(rename, edit);
+    // Só faz sentido quando o staff está em serviço (sessão aberta ou disponível).
+    if (row.session || row.available) {
+      const off = el('button', 'btn tiny', 'Tirar de serviço');
+      off.addEventListener('click', () => openOffService(row));
+      actions.appendChild(off);
+    }
+    const block = el(
+      'button',
+      row.blocked ? 'btn tiny' : 'btn tiny danger',
+      row.blocked ? 'Desbloquear' : 'Bloquear',
+    );
+    block.title = row.blocked
+      ? 'Permitir que o staff volte a entrar em serviço'
+      : 'Impedir que o staff entre em serviço';
+    block.addEventListener('click', () =>
+      row.blocked ? toggleBlock(row, false) : openBlock(row),
+    );
+    const reset = el('button', 'btn tiny', 'Zerar horas');
+    reset.title = 'Apagar o histórico de horas deste staff (a contagem volta a zero)';
+    reset.addEventListener('click', () => openReset(row));
+    const remove = el('button', 'btn tiny danger', 'Remover');
+    remove.addEventListener('click', () => openRemove(row));
+    actions.append(reset, block, remove);
+
+    for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
+    return tr;
   }
 
   // Resumo de uma escala: dias úteis (mesmo horário) + fim de semana e grupo.
@@ -1288,11 +1347,14 @@
     try {
       const query = periodQuery();
       const report = await api(`/api/report${query ? `?${query}` : ''}`);
-      const rows = [['staff', 'id', 'horas', 'sessoes', 'entrada', 'saida', 'atrasos', 'minutos_atraso', 'saida_antecipada_min']];
+      const rows = [['staff', 'id', 'grupo', 'horas', 'sessoes', 'entrada', 'saida', 'atrasos', 'minutos_atraso', 'saida_antecipada_min']];
+      // `grupo` = escala fixa (cargo da escala) ou apoio (atendimentos aleatórios).
+      const groups = new Map((state.staff || []).map((item) => [item.userId, staffGroup(item)]));
       for (const item of report.staff) {
         rows.push([
           item.staffName || '',
           item.userId,
+          groups.get(item.userId) === 'ESCALA' ? 'escala' : 'apoio',
           (item.totalMinutes / 60).toFixed(2).replace('.', ','),
           item.sessions,
           item.entryLabel,
