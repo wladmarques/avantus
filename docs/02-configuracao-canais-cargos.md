@@ -259,6 +259,12 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
 - **Quem tem o cargo aparece sempre**: a EQUIPE é a união de quem já entrou em serviço com quem tem o
   cargo no Discord. Membro com o cargo e sem status registrado entra em **FORA DE SERVIÇO** com
   `sem escala` — não fica invisível até o primeiro turno.
+- As métricas do rodapé são **três cartões** em uma linha: `AGORA` (na fila · atendendo ·
+  livres), `TEMPOS` (espera · duração, com `—` quando não há amostra) e `HOJE` (concluídos ·
+  nota de 4, só quando há avaliação · pendentes). Antes eram 9 campos soltos em 3 andares de caixas.
+- **Estado vazio**: sem fila, sem atendimento, sem pendente, ninguém livre e nada concluído hoje, os
+  três cartões viram um único campo `SEM MOVIMENTO` com a situação da central e a última atividade
+  em timestamp relativo (`há 2 horas`).
 - A linha de cada staff mostra o **horário da escala**, não o status: `@staff — hoje 14:00 às 22:00`,
   `@staff — em turno até 20:00`, `@staff — amanhã 14:00 às 22:00`, `@staff — Qua 14:00 às 22:00` ou
   `@staff — sem escala` (turno nenhum cadastrado). Os rótulos DISPONÍVEL/INDISPONÍVEL/AUSENTE não

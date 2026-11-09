@@ -137,6 +137,9 @@ class StatisticsService {
   /** Totais do dia (usados no painel da staff). */
   todayOverview(guildId) {
     const summary = this.summary(guildId, 'hoje');
+    // Última atividade registrada (não só de hoje): o painel usa isso no
+    // estado "sem movimento" para não mostrar nove zeros.
+    const last = this.repos.attendance.listAllFinishedSync(guildId, { limit: 1 })[0] ?? null;
     return {
       concluded: summary.concluded,
       total: summary.total,
@@ -144,6 +147,7 @@ class StatisticsService {
       avgDurationSeconds: summary.avgDurationSeconds,
       avgRating: summary.avgRating,
       evaluations: summary.totalEvaluations,
+      lastEndedAt: last?.ended_at ?? null,
     };
   }
 

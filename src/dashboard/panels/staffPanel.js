@@ -148,6 +148,78 @@ function buildStaffBlock(staffList, escalas = null) {
   ].join('\n');
 }
 
+/** Separador entre os itens de um cartão de métricas. */
+const METRIC_SEP = ' · ';
+
+/** "**4** concluídos" — número com peso, rótulo discreto. */
+function metric(value, label) {
+  return label ? `**${value}** ${label}` : `**${value}**`;
+}
+
+/** Plural simples: `plural(1,'concluído','concluídos')` → `concluído`. */
+function plural(count, singular, pluralForm) {
+  return count === 1 ? singular : pluralForm;
+}
+
+/**
+ * Campos de métricas do painel: **três cartões** (AGORA / TEMPOS / HOJE)
+ * em vez de nove caixinhas soltas.
+ *
+ * Antes eram 9 campos inline = 3 andares de caixas iguais no Discord (no
+ * celular, 9 blocos empilhados), com `Em atendimento` e `Ocupados` repetindo o
+ * mesmo número e `Aguardando` repetindo o bloco da fila logo acima. Agora cada
+ * cartão conta uma história:
+ *
+ * - **AGORA**  → operação neste instante (fila, atendendo, livres)
+ * - **TEMPOS** → espera média e duração média (— quando não há amostra)
+ * - **HOJE**   → concluídos, nota (só se houver avaliação) e pendentes do dia
+ *
+ * Quando não há absolutamente nada acontecendo — sem fila, sem atendimento, sem
+ * pendência, ninguém livre e nada concluído hoje — os três cartões viram **um
+ * campo só**: o painel não gasta metade da tela para mostrar zeros.
+ */
+function buildMetricFields({ waiting, serving, hold, state, overview, schedule }) {
+  const livres = state.staffCounts.DISPONIVEL ?? 0;
+  const concluded = overview.concluded ?? 0;
+  const quiet =
+    waiting.length === 0 && serving.length === 0 && hold.length === 0 && concluded === 0 && livres === 0;
+
+  if (quiet) {
+    const partes = [`Central ${schedule.open ? 'aberta' : 'fechada'}`, 'sem fila nem atendimento'];
+    if (overview.lastEndedAt) {
+      // Timestamp relativo do Discord: "há 2 horas".
+      partes.push(`última atividade <t:${Math.floor(Number(overview.lastEndedAt) / 1000)}:R>`);
+    } else {
+      partes.push('nenhuma atividade registrada ainda');
+    }
+    return [{ name: 'SEM MOVIMENTO', value: partes.join(METRIC_SEP), inline: false }];
+  }
+
+  const agora = [
+    metric(waiting.length, 'na fila'),
+    metric(serving.length, 'atendendo'),
+    metric(livres, plural(livres, 'livre', 'livres')),
+  ].join(METRIC_SEP);
+
+  const espera = waiting.length > 0 || state.avgWaitSamples > 0 ? formatDuration(state.avgWaitSeconds) : '—';
+  const duracao = concluded > 0 ? formatDuration(overview.avgDurationSeconds) : '—';
+  const tempos = [metric(espera, 'de espera'), metric(duracao, 'de duração')].join(METRIC_SEP);
+
+  const hoje = [
+    metric(concluded, plural(concluded, 'concluído', 'concluídos')),
+    overview.evaluations ? metric(overview.avgRating.toFixed(2), 'de 4') : null,
+    metric(hold.length, plural(hold.length, 'pendente', 'pendentes')),
+  ]
+    .filter(Boolean)
+    .join(METRIC_SEP);
+
+  return [
+    { name: 'AGORA', value: agora, inline: true },
+    { name: 'TEMPOS', value: tempos, inline: true },
+    { name: 'HOJE', value: hoje, inline: true },
+  ];
+}
+
 /**
  * Painel exclusivo da equipe: visão completa da fila + controles.
  */
@@ -207,25 +279,7 @@ function buildStaffPanel({
     .filter((line) => line !== null)
     .join('\n');
 
-  const fields = [
-    { name: 'Aguardando', value: `**${waiting.length}**`, inline: true },
-    { name: 'Em atendimento', value: `**${serving.length}**`, inline: true },
-    { name: 'Disponíveis', value: `**${state.staffCounts.DISPONIVEL}**`, inline: true },
-    { name: 'Ocupados', value: `**${state.staffCounts.EM_ATENDIMENTO}**`, inline: true },
-    { name: 'Espera média', value: `**${formatDuration(state.avgWaitSeconds)}**`, inline: true },
-    {
-      name: 'Atendimento médio',
-      value: `**${formatDuration(overview.avgDurationSeconds)}**`,
-      inline: true,
-    },
-    { name: 'Hoje', value: `**${overview.concluded}** concluído(s)`, inline: true },
-    {
-      name: 'Avaliação',
-      value: overview.evaluations ? `**${overview.avgRating.toFixed(2)}/4**` : '—',
-      inline: true,
-    },
-    { name: 'Pendentes', value: `**${hold.length}**`, inline: true },
-  ];
+  const fields = buildMetricFields({ waiting, serving, hold, state, overview, schedule });
 
   const embed = {
     color: COLORS.ACCENT,
