@@ -1,12 +1,6 @@
 'use strict';
 
-const {
-  COLORS,
-  BRAND,
-  ATTENDANCE_STATUS,
-  OUTCOME_LABELS,
-  STAFF_STATUS,
-} = require('../../config/theme');
+const { COLORS, ATTENDANCE_STATUS, OUTCOME_LABELS, STAFF_STATUS } = require('../../config/theme');
 const { staffPanelComponents } = require('../components/buttons');
 const { formatTime, formatDuration, formatDurationShort, DAY_LABELS } = require('../../utils/time');
 
@@ -230,6 +224,7 @@ function buildStaffPanel({
   todayWindow,
   now = new Date(),
   escalas = null,
+  refreshSeconds = 30,
 }) {
   const waiting = state.waiting;
   const hold = state.hold;
@@ -286,7 +281,10 @@ function buildStaffPanel({
     title: 'PAINEL DA EQUIPE | VANTUS',
     description: desc,
     fields,
-    footer: { text: `${BRAND.footer} • Painel restrito à equipe • Atualização automática` },
+    // Rodapé enxuto: o título já diz VANTUS e o `timestamp` do embed já mostra a
+    // hora da última atualização. Sobra o que o rodapé precisa dizer — o painel
+    // é restrito e de quanto em quanto tempo ele se atualiza.
+    footer: { text: `Painel restrito à equipe • atualiza a cada ${refreshSeconds}s` },
     timestamp: now.toISOString(),
   };
 

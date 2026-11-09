@@ -192,7 +192,14 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
  * Layout clássico (embed) — fallback.
  * @returns {{payload: object, format: 'embed'}}
  */
-function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now = new Date() }) {
+function buildPublicPanelClassic({
+  settings,
+  state,
+  schedule,
+  todayWindow,
+  now = new Date(),
+  refreshSeconds = 30,
+}) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
   const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
@@ -210,7 +217,9 @@ function buildPublicPanelClassic({ settings, state, schedule, todayWindow, now =
     title: titleWithIcon(settings.message_panel_title),
     description: open ? null : `🔒 ${status.note}`,
     fields,
-    footer: { text: `${BRAND.footer} • Atualizado ${formatTime(now)}` },
+    // O `timestamp` logo abaixo já mostra a hora: repetir "Atualizado 11:07" no
+    // texto do rodapé só duplicava a informação.
+    footer: { text: `Central de Atendimento • atualiza a cada ${refreshSeconds}s` },
     timestamp: now.toISOString(),
   };
 
