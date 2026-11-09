@@ -329,7 +329,7 @@ test('rotas exigem login e validam o staff', async (t) => {
   assert.match(unknown.json.error, /não encontrado/i);
 });
 
-test('staff bloqueado aparece como BLOQUEADO no painel do Discord', async (t) => {
+test('staff bloqueado aparece marcado como bloqueado no painel do Discord', async (t) => {
   const env = await createTestEnv({ staff: false });
   t.after(env.cleanup);
 
@@ -340,8 +340,8 @@ test('staff bloqueado aparece como BLOQUEADO no painel do Discord', async (t) =>
   const text = panelText(payload);
   const team = text.split('**EQUIPE**')[1];
   assert.match(team, new RegExp(`<@${STAFF}>`), 'staff continua listado');
-  assert.match(team, /BLOQUEADO/, 'painel indica o bloqueio');
-  assert.ok(!/DISPONÍVEL/.test(team), 'não aparece como disponível');
+  assert.match(team, /bloqueado/, 'painel indica o bloqueio');
+  assert.ok(!/DISPONÍVEL/.test(team), 'status de disponibilidade não aparece mais na linha');
 });
 
 test('status em massa e recuperação não promovem staff bloqueado', async (t) => {

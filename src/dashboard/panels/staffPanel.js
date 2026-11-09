@@ -49,13 +49,28 @@ function servingLine(entry, staffList) {
   ].join('\n');
 }
 
-function staffMemberLine(entry) {
-  const label = entry.blocked
-    ? 'BLOQUEADO'
-    : entry.status === STAFF_STATUS.EM_ATENDIMENTO
-      ? 'EM ATENDIMENTO'
-      : entry.meta.label;
-  return `<@${entry.userId}> — **${label}**`;
+/**
+ * Linha do bloco EQUIPE: nome + horário da escala.
+ *
+ * O rótulo de status (DISPONÍVEL/INDISPONÍVEL) saiu do painel — o grupo onde a
+ * pessoa aparece já diz se ela está de serviço. No lugar entra o horário da
+ * escala (`hoje 14:00 às 22:00`, `amanhã 22:00 às 02:00`, `sem escala`).
+ * Só dois complementos continuam aparecendo, porque não são disponibilidade:
+ * `em atendimento` (está com um jogador) e `bloqueado` (punição da staff).
+ */
+function staffMemberLine(entry, escalas) {
+  const escala = escalaOf(entry, escalas);
+  const notes = [];
+  if (entry.status === STAFF_STATUS.EM_ATENDIMENTO) notes.push('em atendimento');
+  if (entry.blocked) notes.push('bloqueado');
+  return `<@${entry.userId}> — ${escala}${notes.length ? ` • ${notes.join(' • ')}` : ''}`;
+}
+
+/** Horário da escala do staff (`sem escala` quando não há turno cadastrado). */
+function escalaOf(entry, escalas) {
+  if (!escalas) return 'sem escala';
+  const value = typeof escalas.get === 'function' ? escalas.get(entry.userId) : escalas[entry.userId];
+  return value || 'sem escala';
 }
 
 /** Staff bloqueado pela administração nunca conta como "de serviço". */
@@ -63,9 +78,9 @@ function isOnDuty(entry) {
   return !entry.blocked && DUTY_STATUSES.has(entry.status);
 }
 
-function staffListLines(entries, emptyText) {
+function staffListLines(entries, emptyText, escalas) {
   if (entries.length === 0) return emptyText;
-  const shown = entries.slice(0, MAX_STAFF_LISTED).map(staffMemberLine);
+  const shown = entries.slice(0, MAX_STAFF_LISTED).map((entry) => staffMemberLine(entry, escalas));
   if (entries.length > MAX_STAFF_LISTED) {
     shown.push(`_… e mais ${entries.length - MAX_STAFF_LISTED} staff._`);
   }
@@ -78,7 +93,7 @@ function staffListLines(entries, emptyText) {
  * bloqueado). Assim dá para ver de relance quem está trabalhando agora, sem
  * ler status por status numa lista única.
  */
-function buildStaffBlock(staffList) {
+function buildStaffBlock(staffList, escalas = null) {
   if (staffList.length === 0) return '_Nenhum staff registrado ainda._';
 
   const ordered = [...staffList].sort(
@@ -89,17 +104,24 @@ function buildStaffBlock(staffList) {
 
   return [
     `**DE SERVIÇO (${onDuty.length})**`,
-    staffListLines(onDuty, '_Ninguém de serviço agora._'),
+    staffListLines(onDuty, '_Ninguém de serviço agora._', escalas),
     '',
     `**FORA DE SERVIÇO (${offDuty.length})**`,
-    staffListLines(offDuty, '_Todos de serviço._'),
+    staffListLines(offDuty, '_Todos de serviço._', escalas),
   ].join('\n');
 }
 
 /**
  * Painel exclusivo da equipe: visão completa da fila + controles.
  */
-function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Date() }) {
+function buildStaffPanel({
+  state,
+  overview,
+  schedule,
+  todayWindow,
+  now = new Date(),
+  escalas = null,
+}) {
   const waiting = state.waiting;
   const hold = state.hold;
   const serving = state.serving;
@@ -130,7 +152,7 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
           )
           .join('\n');
 
-  const staffBlock = buildStaffBlock(state.staffList);
+  const staffBlock = buildStaffBlock(state.staffList, escalas);
 
   const desc = [
     `**CENTRAL ${schedule.open ? 'ABERTA' : 'FECHADA'}** • ${formatTime(now)} • Hoje: ${todayWindow.text}`,

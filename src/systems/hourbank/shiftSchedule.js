@@ -197,6 +197,56 @@ function shiftsByWeekday(shifts) {
   return days;
 }
 
+/** "14:00 às 22:00" — janela de um turno do jeito que o painel mostra. */
+function windowLabel(shift) {
+  return `${shift.start} às ${shift.end}`;
+}
+
+/** Prefixo de dia para turnos que não são de hoje ("hoje", "amanhã", "Qua"). */
+function dayPrefixFor(startTs, reference, timeZone = undefined) {
+  const ts = reference instanceof Date ? reference.getTime() : Number(reference);
+  const key = dayKey(new Date(startTs), timeZone);
+  if (key === dayKey(new Date(ts), timeZone)) return 'hoje';
+  if (key === dayKey(addDays(new Date(ts), 1), timeZone)) return 'amanhã';
+  return WEEKDAY_SHORT[weekdayOf(startTs, 0, timeZone)] ?? '—';
+}
+
+/**
+ * Resumo curto da escala de um staff, para o bloco EQUIPE do painel.
+ *
+ * Substitui o rótulo de status (DISPONÍVEL/INDISPONÍVEL): o grupo já diz quem
+ * está de serviço, então a linha mostra **quando** a pessoa trabalha.
+ *
+ * Ordem de preferência:
+ * 1. turno em andamento agora → `em turno até 22:00`
+ * 2. turnos de hoje → `hoje 14:00 às 22:00`
+ * 3. próximo turno em até `horizonDays` → `amanhã 14:00 às 22:00` / `Qua 14:00 às 22:00`
+ * 4. nenhum turno → `sem escala`
+ *
+ * @param {Array<object>} shifts turnos do staff (`toShift`)
+ * @returns {string} texto pronto para o painel
+ */
+function describeSchedule(shifts, now = new Date(), { horizonDays = 7, timeZone = undefined } = {}) {
+  const list = Array.isArray(shifts) ? shifts.filter(Boolean) : [];
+  if (list.length === 0) return 'sem escala';
+
+  const ts = now instanceof Date ? now.getTime() : Number(now);
+
+  const active = findActiveShift(list, ts, timeZone);
+  if (active) return `em turno até ${active.shift.end}`;
+
+  const todayWeekday = weekdayOf(ts, 0, timeZone);
+  const today = list
+    .filter((shift) => shift.weekday === todayWeekday && shiftAppliesToWeek(shift, ts, timeZone))
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+  if (today.length) return `hoje ${today.map(windowLabel).join(' / ')}`;
+
+  const next = findNextShift(list, ts, { horizonMs: horizonDays * 24 * 3600000, timeZone });
+  if (next) return `${dayPrefixFor(next.startTs, ts, timeZone)} ${windowLabel(next.shift)}`;
+
+  return 'sem escala';
+}
+
 /**
  * Atraso (em minutos) de um início real em relação ao turno planejado.
  * Sem turno previsto para o instante → 0.
@@ -232,6 +282,8 @@ module.exports = {
   weekdayOf,
   localDayShifted,
   shiftsByWeekday,
+  describeSchedule,
+  windowLabel,
   latenessFor,
   earlyLeaveFor,
 };

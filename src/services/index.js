@@ -114,6 +114,7 @@ async function createServices({ db, gateway }) {
     engine: attendanceEngine,
     statistics: statisticsService,
     schedule: scheduleService,
+    hourBank: hourBankService,
   });
 
   const centralService = new CentralService({
