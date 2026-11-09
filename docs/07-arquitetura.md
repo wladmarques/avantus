@@ -119,8 +119,9 @@ waiting ──► serving ──► finished
   **DE SERVIÇO** (`DISPONIVEL`/`EM_ATENDIMENTO`) e **FORA DE SERVIÇO** (`AUSENTE`/`INDISPONIVEL`/bloqueado),
   com contagem por grupo e cap de 20 nomes por grupo.
 - A linha de cada staff traz o **horário da escala** (não o status): `PanelService.staffSchedules()`
-  lê `hourBank.listShifts()` e resume cada staff com `describeSchedule()`
-  (`systems/hourbank/shiftSchedule.js`). Sem banco de horas — ou se a leitura falhar — o painel
+  lê `hourBank.listShifts()` e resume cada staff com `scheduleSummary()`
+  (`systems/hourbank/shiftSchedule.js`), que devolve `{ label, sortKey }`. O `sortKey` (início do
+  turno) define a **ordem da EQUIPE** — mais cedo primeiro, `sem escala` por último. Sem banco de horas — ou se a leitura falhar — o painel
   continua sendo publicado com `sem escala`, nunca quebra o refresh.
 - Atualização: debounce de 1,2s nas mudanças + refresh periódico para os contadores de tempo.
 

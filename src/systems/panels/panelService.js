@@ -3,7 +3,7 @@
 const { createLogger } = require('../../utils/logger');
 const { buildPublicPanel } = require('../../dashboard/panels/publicPanel');
 const { buildStaffPanel } = require('../../dashboard/panels/staffPanel');
-const { describeSchedule } = require('../hourbank/shiftSchedule');
+const { scheduleSummary } = require('../hourbank/shiftSchedule');
 
 const logger = createLogger('panels');
 
@@ -68,7 +68,10 @@ class PanelService {
   }
 
   /**
-   * Escala resumida por staff (`userId → "hoje 14:00 às 22:00"`).
+   * Escala resumida por staff (`userId → { label, sortKey }`).
+   *
+   * `label` é o texto que aparece na linha (`"hoje 14:00 às 22:00"`) e `sortKey`
+   * é o início do turno usado para **ordenar a EQUIPE** pelo horário.
    *
    * Sem o banco de horas (ou se a leitura falhar) o painel continua sendo
    * publicado: as linhas mostram `sem escala` em vez de derrubar o refresh.
@@ -83,7 +86,7 @@ class PanelService {
       }
       const escalas = new Map();
       for (const [userId, shifts] of byUser) {
-        escalas.set(userId, describeSchedule(shifts, now, { timeZone: this.hourBank.timeZone }));
+        escalas.set(userId, scheduleSummary(shifts, now, { timeZone: this.hourBank.timeZone }));
       }
       return escalas;
     } catch (error) {

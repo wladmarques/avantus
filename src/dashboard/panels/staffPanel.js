@@ -59,18 +59,48 @@ function servingLine(entry, staffList) {
  * `em atendimento` (está com um jogador) e `bloqueado` (punição da staff).
  */
 function staffMemberLine(entry, escalas) {
-  const escala = escalaOf(entry, escalas);
+  const { label: escala } = escalaOf(entry, escalas);
   const notes = [];
   if (entry.status === STAFF_STATUS.EM_ATENDIMENTO) notes.push('em atendimento');
   if (entry.blocked) notes.push('bloqueado');
   return `<@${entry.userId}> — ${escala}${notes.length ? ` • ${notes.join(' • ')}` : ''}`;
 }
 
-/** Horário da escala do staff (`sem escala` quando não há turno cadastrado). */
+/** Chave de ordenação de quem não tem turno: vai sempre para o fim da lista. */
+const SEM_ESCALA_KEY = Number.POSITIVE_INFINITY;
+
+/**
+ * Resumo da escala do staff: `{ label, sortKey }`.
+ *
+ * Aceita tanto o objeto devolvido por `scheduleSummary()` quanto uma string
+ * simples (`sortKey` infinito), para o painel continuar montável em testes e
+ * em qualquer chamada antiga que passe só o texto.
+ */
 function escalaOf(entry, escalas) {
-  if (!escalas) return 'sem escala';
-  const value = typeof escalas.get === 'function' ? escalas.get(entry.userId) : escalas[entry.userId];
-  return value || 'sem escala';
+  const value =
+    escalas && typeof escalas.get === 'function' ? escalas.get(entry.userId) : escalas?.[entry.userId];
+  if (!value) return { label: 'sem escala', sortKey: SEM_ESCALA_KEY };
+  if (typeof value === 'string') return { label: value, sortKey: SEM_ESCALA_KEY };
+  const sortKey = Number.isFinite(value.sortKey) ? value.sortKey : SEM_ESCALA_KEY;
+  return { label: value.label || 'sem escala', sortKey };
+}
+
+/**
+ * Ordem da EQUIPE: **pelo horário da escala**, do turno mais cedo para o mais
+ * tarde. Quem não tem escala vai para o fim. Status e id só desempatam (dois
+ * staffs no mesmo horário mantêm uma ordem estável entre atualizações).
+ */
+function compareStaff(a, b, escalas) {
+  const escalaA = escalaOf(a, escalas);
+  const escalaB = escalaOf(b, escalas);
+  if (escalaA.sortKey !== escalaB.sortKey) return escalaA.sortKey - escalaB.sortKey;
+  const porStatus = (STAFF_STATUS_ORDER[a.status] ?? 9) - (STAFF_STATUS_ORDER[b.status] ?? 9);
+  if (porStatus !== 0) return porStatus;
+  return String(a.userId).localeCompare(String(b.userId));
+}
+
+function sortBySchedule(entries, escalas) {
+  return [...entries].sort((a, b) => compareStaff(a, b, escalas));
 }
 
 /** Staff bloqueado pela administração nunca conta como "de serviço". */
@@ -92,15 +122,22 @@ function staffListLines(entries, emptyText, escalas) {
  * ou em atendimento) e quem está **fora de serviço** (ausente, indisponível ou
  * bloqueado). Assim dá para ver de relance quem está trabalhando agora, sem
  * ler status por status numa lista única.
+ *
+ * Dentro de cada grupo a lista segue a **ordem do horário da escala**: o turno
+ * mais cedo vem primeiro (13:12 → 15:36 → 16:48 → 20:24 …). Quem está de turno
+ * agora já começou, então aparece naturalmente no topo do grupo.
  */
 function buildStaffBlock(staffList, escalas = null) {
   if (staffList.length === 0) return '_Nenhum staff registrado ainda._';
 
-  const ordered = [...staffList].sort(
-    (a, b) => (STAFF_STATUS_ORDER[a.status] ?? 9) - (STAFF_STATUS_ORDER[b.status] ?? 9),
+  const onDuty = sortBySchedule(
+    staffList.filter(isOnDuty),
+    escalas,
   );
-  const onDuty = ordered.filter(isOnDuty);
-  const offDuty = ordered.filter((entry) => !isOnDuty(entry));
+  const offDuty = sortBySchedule(
+    staffList.filter((entry) => !isOnDuty(entry)),
+    escalas,
+  );
 
   return [
     `**DE SERVIÇO (${onDuty.length})**`,

@@ -251,8 +251,10 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
   puro (ex.: `CHAMAR PRÓXIMO`, `FILA DE ESPERA`, `Disponíveis`).
 - O bloco **EQUIPE** é dividido em dois grupos: **DE SERVIÇO** (disponível ou em atendimento) e
   **FORA DE SERVIÇO** (ausente, indisponível ou bloqueado), cada um com a contagem no título. Dentro
-  do grupo a ordem é disponível → em atendimento → ausente → indisponível, e a lista para em 20
-  nomes por grupo (`… e mais N staff`) para não estourar o limite de 4096 caracteres do embed.
+  do grupo a ordem é **pelo horário da escala**, do turno mais cedo para o mais tarde
+  (`13:12 → 15:36 → 16:48 → 20:24`); empate desempata por status e depois por id. Quem não tem escala
+  cadastrada vai para o fim. A lista para em 20 nomes por grupo (`… e mais N staff`) para não
+  estourar o limite de 4096 caracteres do embed.
   Staff bloqueado pela administração nunca aparece como "de serviço".
 - A linha de cada staff mostra o **horário da escala**, não o status: `@staff — hoje 14:00 às 22:00`,
   `@staff — em turno até 20:00`, `@staff — amanhã 14:00 às 22:00`, `@staff — Qua 14:00 às 22:00` ou
