@@ -79,7 +79,7 @@ test('jogador sem permissão não consegue usar o botão da staff', async (t) =>
   assert.match(JSON.stringify(interaction.responses[0]), /não faz parte da equipe/i);
 });
 
-test('botão CHAMAR PRÓXIMO da staff chama o primeiro da fila', async (t) => {
+test('botão CHAMAR da staff chama o primeiro da fila', async (t) => {
   const env = await createTestEnv();
   t.after(env.cleanup);
   addMember(env.gateway, PLAYER, { voiceChannelId: env.waitChannelId });

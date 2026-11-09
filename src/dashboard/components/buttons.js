@@ -91,24 +91,39 @@ function publicPanelComponents({ joinDisabled = false } = {}) {
   ];
 }
 
+/**
+ * Botões do painel da equipe — **duas linhas** de 5 + 4.
+ *
+ * O Discord não permite definir a largura de um botão: ela é proporcional ao
+ * rótulo. Com rótulos longos e de tamanhos diferentes (9 a 16 caracteres), cada
+ * linha fechava num comprimento diferente e o conjunto parecia torto. Aqui todos
+ * os rótulos ficam entre **5 e 10 caracteres**, então as colunas batem.
+ *
+ * A ordem segue o fluxo de trabalho, e não a ordem em que os comandos existem:
+ *
+ * Linha 1 — a fila e o atendimento do dia a dia:
+ *   CHAMAR · ESCOLHER · PULAR · DEVOLVER · FINALIZAR
+ * Linha 2 — o que é sobre a própria pessoa e o administrativo:
+ *   ATUALIZAR · MEU STATUS · REATIVAR · REMOVER
+ *
+ * `REMOVER` é o único destrutivo permanente e fica isolado na ponta direita.
+ * Paleta da referência mantida: todos na mesma superfície escura neutra (o
+ * Discord não permite cor personalizada, e o painel não usa emojis).
+ */
 function staffPanelComponents({ hasQueue = false, hasServing = false, hasHold = false } = {}) {
-  // Paleta da referência: todos os botões na mesma superfície escura neutra,
-  // diferenciados pelo ícone (o Discord não permite cor personalizada nos botões).
   return [
     actionRow([
-      button(IDs.STAFF_CALL_NEXT, 'CHAMAR PRÓXIMO', { style: STYLES.SECONDARY, disabled: !hasQueue }),
-      button(IDs.STAFF_CALL_SPECIFIC, 'CHAMAR ESPECÍFICO', { style: STYLES.SECONDARY, disabled: !hasQueue }),
-      button(IDs.STAFF_SKIP, 'PULAR JOGADOR', { style: STYLES.SECONDARY, disabled: !hasQueue }),
-    ]),
-    actionRow([
-      button(IDs.STAFF_RETURN, 'DEVOLVER À FILA', { style: STYLES.SECONDARY, disabled: !hasServing }),
+      button(IDs.STAFF_CALL_NEXT, 'CHAMAR', { style: STYLES.SECONDARY, disabled: !hasQueue }),
+      button(IDs.STAFF_CALL_SPECIFIC, 'ESCOLHER', { style: STYLES.SECONDARY, disabled: !hasQueue }),
+      button(IDs.STAFF_SKIP, 'PULAR', { style: STYLES.SECONDARY, disabled: !hasQueue }),
+      button(IDs.STAFF_RETURN, 'DEVOLVER', { style: STYLES.SECONDARY, disabled: !hasServing }),
       button(IDs.STAFF_FINISH, 'FINALIZAR', { style: STYLES.SECONDARY, disabled: !hasServing }),
-      button(IDs.STAFF_REMOVE, 'REMOVER DA FILA', { style: STYLES.SECONDARY, disabled: !hasQueue && !hasServing }),
     ]),
     actionRow([
+      button(IDs.STAFF_REFRESH, 'ATUALIZAR', { style: STYLES.SECONDARY }),
       button(IDs.STAFF_MY_STATUS, 'MEU STATUS', { style: STYLES.SECONDARY }),
-      button(IDs.STAFF_REACTIVATE, 'REATIVAR PENDENTE', { style: STYLES.SECONDARY, disabled: !hasHold }),
-      button(IDs.STAFF_REFRESH, 'ATUALIZAR PAINEL', { style: STYLES.SECONDARY }),
+      button(IDs.STAFF_REACTIVATE, 'REATIVAR', { style: STYLES.SECONDARY, disabled: !hasHold }),
+      button(IDs.STAFF_REMOVE, 'REMOVER', { style: STYLES.SECONDARY, disabled: !hasQueue && !hasServing }),
     ]),
   ];
 }

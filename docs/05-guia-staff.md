@@ -13,10 +13,10 @@ O painel da equipe fica em **#painel-staff** e é atualizado automaticamente.
 
 ## Chamar jogadores
 
-**📞 CHAMAR PRÓXIMO** — pega automaticamente o primeiro da fila, move o jogador para o seu canal,
+**📞 CHAMAR** — pega automaticamente o primeiro da fila, move o jogador para o seu canal,
 registra o início e muda seu status para 🔴 EM ATENDIMENTO.
 
-**👤 CHAMAR ESPECÍFICO** — escolhe qualquer jogador da fila. O **motivo é obrigatório** e fica
+**👤 ESCOLHER** — escolhe qualquer jogador da fila. O **motivo é obrigatório** e fica
 registrado como alteração da ordem (aparece com ⚠️ no painel e nos logs).
 
 **Múltiplos atendimentos:** cada staff atende um jogador por vez. Admins podem liberar mais de um
@@ -33,15 +33,28 @@ por staff com `/config definir chave:allow_staff_multi valor:true`.
 
 ## Ações disponíveis
 
+Os botões ficam em **duas linhas**, na ordem em que você usa durante o atendimento:
+
+```
+[ CHAMAR ]  [ ESCOLHER ]  [ PULAR ]  [ DEVOLVER ]  [ FINALIZAR ]
+[ ATUALIZAR ]  [ MEU STATUS ]  [ REATIVAR ]  [ REMOVER ]
+```
+
 | Botão | Efeito |
 | --- | --- |
+| ✅ CHAMAR | chama o primeiro da fila |
+| 👤 ESCOLHER | chama um jogador específico da fila — **motivo obrigatório** |
+| ⏭️ PULAR | move o jogador para o final da fila ou o mantém pendente (conforme configuração) — **motivo obrigatório** |
+| 🔄 DEVOLVER | o jogador volta ao **final** da fila e você é liberado |
 | ✅ FINALIZAR | encerra seu atendimento, calcula duração, envia a avaliação ao jogador (DM ou canal do painel, se a DM estiver fechada) e libera você |
-| 🔄 DEVOLVER À FILA | o jogador volta ao **final** da fila e você é liberado |
-| ⏭️ PULAR JOGADOR | move o jogador para o final da fila ou o mantém pendente (conforme configuração) — **motivo obrigatório** |
-| 🚫 REMOVER DA FILA | remove o jogador (fila ou atendimento) com **justificativa obrigatória** |
-| ▶️ REATIVAR PENDENTE | devolve um jogador pendente para a fila |
-| 🔄 ATUALIZAR PAINEL | força a atualização das informações |
+| 🔄 ATUALIZAR | força a atualização das informações |
 | 🟢 MEU STATUS | altera sua disponibilidade |
+| ▶️ REATIVAR | devolve um jogador pendente para a fila |
+| 🚫 REMOVER | remove o jogador (fila ou atendimento) com **justificativa obrigatória** |
+
+> Os rótulos são curtos de propósito: o Discord define a largura do botão pelo tamanho do texto, então
+> rótulos de tamanho parecido (5 a 10 caracteres) deixam as duas linhas alinhadas. Os botões que não se
+> aplicam ao momento (sem fila, sem atendimento) aparecem desabilitados, sem mudar de tamanho.
 
 > A administração pode **bloquear** você pelo painel web. Enquanto o bloqueio estiver ativo, o
 > `/status situacao:Disponível` (e entrar no canal de atendimento) não coloca você em serviço — fale
