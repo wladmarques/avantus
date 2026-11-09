@@ -249,6 +249,11 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
   destaque em `#ff2200` e os mesmos botões na superfície escura da paleta — prévia em
   `npm run preview:staff`. Ele é **100% sem emojis**: títulos de seção, campos e botões usam texto
   puro (ex.: `CHAMAR PRÓXIMO`, `FILA DE ESPERA`, `Disponíveis`).
+- O bloco **EQUIPE** é dividido em dois grupos: **DE SERVIÇO** (disponível ou em atendimento) e
+  **FORA DE SERVIÇO** (ausente, indisponível ou bloqueado), cada um com a contagem no título. Dentro
+  do grupo a ordem é disponível → em atendimento → ausente → indisponível, e a lista para em 20
+  nomes por grupo (`… e mais N staff`) para não estourar o limite de 4096 caracteres do embed.
+  Staff bloqueado pela administração nunca aparece como "de serviço".
 
 ## Mensagens editáveis
 

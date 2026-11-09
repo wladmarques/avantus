@@ -115,6 +115,9 @@ waiting ──► serving ──► finished
 - O bloco **EQUIPE** depende do cache de cargos (`staff_panel_role_ids`). Esse cache só é trocado por
   uma sincronização bem-sucedida e não-vazia — falha de API nunca esconde a equipe (ver
   `docs/09-banco-de-horas.md`).
+- Dentro do bloco **EQUIPE**, `buildStaffBlock` (`dashboard/panels/staffPanel.js`) separa a lista em
+  **DE SERVIÇO** (`DISPONIVEL`/`EM_ATENDIMENTO`) e **FORA DE SERVIÇO** (`AUSENTE`/`INDISPONIVEL`/bloqueado),
+  com contagem por grupo e cap de 20 nomes por grupo.
 - Atualização: debounce de 1,2s nas mudanças + refresh periódico para os contadores de tempo.
 
 ## Tratamento de erros
