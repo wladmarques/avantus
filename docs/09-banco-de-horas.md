@@ -331,9 +331,22 @@ A tabela de staff do painel web é dividida em dois grupos:
 
 ## Filtro da EQUIPE por cargo
 
-O bloco **EQUIPE** do painel da central lista apenas os membros que têm o cargo definido em
-`staff_panel_role_ids`. Sem nenhum cargo configurado, todos os staff cadastrados aparecem (comportamento
-antigo).
+O bloco **EQUIPE** do painel da central lista **todo mundo que tem o cargo** definido em
+`staff_panel_role_ids` — inclusive quem nunca entrou em serviço. Sem nenhum cargo configurado, todos os
+staff cadastrados aparecem (comportamento antigo).
+
+A lista é a **união** de duas fontes:
+
+| Fonte | Quem é | Como aparece |
+| --- | --- | --- |
+| `staff_status` + cargo | staff que já entrou em serviço alguma vez | com o status real e o horário da escala |
+| **só o cargo** | membro do Discord com o cargo, sem status registrado | em **FORA DE SERVIÇO**, com `sem escala`, até entrar em serviço |
+
+Sem essa segunda fonte a EQUIPE mostrava uma equipe menor do que a real: quem recebia o cargo depois
+do último cadastro simplesmente não aparecia no painel. A linha vem marcada com `registered: false`
+em `StaffService.listForPanel()`, e **não** conta como disponível — a entrada na fila continua exigindo
+alguém realmente em serviço (`staffCounts.DISPONIVEL`). Membros que perdem o cargo saem do painel na
+próxima sincronização (a cada 5 minutos, ou na hora via `guildMemberUpdate`).
 
 ```bash
 # .env (aplicado no boot) ou /config definir chave:staff_panel_role_ids valor:["1566903220968624188"]

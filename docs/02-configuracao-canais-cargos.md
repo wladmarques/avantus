@@ -256,6 +256,9 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
   cadastrada vai para o fim. A lista para em 20 nomes por grupo (`… e mais N staff`) para não
   estourar o limite de 4096 caracteres do embed.
   Staff bloqueado pela administração nunca aparece como "de serviço".
+- **Quem tem o cargo aparece sempre**: a EQUIPE é a união de quem já entrou em serviço com quem tem o
+  cargo no Discord. Membro com o cargo e sem status registrado entra em **FORA DE SERVIÇO** com
+  `sem escala` — não fica invisível até o primeiro turno.
 - A linha de cada staff mostra o **horário da escala**, não o status: `@staff — hoje 14:00 às 22:00`,
   `@staff — em turno até 20:00`, `@staff — amanhã 14:00 às 22:00`, `@staff — Qua 14:00 às 22:00` ou
   `@staff — sem escala` (turno nenhum cadastrado). Os rótulos DISPONÍVEL/INDISPONÍVEL/AUSENTE não

@@ -233,7 +233,36 @@ class StaffService {
   }
 
   /**
-   * Lista para o painel da equipe: aplica o filtro de cargos quando configurado.
+   * Linha sintética de quem **tem o cargo da equipe e nunca entrou em serviço**.
+   *
+   * Sem isso a EQUIPE esconde parte do time: só aparecia quem já tinha linha em
+   * `staff_status` (ou seja, quem um dia ficou disponível). Quem recebeu o cargo
+   * agora, ou nunca abriu o próprio status, não existia para o painel.
+   */
+  _rosterPlaceholder(guildId, userId) {
+    return {
+      userId,
+      status: STAFF_STATUS.INDISPONIVEL,
+      manual: false,
+      updatedAt: null,
+      updatedBy: null,
+      blocked: false,
+      blockedAt: null,
+      blockedReason: null,
+      meta: STAFF_STATUS_META[STAFF_STATUS.INDISPONIVEL],
+      // true = apareceu pelo cargo, não porque já ficou disponível alguma vez.
+      registered: false,
+    };
+  }
+
+  /**
+   * Lista para o painel da equipe.
+   *
+   * Com `staff_panel_role_ids` configurado, a EQUIPE é a **união** de:
+   * 1. staff com linha em `staff_status` **e** com o cargo (quem já entrou em serviço);
+   * 2. membros que têm o cargo mas ainda não têm status — entram como INDISPONÍVEL,
+   *    então caem em FORA DE SERVIÇO em vez de desaparecer do painel.
+   *
    * Sem cache carregado (cold start) não esconde ninguém, e o filtro nunca
    * esvazia a EQUIPE inteira por causa de cache incompleto.
    */
@@ -251,13 +280,24 @@ class StaffService {
       return roles.some((roleId) => roleIds.includes(roleId));
     });
 
-    if (filtered.length === 0 && rows.length > 0) {
+    // Membros com o cargo que nunca tiveram status registrado.
+    const known = new Set(filtered.map((row) => row.userId));
+    const placeholders = [];
+    for (const [userId, roles] of cache) {
+      if (known.has(userId)) continue;
+      if (!Array.isArray(roles)) continue;
+      if (!roles.some((roleId) => roleIds.includes(roleId))) continue;
+      placeholders.push(this._rosterPlaceholder(guildId, userId));
+    }
+    placeholders.sort((a, b) => String(a.userId).localeCompare(String(b.userId)));
+
+    if (filtered.length === 0 && placeholders.length === 0 && rows.length > 0) {
       logger.warn(
         'Filtro de cargos esvaziaria a EQUIPE do painel; mantendo todos os staff registrados.',
       );
       return rows;
     }
-    return filtered;
+    return [...filtered, ...placeholders];
   }
 
   /** Estado do cache de cargos (usado pelo /diagnostico). */
@@ -306,6 +346,8 @@ class StaffService {
       blockedAt: row.blocked_at ?? null,
       blockedReason: row.blocked_reason ?? null,
       meta: STAFF_STATUS_META[row.status] ?? STAFF_STATUS_META.INDISPONIVEL,
+      // Já entrou em serviço alguma vez (tem linha em staff_status).
+      registered: true,
     }));
   }
 
