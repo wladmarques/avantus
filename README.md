@@ -194,6 +194,7 @@ npm run check:tracked     # garante que nenhum arquivo-fonte ficou fora do Git
 npm run deploy:commands   # registra os slash commands manualmente
 npm run package           # gera o .zip de deploy para a SquareCloud
 npm run preview           # gera preview/panel.html e preview/staff.html (layout e cores reais)
+npm run art               # regera as artes do relógio do painel (assets/central-*.png)
 npm run preview:web       # sobe o painel web do banco de horas com dados de exemplo (senha: vantus)
 ```
 

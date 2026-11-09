@@ -16,6 +16,7 @@
  *
  * Tudo em JSON puro: os payloads podem ser testados sem conexão com o Discord.
  */
+const path = require('node:path');
 const { COLORS, BRAND } = require('../../config/theme');
 const { publicPanelComponents } = require('../components/buttons');
 const { formatDuration, formatTime, DAY_KEYS } = require('../../utils/time');
@@ -25,7 +26,41 @@ const COMPONENTS_V2_FLAG = 32768;
 
 const text = (content) => ({ type: 10, content });
 const separator = (spacing = 1, divider = true) => ({ type: 14, divider, spacing });
-const card = (accentColor, components) => ({ type: 17, accent_color: accentColor, components });
+/** Container. Sem `accent_color` ele vira uma caixa neutra, sem barra lateral. */
+const card = (accentColor, components) => ({
+  type: 17,
+  ...(accentColor == null ? {} : { accent_color: accentColor }),
+  components,
+});
+/** Section: texto à esquerda e UM acessório (botão ou imagem) à direita. */
+const section = (components, accessory) => ({ type: 9, components, accessory });
+const thumbnail = (url, description) => ({ type: 11, media: { url }, description });
+
+/**
+ * Artes do relógio (geradas por `npm run art`, em `assets/`).
+ *
+ * É isso que dá o "relógio grande" da referência: no Components V2 a seção
+ * aceita uma imagem como acessório, exibida à direita do texto — o equivalente
+ * ao thumbnail de um embed, porém grande e com a arte no tamanho original.
+ */
+const ART_DIR = path.join(__dirname, '..', '..', '..', 'assets');
+const ART = {
+  fechada: { file: 'central-fechada.png', description: 'Relógio vermelho: fora do horário de atendimento' },
+  semStaff: { file: 'central-sem-staff.png', description: 'Relógio âmbar: central aberta, sem staff disponível' },
+  disponivel: { file: 'central-disponivel.png', description: 'Relógio verde: equipe disponível para atender' },
+};
+
+/** Arte do estado atual da central. */
+function statusArt({ open, availableStaff }) {
+  if (!open) return ART.fechada;
+  if (availableStaff > 0) return ART.disponivel;
+  return ART.semStaff;
+}
+
+/** Nome do arquivo enviado junto com a mensagem (`attachment://`). */
+function statusArtPath(art) {
+  return path.join(ART_DIR, art.file);
+}
 const button = (customId, label, style, emoji, disabled = false) => ({
   type: 2,
   style,
@@ -43,19 +78,6 @@ function titleWithIcon(title) {
   // Mantém o emoji do título quando ele já começa com um.
   const startsWithEmoji = /^[\p{Extended_Pictographic}]/u.test(value);
   return startsWithEmoji ? value : `🎧 ${value}`;
-}
-
-/**
- * Indicadores em uma linha compacta: rótulo em negrito + valor.
- * Sem emojis e sem etiquetas de código — segue o visual minimalista.
- */
-function statLine(state, available) {
-  const item = (label, value) => `**${label}** ${value}`;
-  return [
-    item('NA FILA', state.waiting.length),
-    item('STAFFS DISPONÍVEIS', available),
-    item('EM ANDAMENTO', state.serving.length),
-  ].join('  •  ');
 }
 
 /** Agrupa dias consecutivos com o mesmo horário: "Seg–Sex: 12:00 às 02:00". */
@@ -93,7 +115,9 @@ function statusInfo({ open, availableStaff, nextOpen }) {
   if (!open) {
     return {
       indicator: '🔴',
-      headline: 'ATENDIMENTO INDISPONÍVEL',
+      // Fechada é "fora do horário", não "indisponível": a manchete precisa
+      // dizer o motivo e não um estado genérico.
+      headline: 'FORA DO HORÁRIO DE ATENDIMENTO',
       note: nextOpen ? `Central fechada • reabre ${nextOpen}` : 'Central fechada no momento',
     };
   }
@@ -101,7 +125,10 @@ function statusInfo({ open, availableStaff, nextOpen }) {
     return {
       indicator: '🟢',
       headline: 'ATENDIMENTO DISPONÍVEL',
-      note: `${availableStaff} staff(s) disponível(is) para atender`,
+      note:
+        availableStaff === 1
+          ? '1 staff disponível para atender'
+          : `${availableStaff} staffs disponíveis para atender`,
     };
   }
   return {
@@ -137,53 +164,78 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     .slice(0, 3)
     .map((entry) => `-# ${entry.range}: ${entry.label}`);
 
+  const art = statusArt({ open, availableStaff: available });
+
+  /**
+   * Caixa de indicador: rótulo pequeno em cima, número grande embaixo.
+   *
+   * O Discord não permite aninhar containers, então cada caixa é um container
+   * próprio na mensagem — empilhados, eles formam o mesmo bloqueio visual da
+   * referência (uma caixa embaixo da outra) e o número ganha o dobro do corpo
+   * do texto normal.
+   */
+  const metricBox = (label, value) =>
+    card(null, [text([`-# ${label}`, `# ${value}`].join('\n'))]);
+
   const components = [
-    // Cabeçalho compacto (sem avatar, sem descrição)
-    text(`## ${titleWithIcon(settings.message_panel_title)}`),
-    separator(1),
+    // Caixa principal: título, status (com o relógio à direita) e horário.
+    card(open && available > 0 ? COLORS.SUCCESS : open ? COLORS.WARNING : COLORS.ACCENT, [
+      text(`## ${titleWithIcon(settings.message_panel_title)}`),
+      section(
+        [
+          text(`-# STATUS DA CENTRAL`),
+          text(`# ${status.headline}`),
+          text(`-# ${status.note}`),
+        ],
+        thumbnail(`attachment://${art.file}`, art.description),
+      ),
+    ]),
 
-    // Bloco de status (sem rótulo e sem emoji)
-    text([`## ${status.headline}`, `-# ${status.note}`].join('\n')),
+    // Horário em caixa própria (a referência mostra status e horário separados).
+    card(null, [text(['-# **HORÁRIO DE ATENDIMENTO**', ...scheduleLines].join('\n'))]),
 
-    // Indicadores (rótulos sem emoji)
-    text(statLine(state, available)),
+    // Indicadores: só com a central aberta (fechada, o painel mostra apenas o
+    // status e o horário, como na referência).
+    ...(open
+      ? [
+          metricBox('NA FILA', state.waiting.length),
+          metricBox('STAFFS DISPONÍVEIS', available),
+          metricBox('EM ANDAMENTO', state.serving.length),
+        ]
+      : []),
 
-    // Faixa de horário
-    text(['-# **HORÁRIO DE ATENDIMENTO:**', ...scheduleLines].join('\n')),
-
-    // Divisor único, como na referência
-    separator(2),
-
-    // Rodapé: texto à esquerda, botão à direita
-    {
-      type: 9,
-      components: [
-        text(
-          ['**🎧 Fila por canal de voz**', `-# ${waitChannel}Você será movido automaticamente quando houver staff disponível. ${exitNote}`].join('\n'),
-        ),
-      ],
-      accessory: button('pub:join', 'Entrar na Fila', 2, '🎟️', !canJoin),
-    },
-    text(
-      canJoin
-        ? '-# Só é possível entrar na fila estando no canal de voz de espera. `/sair` desiste da fila e `/posicao` mostra a sua posição.'
-        : `-# Entrada na fila indisponível: ${unavailableNote}.`,
-    ),
-
-    // Avaliação sempre acessível (mesmo com a DM fechada)
-    {
-      type: 1,
-      components: [
-        button('pub:evaluate', 'Avaliar atendimento', 2),
-      ],
-    },
+    // Rodapé: texto à esquerda, botão à direita.
+    card(COLORS.ACCENT, [
+      section(
+        [
+          text('**🎧 Fila por canal de voz**'),
+          text(
+            `-# ${waitChannel}Você será movido automaticamente quando houver staff disponível. ${exitNote}`,
+          ),
+        ],
+        button('pub:join', 'Entrar na Fila', 2, '🎟️', !canJoin),
+      ),
+      text(
+        canJoin
+          ? '-# Só é possível entrar na fila estando no canal de voz de espera. `/sair` desiste da fila e `/posicao` mostra a sua posição.'
+          : `-# Entrada na fila indisponível: ${unavailableNote}.`,
+      ),
+      // Avaliação sempre acessível (mesmo com a DM fechada)
+      {
+        type: 1,
+        components: [button('pub:evaluate', 'Avaliar atendimento', 2)],
+      },
+    ]),
   ];
 
   return {
     format: 'v2',
     payload: {
       flags: COMPONENTS_V2_FLAG,
-      components: [card(open ? COLORS.ACCENT : COLORS.MUTED, components)],
+      components,
+      // A arte viaja junto com a mensagem (`attachment://`). Precisa ser
+      // reenviada a cada edição, senão o Discord remove o anexo.
+      files: [statusArtPath(art)],
     },
   };
 }
@@ -212,10 +264,14 @@ function buildPublicPanelClassic({
     { name: 'HORÁRIO DE ATENDIMENTO', value: `**${todayWindow?.text ?? '—'}**`, inline: false },
   ];
 
+  const art = statusArt({ open, availableStaff: available });
+
   const embed = {
     color: open ? COLORS.ACCENT : COLORS.MUTED,
     title: titleWithIcon(settings.message_panel_title),
     description: open ? null : `🔒 ${status.note}`,
+    // Mesma arte do layout moderno, agora como thumbnail do embed.
+    thumbnail: { url: `attachment://${art.file}` },
     fields,
     // O `timestamp` logo abaixo já mostra a hora: repetir "Atualizado 11:07" no
     // texto do rodapé só duplicava a informação.
@@ -226,7 +282,11 @@ function buildPublicPanelClassic({
   const canJoin = Boolean(open) && available > 0;
   return {
     format: 'embed',
-    payload: { embeds: [embed], components: publicPanelComponents({ joinDisabled: !canJoin }) },
+    payload: {
+      embeds: [embed],
+      components: publicPanelComponents({ joinDisabled: !canJoin }),
+      files: [statusArtPath(art)],
+    },
   };
 }
 
@@ -241,11 +301,14 @@ function buildPublicPanel(context) {
 
 module.exports = {
   COMPONENTS_V2_FLAG,
+  ART,
+  ART_DIR,
+  statusArt,
+  statusArtPath,
   buildPublicPanel,
   buildPublicPanelV2,
   buildPublicPanelClassic,
   describeScheduleCompact,
-  statLine,
   statusInfo,
   titleWithIcon,
 };

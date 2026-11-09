@@ -29,9 +29,12 @@ function fakeMember(userId, displayName = 'Jogador') {
 
 async function joinButton(env) {
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
-  const container = payload.components[0];
-  const section = container.components.find((item) => item.type === 9 && item.accessory?.type === 2);
-  return section?.accessory ?? null;
+  // O botão fica no rodapé, que é a última caixa do painel.
+  for (const container of payload.components.filter((item) => item.type === 17)) {
+    const section = container.components.find((item) => item.type === 9 && item.accessory?.type === 2);
+    if (section) return section.accessory;
+  }
+  return null;
 }
 
 test('sem staff disponível a central fica indisponível e o botão desabilitado', async (t) => {
