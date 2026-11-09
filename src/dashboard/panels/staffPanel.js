@@ -1,10 +1,30 @@
 'use strict';
 
-const { COLORS, BRAND, ATTENDANCE_STATUS, OUTCOME_LABELS } = require('../../config/theme');
+const {
+  COLORS,
+  BRAND,
+  ATTENDANCE_STATUS,
+  OUTCOME_LABELS,
+  STAFF_STATUS,
+} = require('../../config/theme');
 const { staffPanelComponents } = require('../components/buttons');
 const { formatTime, formatDuration, formatDurationShort, DAY_LABELS } = require('../../utils/time');
 
 const MAX_LISTED = 10;
+// Limite do bloco EQUIPE: 20 membros por grupo mantém o embed longe do teto
+// de 4096 caracteres da descrição mesmo com a equipe inteira registrada.
+const MAX_STAFF_LISTED = 20;
+
+/** Status que contam como "de serviço" (o staff está trabalhando agora). */
+const DUTY_STATUSES = new Set([STAFF_STATUS.DISPONIVEL, STAFF_STATUS.EM_ATENDIMENTO]);
+
+/** Ordem de exibição dentro de cada grupo: disponível → atendendo → ausente → indisponível. */
+const STAFF_STATUS_ORDER = {
+  [STAFF_STATUS.DISPONIVEL]: 0,
+  [STAFF_STATUS.EM_ATENDIMENTO]: 1,
+  [STAFF_STATUS.AUSENTE]: 2,
+  [STAFF_STATUS.INDISPONIVEL]: 3,
+};
 
 function queueLine(entry) {
   return [
@@ -26,6 +46,53 @@ function servingLine(entry, staffList) {
     entry.presence_confirmed
       ? 'Presença: confirmada no canal'
       : 'Presença: aguardando entrar no canal',
+  ].join('\n');
+}
+
+function staffMemberLine(entry) {
+  const label = entry.blocked
+    ? 'BLOQUEADO'
+    : entry.status === STAFF_STATUS.EM_ATENDIMENTO
+      ? 'EM ATENDIMENTO'
+      : entry.meta.label;
+  return `<@${entry.userId}> — **${label}**`;
+}
+
+/** Staff bloqueado pela administração nunca conta como "de serviço". */
+function isOnDuty(entry) {
+  return !entry.blocked && DUTY_STATUSES.has(entry.status);
+}
+
+function staffListLines(entries, emptyText) {
+  if (entries.length === 0) return emptyText;
+  const shown = entries.slice(0, MAX_STAFF_LISTED).map(staffMemberLine);
+  if (entries.length > MAX_STAFF_LISTED) {
+    shown.push(`_… e mais ${entries.length - MAX_STAFF_LISTED} staff._`);
+  }
+  return shown.join('\n');
+}
+
+/**
+ * EQUIPE separada em dois grupos visuais: quem está **de serviço** (disponível
+ * ou em atendimento) e quem está **fora de serviço** (ausente, indisponível ou
+ * bloqueado). Assim dá para ver de relance quem está trabalhando agora, sem
+ * ler status por status numa lista única.
+ */
+function buildStaffBlock(staffList) {
+  if (staffList.length === 0) return '_Nenhum staff registrado ainda._';
+
+  const ordered = [...staffList].sort(
+    (a, b) => (STAFF_STATUS_ORDER[a.status] ?? 9) - (STAFF_STATUS_ORDER[b.status] ?? 9),
+  );
+  const onDuty = ordered.filter(isOnDuty);
+  const offDuty = ordered.filter((entry) => !isOnDuty(entry));
+
+  return [
+    `**DE SERVIÇO (${onDuty.length})**`,
+    staffListLines(onDuty, '_Ninguém de serviço agora._'),
+    '',
+    `**FORA DE SERVIÇO (${offDuty.length})**`,
+    staffListLines(offDuty, '_Todos de serviço._'),
   ].join('\n');
 }
 
@@ -63,21 +130,7 @@ function buildStaffPanel({ state, overview, schedule, todayWindow, now = new Dat
           )
           .join('\n');
 
-  const staffBlock =
-    state.staffList.length === 0
-      ? '_Nenhum staff registrado ainda._'
-      : state.staffList
-          .map(
-            (entry) =>
-              `<@${entry.userId}> — **${
-                entry.blocked
-                  ? 'BLOQUEADO'
-                  : entry.status === 'EM_ATENDIMENTO'
-                    ? 'EM ATENDIMENTO'
-                    : entry.meta.label
-              }**`,
-          )
-          .join('\n');
+  const staffBlock = buildStaffBlock(state.staffList);
 
   const desc = [
     `**CENTRAL ${schedule.open ? 'ABERTA' : 'FECHADA'}** • ${formatTime(now)} • Hoje: ${todayWindow.text}`,
