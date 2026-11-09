@@ -216,23 +216,29 @@ Todos os painéis e botões usam a mesma paleta (fonte única: `src/config/theme
 
 ## Estilo do painel público
 
-O painel público usa **Components V2** (`panel_style=modern`) num único card escuro com:
+O painel público usa **Components V2** (`panel_style=modern`) em **caixas empilhadas**, uma por
+informação:
 
-- barra de destaque **vermelha `#ff2200`** à esquerda (identidade VANTUS);
-- cabeçalho compacto: 🎧 + **ATENDIMENTO | VANTUS**, sem avatar e **sem texto de descrição**;
-- bloco de status minimalista: apenas a manchete **ATENDIMENTO DISPONÍVEL / INDISPONÍVEL** com a
-  nota de apoio (sem o rótulo "STATUS DA CENTRAL" e sem emoji);
-- indicadores **NA FILA • STAFFS DISPONÍVEIS • EM ANDAMENTO**, sem emojis (a espera média saiu do
-  painel — os números seguem disponíveis em `/estatisticas`);
-- faixa **HORÁRIO DE ATENDIMENTO** com as janelas agrupadas por dia;
-- divisor e rodapé com o texto *Fila por canal de voz* à esquerda e o botão **Entrar na Fila** à direita
-  (superfície escura neutra da paleta, ícone 🎟️) — o botão só entra na fila para quem está no
-  canal de voz de espera;
-- os comandos `/sair` e `/posicao` aparecem como dica discreta (sem botões extras).
+| Ordem | Caixa | Conteúdo |
+| --- | --- | --- |
+| 1 | **status** | cabeçalho 🎧 + título, rótulo *STATUS DA CENTRAL*, manchete grande e o **relógio** à direita |
+| 2 | **horário** | *HORÁRIO DE ATENDIMENTO* com as janelas agrupadas por dia |
+| 3–5 | **indicadores** | *NA FILA*, *STAFFS DISPONÍVEIS* e *EM ANDAMENTO*, cada um em sua caixa (rótulo pequeno + número grande) |
+| 6 | **rodapé** | *Fila por canal de voz* + botão **Entrar na Fila** e a dica de `/sair` `/posicao` |
 
-> **Limitação da API do Discord:** containers não podem ser aninhados nem organizados em colunas.
-> A referência visual completa (painel interno + 4 cards lado a lado) está disponível em
-> `npm run preview:panel`; no Discord o bot publica a versão compacta equivalente, com os mesmos dados.
+- **Fora do horário** a manchete é **FORA DO HORÁRIO DE ATENDIMENTO** e as caixas de indicador
+  **não aparecem** — sobram o status (com o horário) e o rodapé, como na referência.
+- A barra da caixa de status acompanha o estado: verde (disponível), âmbar (aberta sem staff) ou
+  vermelho (fechada). Horário e indicadores são caixas neutras (sem barra) e o rodapé fica sempre
+  em `#ff2200`.
+- O **relógio** é uma arte PNG enviada junto com a mensagem (`assets/central-*.png`, geradas por
+  `npm run art`) e exibida como acessório da seção — no Discord não existe largura de imagem
+  configurável, então o tamanho é o do arquivo.
+- A espera média continua fora do painel (os números ficam em `/estatisticas`).
+
+> **Limitação da API do Discord:** um container **não pode** ser colocado dentro de outro, então as
+> caixas são containers irmãos empilhados (e não cards lado a lado). A prévia em
+> `npm run preview:panel` é renderizada a partir do payload real do painel.
 
 Prévias locais (abrem no navegador, com os dois painéis):
 
@@ -240,6 +246,7 @@ Prévias locais (abrem no navegador, com os dois painéis):
 npm run preview          # gera preview/panel.html e preview/staff.html
 npm run preview:panel    # apenas o painel público
 npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
+npm run art              # regera as artes do relógio em assets/
 ```
 
 - Ao trocar o estilo, o bot **apaga a mensagem antiga e publica a nova** (não ficam dois painéis).
