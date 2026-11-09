@@ -266,6 +266,59 @@ class NotificationService {
     return this._send(userId, { embeds: [embed] }, guildId);
   }
 
+  /**
+   * Aviso aos cargos da administração de que um staff escalado **não entrou em
+   * serviço** no horário do turno.
+   *
+   * Vai no canal da staff (ou no canal configurado), marcando os cargos: é o
+   * único ponto do sistema que usa menção de cargo em mensagem de canal, por
+   * isso `allowed_mentions` é explícito — sem ele o Discord ignora as menções.
+   *
+   * @param {{guildId: string, channelId: string, roleIds?: string[], userId: string,
+   *   staffName?: string|null, startsAt: number, endsAt: number,
+   *   lateMinutes: number, ended?: boolean}} params
+   */
+  async shiftAbsence({
+    guildId,
+    channelId,
+    roleIds = [],
+    userId,
+    staffName = null,
+    startsAt,
+    endsAt,
+    lateMinutes = 0,
+    ended = false,
+  }) {
+    if (!channelId) return { ok: false, reason: 'canal não configurado' };
+
+    const embed = card({
+      title: ended ? '⛔ Staff não compareceu ao turno' : '⏰ Staff atrasado no turno',
+      description: [
+        `**${staffName || `<@${userId}>`}** ${ended ? 'não entrou em serviço' : 'ainda não entrou em serviço'} ` +
+          `no turno de **${formatTime(new Date(startsAt))} às ${formatTime(new Date(endsAt))}**.`,
+        '',
+        `**Início previsto:** ${formatTime(new Date(startsAt))}`,
+        `**Atraso:** ${lateMinutes} minuto(s)`,
+        ended
+          ? '**Situação:** o turno terminou e o staff não entrou em serviço.'
+          : '**Situação:** em atraso — o turno já começou.',
+      ].join('\n'),
+      color: ended ? COLORS.DANGER : COLORS.WARNING,
+    });
+
+    const mentions = roleIds.filter(Boolean).map((id) => `<@&${id}>`);
+    try {
+      return await this.gateway.sendChannelMessage(guildId, channelId, {
+        content: mentions.length ? mentions.join(' ') : undefined,
+        embeds: [embed],
+        allowed_mentions: { roles: roleIds.filter(Boolean) },
+      });
+    } catch (error) {
+      logger.warn(`Falha ao avisar a ausência de ${userId} em ${channelId}: ${error.message}`);
+      return { ok: false, reason: error.message };
+    }
+  }
+
   /** Aviso ao jogador quando a entrada automática pela voz não deu certo. */
   voiceJoinFailed({ guildId, userId, reason }) {
     const embed = card({

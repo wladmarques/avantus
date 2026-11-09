@@ -16,7 +16,7 @@ const { createServices } = require('../src/services');
 const { MemoryGateway } = require('../src/services/discordGateway');
 const { startWebServer } = require('../src/web/server');
 const { createLogger, setLevel } = require('../src/utils/logger');
-const { startOfDay } = require('../src/utils/time');
+const { startOfDay, tzParts, dayKey } = require('../src/utils/time');
 
 // LOG_LEVEL=debug mostra cada requisição do painel no console.
 setLevel(process.env.LOG_LEVEL || 'warn');
@@ -122,6 +122,70 @@ async function main() {
       manual: true,
     });
   }
+
+  /* ---------------- Não entrada em serviço (faltas e atrasos) ---------------- */
+
+  // Um staff escalado para hoje que ainda não entrou em serviço: é o mesmo
+  // caminho do bot real (o watcher registra depois da tolerância).
+  const nowParts = tzParts(new Date());
+  const startedMinutesAgo = nowParts.hour * 60 + nowParts.minute - 90;
+  const ATUAL = '900000000000000007';
+  gateway.members.set(ATUAL, { inGuild: true, displayName: 'sem.comparecer', staffRoles: [ROSTER_ROLE] });
+  await services.hourBank.setSchedule({
+    guildId: GUILD,
+    userId: ATUAL,
+    staffName: 'sem.comparecer',
+    shifts: [
+      {
+        weekday: nowParts.weekday,
+        start: hhmm(startedMinutesAgo),
+        end: hhmm(startedMinutesAgo + 240),
+      },
+    ],
+  });
+  {
+    const shift = services.hourBank.listShifts(GUILD, ATUAL)[0];
+    const startTs = startOfDay(new Date()) + shift.startMinutes * MINUTE;
+    await services.hourBank.repo.openAbsenceSync(GUILD, ATUAL, {
+      staffName: 'sem.comparecer',
+      shiftId: shift.shiftId,
+      shiftDay: dayKey(new Date()),
+      scheduledStart: startTs,
+      scheduledEnd: startTs + shift.durationMinutes * MINUTE,
+      detectedAt: startTs + 10 * MINUTE,
+    });
+  }
+
+  /** Registro histórico de ausência no turno do staff para o dia deslocado. */
+  const seedAbsence = async ({ staff, daysAgo, returnedAfter = null }) => {
+    const day = new Date(Date.now() - daysAgo * 24 * 60 * MINUTE);
+    const weekday = tzParts(day).weekday;
+    const shift = services.hourBank
+      .listShifts(GUILD, staff.id)
+      .find((item) => item.weekday === weekday);
+    if (!shift) return;
+    const startTs = startOfDay(day) + shift.startMinutes * MINUTE;
+    const endTs = startOfDay(day) + (shift.startMinutes + shift.durationMinutes) * MINUTE;
+    const row = await services.hourBank.repo.openAbsenceSync(GUILD, staff.id, {
+      staffName: staff.name,
+      shiftId: shift.shiftId,
+      shiftDay: dayKey(day),
+      scheduledStart: startTs,
+      scheduledEnd: endTs,
+      detectedAt: startTs + 10 * MINUTE,
+    });
+    await services.hourBank.repo.markAbsenceNotifiedSync(row.id, startTs + 10 * MINUTE);
+    if (returnedAfter !== null) {
+      await services.hourBank.repo.markAbsenceReturnedSync(GUILD, staff.id, {
+        returnedAt: startTs + returnedAfter * MINUTE,
+        lateMinutes: returnedAfter,
+      });
+    }
+  };
+
+  // Faltou o turno inteiro / chegou 25 min depois.
+  await seedAbsence({ staff: STAFF[2], daysAgo: 1 });
+  await seedAbsence({ staff: STAFF[3], daysAgo: 2, returnedAfter: 25 });
 
   // Cargo da escala nos 4 staff com horário fixo (grupo "escala fixa").
   await services.settings.set('staff_panel_role_ids', [ROSTER_ROLE]);

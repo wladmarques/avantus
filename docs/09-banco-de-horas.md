@@ -13,6 +13,9 @@ aviso por DM antes do turno e relatórios completos em um painel web.
 | O staff só **entra no canal de atendimento** (sem mudar o status) | nada acontece: ele continua fora de serviço, sem horas contando e sem poder chamar jogador |
 | Faltam **5 minutos** para o turno cadastrado | o bot envia uma **DM de aviso** (uma única vez por turno/dia) |
 | A sessão passa de `hour_bank_max_session_hours` (padrão 12h) | é fechada automaticamente (proteção contra queda do bot) |
+| Passam `hour_bank_absence_minutes` (padrão 10) do início do turno **sem ninguém em serviço** | o bot **registra a não entrada em serviço** e avisa os cargos da administração no canal da staff |
+| O staff aparece depois, ainda dentro do turno | o registro passa a **"atrasou X"** (o atraso fica no histórico) |
+| O turno termina sem o staff | o registro fica como **"faltou"** |
 
 **Atraso** = diferença entre a entrada real e o início do turno cadastrado (nos fins de semana
 revezados, só conta para quem está escalado naquele fim de semana).
@@ -43,6 +46,9 @@ WEB_PANEL_HOST=0.0.0.0
 ### O que aparece
 
 - **Cartões**: staff cadastrados, quem está em serviço agora, horas no período e atrasos.
+- **Presença** (seção própria): cartões de *faltas no período*, *em atraso agora*, *chegaram
+  atrasados* e *minutos de atraso*, mais a tabela **Não entrada em serviço** com dia, staff,
+  turno, situação (`faltou` / `em atraso` / `compareceu`) e a hora em que o bot registrou.
 - **Tabela da equipe**: nome, status atual (ou *EM SERVIÇO desde HH:MM*), turno de hoje,
   entrada, saída, horas do período e atrasos acumulados.
 - **Avaliações**: média das notas (0–4), total no período, % de notas boas, distribuição em
@@ -203,6 +209,7 @@ os dias de sábado/domingo; nos dias úteis ele só cadastra o turno daquele dia
 | GET | `/api/overview?from&to` | staff + status + escala + horas |
 | GET | `/api/report?from&to` | relatório agregado por staff |
 | GET | `/api/sessions?userId&from&to` | sessões detalhadas |
+| GET | `/api/absences?from&to` | não entrada em serviço: `absences` (dia, staff, turno, `status` `ATRASADO`/`FALTOU`/`ATRASOU`, `lateMinutes`) + `alert` (tolerância, cargos e canal) |
 | GET | `/api/evaluations?from&to&staffId` | avaliações do período: `entries`, `total`, `average`, `positiveRate`, `byRating`, `byStaff`, `channelId`, `staffOptions`, `alertMinAverage` |
 | PUT | `/api/evaluations/channel` | `{ channelId }` — define o canal que recebe as avaliações (`null`/`""` desliga) |
 | PUT | `/api/evaluations/alert` | `{ minAverage }` — limite (0–4) do aviso de média baixa; `0` desliga |
@@ -381,6 +388,10 @@ STAFF_PANEL_ROLE_IDS=1566903220968624188
 | `central_manual` | `auto` | Força a central aberta/fechada ignorando a agenda |
 | `hour_bank_reminder_minutes` | `5` | Antecedência do aviso por DM (`0` desliga) |
 | `hour_bank_max_session_hours` | `12` | Limite para fechamento automático da sessão |
+| `hour_bank_absence_minutes` | `10` | Tolerância após o início do turno antes de registrar a falta/atraso (`0` desliga) |
+| `hour_bank_absence_catchup_hours` | `12` | Janela para registrar turnos perdidos enquanto o bot estava offline |
+| `hour_bank_absence_role_ids` | `["1560793864330158240", "1566903222088499251"]` | Cargos avisados no Discord |
+| `hour_bank_absence_channel_id` | `null` | Canal do aviso (vazio = canal do painel da staff) |
 
 ```bash
 /config definir chave:hour_bank_reminder_minutes valor:10
@@ -436,3 +447,28 @@ Para ver tudo: `LOG_LEVEL=debug npm start` (ou `LOG_LEVEL=debug npm run preview:
 | `src/web/public/*` | interface (HTML/CSS/JS, sem build) |
 | `src/commands/staff/banco.js` | `/banco ...` |
 | migração **v5 `banco_de_horas`** | tabelas `staff_shifts`, `staff_sessions`, `staff_shift_reminders` |
+| migração **v10 `nao_entrada_em_servico`** | tabela `staff_absences` (uma linha por turno perdido) |
+
+## Não entrada em serviço (faltas e atrasos)
+
+O bot compara a **escala** com as **sessões reais** a cada minuto:
+
+1. passou `hour_bank_absence_minutes` do início do turno e o staff não tem nenhuma sessão que
+   encoste na janela do turno (quem já estava disponível desde antes conta como presente);
+2. o bot grava uma linha em `staff_absences` e envia **um** aviso no canal da staff marcando os
+   cargos de `hour_bank_absence_role_ids`;
+3. se o staff entrar em serviço depois (ainda dentro do turno), o registro passa a `ATRASOU`;
+4. se o turno terminar sem ele, o registro fica `FALTOU`.
+
+O aviso acontece **uma vez por turno** (`notified_at`), então reiniciar o bot não repete a
+mensagem. Turnos que terminaram enquanto o bot estava fora ainda são registrados, dentro de
+`hour_bank_absence_catchup_hours`.
+
+```bash
+# trocar a tolerância e desligar o aviso no Discord
+/config definir chave:hour_bank_absence_minutes valor:15
+/config definir chave:hour_bank_absence_role_ids valor:[]
+
+# canal específico para o aviso (padrão: canal da staff)
+/config definir chave:hour_bank_absence_channel_id valor:123456789012345678
+```

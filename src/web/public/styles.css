@@ -345,3 +345,17 @@ dialog p { margin: 0 0 14px; }
   .section-nav { overflow-x: auto; flex-wrap: nowrap; }
   .nav-item { white-space: nowrap; }
 }
+
+/* ---------------- presença (não entrada em serviço) ---------------- */
+.absence-day { font-variant-numeric: tabular-nums; color: var(--muted); }
+.absence-badge {
+  display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; border-radius: 5px; padding: 2px 6px; border: 1px solid var(--line);
+  color: var(--muted); background: var(--card-2);
+}
+.absence-badge.faltou { color: #ff7a6b; border-color: #4a2a26; background: #1a1110; }
+.absence-badge.atrasado { color: var(--yellow); border-color: #4a3d18; background: #1a1710; }
+.absence-badge.atrasou { color: #8ee0a6; border-color: #1f4a2c; background: #101a13; }
+.absence-detail { font-size: 12px; color: var(--muted); }
+.absence-registered { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.absence-registered strong { color: var(--text); font-weight: 600; }
