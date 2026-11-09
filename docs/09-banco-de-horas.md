@@ -13,7 +13,7 @@ aviso por DM antes do turno e relatórios completos em um painel web.
 | O staff só **entra no canal de atendimento** (sem mudar o status) | nada acontece: ele continua fora de serviço, sem horas contando e sem poder chamar jogador |
 | Faltam **5 minutos** para o turno cadastrado | o bot envia uma **DM de aviso** (uma única vez por turno/dia) |
 | A sessão passa de `hour_bank_max_session_hours` (padrão 12h) | é fechada automaticamente (proteção contra queda do bot) |
-| Passam `hour_bank_absence_minutes` (padrão 10) do início do turno **sem ninguém em serviço** | o bot **registra a não entrada em serviço** e avisa os cargos da administração no canal da staff |
+| Passam `hour_bank_absence_minutes` (padrão 10) do início do turno **sem ninguém em serviço** | o bot **registra a não entrada em serviço** e avisa os cargos da administração no canal de logs |
 | O staff aparece depois, ainda dentro do turno | o registro passa a **"atrasou X"** (o atraso fica no histórico) |
 | O turno termina sem o staff | o registro fica como **"faltou"** |
 
@@ -391,7 +391,7 @@ STAFF_PANEL_ROLE_IDS=1566903220968624188
 | `hour_bank_absence_minutes` | `10` | Tolerância após o início do turno antes de registrar a falta/atraso (`0` desliga) |
 | `hour_bank_absence_catchup_hours` | `12` | Janela para registrar turnos perdidos enquanto o bot estava offline |
 | `hour_bank_absence_role_ids` | `["1560793864330158240", "1566903222088499251"]` | Cargos avisados no Discord |
-| `hour_bank_absence_channel_id` | `null` | Canal do aviso (vazio = canal do painel da staff) |
+| `hour_bank_absence_channel_id` | `1566903219915858102` (canal de logs) | Canal do aviso (vazio = `log_channel_id`; sem ele, canal da staff) |
 
 ```bash
 /config definir chave:hour_bank_reminder_minutes valor:10
@@ -455,7 +455,7 @@ O bot compara a **escala** com as **sessões reais** a cada minuto:
 
 1. passou `hour_bank_absence_minutes` do início do turno e o staff não tem nenhuma sessão que
    encoste na janela do turno (quem já estava disponível desde antes conta como presente);
-2. o bot grava uma linha em `staff_absences` e envia **um** aviso no canal da staff marcando os
+2. o bot grava uma linha em `staff_absences` e envia **um** aviso no **canal de logs de atendimento** marcando os
    cargos de `hour_bank_absence_role_ids`;
 3. se o staff entrar em serviço depois (ainda dentro do turno), o registro passa a `ATRASOU`;
 4. se o turno terminar sem ele, o registro fica `FALTOU`.
@@ -469,6 +469,7 @@ mensagem. Turnos que terminaram enquanto o bot estava fora ainda são registrado
 /config definir chave:hour_bank_absence_minutes valor:15
 /config definir chave:hour_bank_absence_role_ids valor:[]
 
-# canal específico para o aviso (padrão: canal da staff)
+# canal específico para o aviso (padrão: canal de logs de atendimento)
 /config definir chave:hour_bank_absence_channel_id valor:123456789012345678
+/config definir chave:hour_bank_absence_channel_id valor:""  # volta ao canal de logs
 ```

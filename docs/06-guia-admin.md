@@ -85,7 +85,7 @@ Admins também podem alterar o status de qualquer membro; staffs alteram apenas 
 4. Em **Sessões** (clique na linha) você vê entrada, saída, duração e atrasos de cada dia.
 5. Em **Presença** aparece quem **não entrou em serviço** no horário da escala (`faltou`, `em atraso`
    ou `compareceu` com atraso). O registro é automático e, no Discord, os cargos da administração
-   (`hour_bank_absence_role_ids`) são avisados no canal da staff assim que o turno passa da
+   (`hour_bank_absence_role_ids`) são avisados no **canal de logs de atendimento** assim que o turno passa da
    tolerância (`hour_bank_absence_minutes`, padrão 10 min).
 6. Use **CSV** para exportar o período e fechar a folha de horas.
 

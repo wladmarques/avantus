@@ -106,10 +106,18 @@ class HourBankService {
     return value.filter((id) => /^\d{17,20}$/.test(String(id))).map(String);
   }
 
-  /** Canal do aviso (vazio = canal do painel da staff). */
+  /**
+   * Canal do aviso de não entrada em serviço.
+   *
+   * O aviso é registro administrativo, não conversa da equipe: vai para o canal
+   * de **logs** (`hour_bank_absence_channel_id`, padrão = canal de log de
+   * atendimento) e só cai no canal da staff se o de logs não estiver definido.
+   */
   get absenceChannelId() {
     const value = this.settings.get('hour_bank_absence_channel_id');
     if (value && /^\d{17,20}$/.test(String(value))) return String(value);
+    const logs = this.settings.get('log_channel_id');
+    if (logs && /^\d{17,20}$/.test(String(logs))) return String(logs);
     return this.settings.get('staff_channel_id') ?? null;
   }
 

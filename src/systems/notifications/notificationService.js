@@ -270,9 +270,10 @@ class NotificationService {
    * Aviso aos cargos da administração de que um staff escalado **não entrou em
    * serviço** no horário do turno.
    *
-   * Vai no canal da staff (ou no canal configurado), marcando os cargos: é o
-   * único ponto do sistema que usa menção de cargo em mensagem de canal, por
-   * isso `allowed_mentions` é explícito — sem ele o Discord ignora as menções.
+   * Vai no **canal de logs de atendimento** (`hour_bank_absence_channel_id`),
+   * marcando os cargos: é o único ponto do sistema que usa menção de cargo em
+   * mensagem de canal, por isso `allowed_mentions` é explícito — sem ele o
+   * Discord ignora as menções.
    *
    * @param {{guildId: string, channelId: string, roleIds?: string[], userId: string,
    *   staffName?: string|null, startsAt: number, endsAt: number,

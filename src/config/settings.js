@@ -324,9 +324,11 @@ const SETTINGS = {
     validate: asIdList,
   },
   hour_bank_absence_channel_id: {
-    default: null,
+    // Canal de log de atendimento: o aviso de falta não é para a equipe ver no
+    // painel da staff, é registro administrativo.
+    default: '1566903219915858102',
     type: 'string',
-    label: 'Canal do aviso de não entrada em serviço (vazio = canal da staff)',
+    label: 'Canal do aviso de não entrada em serviço (vazio = canal de logs)',
     group: 'Banco de horas',
     validate: (v) => v === null || v === undefined || v === '' || /^\d{17,20}$/.test(String(v)),
   },

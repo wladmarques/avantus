@@ -68,7 +68,7 @@ test('staff escalado que não entrou em serviço é registrado e os cargos são 
   assert.ok(mentioned.includes(`<@&${ROLE_A}>`), 'avisa o primeiro cargo');
   assert.ok(mentioned.includes(`<@&${ROLE_B}>`), 'avisa o segundo cargo');
   assert.deepEqual(alert.payload.allowed_mentions.roles, [ROLE_A, ROLE_B]);
-  assert.equal(alert.channelId, env.services.settings.get('staff_channel_id'));
+  assert.equal(alert.channelId, '1566903219915858102', 'vai para o canal de log de atendimento');
   assert.match(alert.payload.embeds[0].description, /pedrosa17/);
   assert.match(alert.payload.embeds[0].description, /não entrou em serviço|ainda não entrou em serviço/);
 });
@@ -142,14 +142,27 @@ test('tolerância 0 desliga o registro', async (t) => {
   assert.equal(env.services.hourBank.absences(env.guildId).length, 0);
 });
 
-test('sem canal configurado o registro acontece, mas nada é enviado', async (t) => {
+test('sem canal nenhum o registro acontece, mas nada é enviado', async (t) => {
   const env = await withSchedule(t, shiftStartedAgo(30), {
-    settings: { staff_channel_id: null, hour_bank_absence_channel_id: null },
+    settings: { staff_channel_id: null, log_channel_id: null, hour_bank_absence_channel_id: null },
   });
   const result = await env.services.hourBank.checkAbsences(env.guildId);
   assert.equal(result.registered, 1, 'o registro é a parte importante');
   assert.equal(result.notified, 0);
   assert.equal(env.services.hourBank.absences(env.guildId).length, 1);
+});
+
+test('sem canal configurado o aviso cai no canal de logs (nunca no painel da staff)', async (t) => {
+  const env = await withSchedule(t, shiftStartedAgo(30), {
+    settings: { hour_bank_absence_channel_id: null, log_channel_id: '300000000000000003' },
+  });
+  await env.services.hourBank.checkAbsences(env.guildId);
+
+  const [alert] = env.gateway.channelMessages.filter((message) =>
+    String(message.payload?.content ?? '').includes(`<@&${ROLE_A}>`),
+  );
+  assert.equal(alert.channelId, '300000000000000003');
+  assert.notEqual(alert.channelId, env.services.settings.get('staff_channel_id'));
 });
 
 test('canal e cargos do aviso vêm das configurações', async (t) => {
