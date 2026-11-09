@@ -76,7 +76,13 @@ function build() {
   const state = demoState();
   const payload = buildStaffPanel({
     state,
-    overview: { avgDurationSeconds: 11 * 60, concluded: 7, evaluations: 5, avgRating: 3.4 },
+    overview: {
+      avgDurationSeconds: 11 * 60,
+      concluded: 7,
+      evaluations: 5,
+      avgRating: 3.4,
+      lastEndedAt: now - 25 * MINUTE,
+    },
     schedule: { open: true },
     todayWindow: { text: '12:00 às 02:00' },
     now,
