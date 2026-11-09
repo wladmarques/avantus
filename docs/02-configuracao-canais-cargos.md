@@ -248,7 +248,7 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
 - O painel da staff continua em embed (é um painel denso, de leitura interna), com a barra de
   destaque em `#ff2200` e os mesmos botões na superfície escura da paleta — prévia em
   `npm run preview:staff`. Ele é **100% sem emojis**: títulos de seção, campos e botões usam texto
-  puro (ex.: `CHAMAR PRÓXIMO`, `FILA DE ESPERA`, `Disponíveis`).
+  puro (ex.: `CHAMAR`, `FILA DE ESPERA`, `AGORA`).
 - O bloco **EQUIPE** é dividido em dois grupos: **DE SERVIÇO** (disponível ou em atendimento) e
   **FORA DE SERVIÇO** (ausente, indisponível ou bloqueado), cada um com a contagem no título. Dentro
   do grupo a ordem é **pelo horário da escala**, do turno mais cedo para o mais tarde
@@ -259,6 +259,10 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
 - **Quem tem o cargo aparece sempre**: a EQUIPE é a união de quem já entrou em serviço com quem tem o
   cargo no Discord. Membro com o cargo e sem status registrado entra em **FORA DE SERVIÇO** com
   `sem escala` — não fica invisível até o primeiro turno.
+- Os botões ficam em **duas linhas** (`CHAMAR · ESCOLHER · PULAR · DEVOLVER · FINALIZAR` e
+  `ATUALIZAR · MEU STATUS · REATIVAR · REMOVER`). Os rótulos têm todos **5 a 10 caracteres** de
+  propósito: o Discord dimensiona o botão pelo texto, então tamanhos parecidos mantêm as colunas
+  alinhadas. Botão que não se aplica ao momento fica desabilitado **sem mudar de largura**.
 - As métricas do rodapé são **três cartões** em uma linha: `AGORA` (na fila · atendendo ·
   livres), `TEMPOS` (espera · duração, com `—` quando não há amostra) e `HOJE` (concluídos ·
   nota de 4, só quando há avaliação · pendentes). Antes eram 9 campos soltos em 3 andares de caixas.
