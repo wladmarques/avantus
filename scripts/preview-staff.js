@@ -41,16 +41,27 @@ function demoState() {
     },
   ];
   const staffList = [
-    { userId: '900000000000000001', status: 'EM_ATENDIMENTO', meta: { emoji: '🔴', label: 'EM ATENDIMENTO' } },
-    { userId: '900000000000000002', status: 'DISPONIVEL', meta: { emoji: '🟢', label: 'DISPONÍVEL' } },
+    { userId: '900000000000000001', status: 'EM_ATENDIMENTO', blocked: false, meta: { emoji: '🔴', label: 'EM ATENDIMENTO' } },
+    { userId: '900000000000000002', status: 'DISPONIVEL', blocked: false, meta: { emoji: '🟢', label: 'DISPONÍVEL' } },
+    { userId: '900000000000000003', status: 'AUSENTE', blocked: false, meta: { emoji: '🟡', label: 'AUSENTE' } },
+    { userId: '900000000000000004', status: 'INDISPONIVEL', blocked: false, meta: { emoji: '⚫', label: 'INDISPONÍVEL' } },
   ];
+
+  // Escala de cada staff (o painel mostra o horário do turno no lugar do status).
+  const escalas = new Map([
+    ['900000000000000001', 'hoje 12:00 às 20:00'],
+    ['900000000000000002', 'hoje 14:00 às 22:00'],
+    ['900000000000000003', 'amanhã 14:00 às 22:00'],
+    ['900000000000000004', 'sem escala'],
+  ]);
   return {
     waiting,
     serving,
     hold: [{ id: 5, username: 'mika', protocol: 21, hold_reason: 'não respondeu à chamada' }],
     staffList,
-    staffCounts: { DISPONIVEL: 1, EM_ATENDIMENTO: 1, AUSENTE: 0, INDISPONIVEL: 0 },
+    staffCounts: { DISPONIVEL: 1, EM_ATENDIMENTO: 1, AUSENTE: 1, INDISPONIVEL: 1 },
     avgWaitSeconds: 7 * 60,
+    escalas,
   };
 }
 
@@ -62,6 +73,7 @@ function build() {
     schedule: { open: true },
     todayWindow: { text: '12:00 às 02:00' },
     now,
+    escalas: state.escalas,
   });
   return { payload, state };
 }

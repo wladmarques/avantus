@@ -254,6 +254,11 @@ npm run preview:staff    # apenas o painel da equipe (embed + botões reais)
   do grupo a ordem é disponível → em atendimento → ausente → indisponível, e a lista para em 20
   nomes por grupo (`… e mais N staff`) para não estourar o limite de 4096 caracteres do embed.
   Staff bloqueado pela administração nunca aparece como "de serviço".
+- A linha de cada staff mostra o **horário da escala**, não o status: `@staff — hoje 14:00 às 22:00`,
+  `@staff — em turno até 20:00`, `@staff — amanhã 14:00 às 22:00`, `@staff — Qua 14:00 às 22:00` ou
+  `@staff — sem escala` (turno nenhum cadastrado). Os rótulos DISPONÍVEL/INDISPONÍVEL/AUSENTE não
+  aparecem mais — o grupo já informa a disponibilidade. Só dois complementos continuam na linha,
+  porque não são disponibilidade: `• em atendimento` (está com um jogador) e `• bloqueado`.
 
 ## Mensagens editáveis
 

@@ -272,6 +272,39 @@ Ambas as ações são recusadas com erro **409** quando o staff está atendendo 
 transfira o atendimento antes. Tudo fica registrado no canal de log (`STAFF_BLOCK`, `STAFF_UNBLOCK`,
 `STAFF_REMOVE`).
 
+## Escala aparece no painel da equipe
+
+O bloco **EQUIPE** do painel da central mostra o **horário da escala** de cada staff na linha, no
+lugar do status de disponibilidade:
+
+```
+DE SERVIÇO (2)
+@staff — hoje 14:00 às 22:00
+@staff — hoje 12:00 às 20:00 • em atendimento
+
+FORA DE SERVIÇO (2)
+@staff — amanhã 14:00 às 22:00
+@staff — sem escala
+```
+
+Regras do texto (`describeSchedule`, `systems/hourbank/shiftSchedule.js`):
+
+| Situação | Como aparece |
+| --- | --- |
+| Turno acontecendo agora | `em turno até 22:00` |
+| Turno(s) de hoje | `hoje 14:00 às 22:00` (dois turnos: `hoje 08:00 às 12:00 / 18:00 às 22:00`) |
+| Próximo turno amanhã | `amanhã 14:00 às 22:00` |
+| Próximo turno em até 7 dias | `Qua 14:00 às 22:00` |
+| Nenhum turno cadastrado | `sem escala` |
+
+- O revezamento de fim de semana (grupos A/B) é respeitado: um turno da semana oposta não aparece
+  como "hoje".
+- Os rótulos DISPONÍVEL / INDISPONÍVEL / AUSENTE saíram da linha — o grupo *DE SERVIÇO* /
+  *FORA DE SERVIÇO* já informa a disponibilidade. Continuam apenas `• em atendimento` e
+  `• bloqueado`, que não são disponibilidade.
+- A escala é cadastrada no painel web (`PUT /api/staff/:id/shifts`) ou pelo webhook da escala; o
+  painel do Discord só reflete o que está salvo.
+
 ## Filtro da EQUIPE por cargo
 
 O bloco **EQUIPE** do painel da central lista apenas os membros que têm o cargo definido em

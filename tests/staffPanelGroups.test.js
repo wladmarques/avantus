@@ -12,6 +12,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createTestEnv } = require('./helpers');
 const { buildStaffPanel } = require('../src/dashboard/panels/staffPanel');
+const { tzParts } = require('../src/utils/time');
 
 const DISPONIVEL_1 = '900000000000001101';
 const DISPONIVEL_2 = '900000000000001102';
@@ -22,17 +23,26 @@ const BLOQUEADO = '900000000000001106';
 
 const OVERVIEW = { avgDurationSeconds: 0, concluded: 0, evaluations: false, avgRating: 0 };
 
-function render(env) {
+// Sexta-feira, 12:00 em America/Sao_Paulo (fuso padrão do ambiente de teste).
+const NOW = new Date('2026-10-30T15:00:00Z');
+const FRIDAY = tzParts(NOW).weekday;
+
+function render(env, now = NOW) {
   const state = env.services.engine.getState(env.guildId);
   const payload = buildStaffPanel({
     state,
     overview: OVERVIEW,
     schedule: { open: true },
     todayWindow: { text: '14:00 às 00:00' },
-    now: new Date(),
+    now,
+    escalas: env.services.panels.staffSchedules(env.guildId, now),
   });
   const description = payload.embeds[0].description;
   return { state, payload, description, team: description.split('**EQUIPE**')[1] ?? '' };
+}
+
+async function schedule(env, userId, shifts) {
+  await env.services.hourBank.setSchedule({ guildId: env.guildId, userId, shifts });
 }
 
 async function setStatus(env, userId, status) {
@@ -99,15 +109,59 @@ test('disponível e em atendimento ficam em DE SERVIÇO; ausente, indisponível 
   }
 });
 
-test('status de cada staff continua visível dentro do grupo', async (t) => {
+test('o status DISPONÍVEL/INDISPONÍVEL saiu da linha: no lugar entra a escala', async (t) => {
   const env = await envComEquipe(t);
   const { team } = render(env);
 
-  assert.ok(team.includes(`<@${DISPONIVEL_1}> — **DISPONÍVEL**`));
-  assert.ok(team.includes(`<@${ATENDENDO}> — **EM ATENDIMENTO**`));
-  assert.ok(team.includes(`<@${AUSENTE}> — **AUSENTE**`));
-  assert.ok(team.includes(`<@${INDISPONIVEL}> — **INDISPONÍVEL**`));
-  assert.ok(team.includes(`<@${BLOQUEADO}> — **BLOQUEADO**`));
+  for (const rotulo of ['DISPONÍVEL', 'INDISPONÍVEL', 'AUSENTE']) {
+    assert.ok(!team.includes(rotulo), `"${rotulo}" não aparece mais no bloco EQUIPE`);
+  }
+  // Sem escala cadastrada, a linha mostra "sem escala" em vez de um status.
+  assert.ok(team.includes(`<@${DISPONIVEL_1}> — sem escala`));
+  assert.ok(team.includes(`<@${INDISPONIVEL}> — sem escala`));
+});
+
+test('a linha mostra o horário do turno de hoje', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, DISPONIVEL_1, [{ weekday: FRIDAY, start: '14:00', end: '22:00' }]);
+  await schedule(env, AUSENTE, [{ weekday: FRIDAY, start: '22:00', end: '02:00' }]);
+
+  const { team } = render(env);
+  assert.ok(team.includes(`<@${DISPONIVEL_1}> — hoje 14:00 às 22:00`), 'turno de hoje');
+  assert.ok(team.includes(`<@${AUSENTE}> — hoje 22:00 às 02:00`), 'turno noturno de hoje');
+});
+
+test('staff em atendimento mantém o marcador, sem virar status de disponibilidade', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, ATENDENDO, [{ weekday: FRIDAY, start: '18:00', end: '23:00' }]);
+
+  const { team } = render(env);
+  assert.ok(team.includes(`<@${ATENDENDO}> — hoje 18:00 às 23:00 • em atendimento`));
+});
+
+test('staff bloqueado mostra a escala e o marcador de bloqueio', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, BLOQUEADO, [{ weekday: FRIDAY, start: '14:00', end: '22:00' }]);
+
+  const { team } = render(env);
+  assert.ok(team.includes(`<@${BLOQUEADO}> — hoje 14:00 às 22:00 • bloqueado`));
+});
+
+test('sem turno hoje, a linha mostra o próximo dia da escala', async (t) => {
+  const env = await envComEquipe(t);
+  const tomorrow = (FRIDAY + 1) % 7;
+  await schedule(env, DISPONIVEL_2, [{ weekday: tomorrow, start: '14:00', end: '22:00' }]);
+
+  const { team } = render(env);
+  assert.ok(team.includes(`<@${DISPONIVEL_2}> — amanhã 14:00 às 22:00`));
+});
+
+test('turno em andamento aparece como "em turno até"', async (t) => {
+  const env = await envComEquipe(t);
+  await schedule(env, DISPONIVEL_1, [{ weekday: FRIDAY, start: '08:00', end: '20:00' }]);
+
+  const { team } = render(env);
+  assert.ok(team.includes(`<@${DISPONIVEL_1}> — em turno até 20:00`));
 });
 
 test('disponível aparece antes de em atendimento dentro de DE SERVIÇO', async (t) => {

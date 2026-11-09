@@ -3,6 +3,7 @@
 const { createLogger } = require('../../utils/logger');
 const { buildPublicPanel } = require('../../dashboard/panels/publicPanel');
 const { buildStaffPanel } = require('../../dashboard/panels/staffPanel');
+const { describeSchedule } = require('../hourbank/shiftSchedule');
 
 const logger = createLogger('panels');
 
@@ -14,7 +15,7 @@ const PANEL_KEYS = { PUBLIC: 'public', STAFF: 'staff' };
  * mesma mensagem — sem duplicar painéis após reinícios.
  */
 class PanelService {
-  constructor({ db, repo, gateway, settings, engine, statistics, schedule }) {
+  constructor({ db, repo, gateway, settings, engine, statistics, schedule, hourBank = null }) {
     this.db = db;
     this.repo = repo;
     this.gateway = gateway;
@@ -22,6 +23,8 @@ class PanelService {
     this.engine = engine;
     this.statistics = statistics;
     this.schedule = schedule;
+    // Escala da equipe: o bloco EQUIPE mostra o horário do turno de cada staff.
+    this.hourBank = hourBank;
     this._pending = new Map();
     this._refreshing = new Set();
   }
@@ -53,9 +56,40 @@ class PanelService {
     const overview = this.statistics.todayOverview(guildId);
     return {
       state,
-      payload: buildStaffPanel({ state, overview, schedule: openInfo, todayWindow }),
+      payload: buildStaffPanel({
+        state,
+        overview,
+        schedule: openInfo,
+        todayWindow,
+        escalas: this.staffSchedules(guildId),
+      }),
       format: 'embed',
     };
+  }
+
+  /**
+   * Escala resumida por staff (`userId → "hoje 14:00 às 22:00"`).
+   *
+   * Sem o banco de horas (ou se a leitura falhar) o painel continua sendo
+   * publicado: as linhas mostram `sem escala` em vez de derrubar o refresh.
+   */
+  staffSchedules(guildId, now = new Date()) {
+    if (!this.hourBank || typeof this.hourBank.listShifts !== 'function') return null;
+    try {
+      const byUser = new Map();
+      for (const shift of this.hourBank.listShifts(guildId)) {
+        if (!byUser.has(shift.userId)) byUser.set(shift.userId, []);
+        byUser.get(shift.userId).push(shift);
+      }
+      const escalas = new Map();
+      for (const [userId, shifts] of byUser) {
+        escalas.set(userId, describeSchedule(shifts, now, { timeZone: this.hourBank.timeZone }));
+      }
+      return escalas;
+    } catch (error) {
+      logger.warn(`Não foi possível montar a escala do painel da equipe: ${error.message}`);
+      return null;
+    }
   }
 
   /** Publica (ou atualiza) um painel no canal informado. */
