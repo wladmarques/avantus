@@ -220,12 +220,14 @@ O painel público usa **Components V2** (`panel_style=modern`) em **três caixas
 
 | Ordem | Caixa | Conteúdo |
 | --- | --- | --- |
-| 1 | **status** | cabeçalho 🎧 + título, rótulo *STATUS DA CENTRAL*, manchete grande e o **relógio** à direita |
+| 1 | **status** | cabeçalho 🎧 + título, manchete grande do estado e o **relógio** à direita |
 | 2 | **corpo** | *NA FILA*, *STAFFS DISPONÍVEIS* e *EM ANDAMENTO* (rótulo pequeno + número grande), uma linha divisória e o *HORÁRIO DE ATENDIMENTO* |
 | 3 | **rodapé** | *Fila por canal de voz* + botão **Entrar na Fila**, a dica de `/sair` `/posicao` e o botão de avaliação |
 
-- As manchetes de estado são **ATENDIMENTO DISPONÍVEL** (verde), **AGUARDANDO STAFF** (âmbar, fila
-  aberta sem ninguém em serviço) e **FORA DO HORÁRIO DE ATENDIMENTO** (vermelho).
+- As manchetes são **só o estado** — sem repetir "ATENDIMENTO", que já está no título da caixa:
+  **DISPONÍVEL** (verde), **AGUARDANDO STAFF** (âmbar, fila aberta sem ninguém em serviço),
+  **FORA DO HORÁRIO** (vermelho, fora da escala) e **CENTRAL FECHADA** (fechada pela administração).
+  A nota de apoio não repete a manchete (`Reabre hoje às 12:00`, `1 staff pronto para atender`).
 - **Fora do horário** os indicadores **não aparecem**: o corpo mostra só o horário.
 - A barra da caixa de status acompanha o estado. O corpo é caixa neutra (sem barra) e o rodapé fica
   sempre em `#ff2200`.

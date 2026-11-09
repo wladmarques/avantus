@@ -27,7 +27,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   const text = panelText(message.payload);
   assert.match(text, /ATENDIMENTO \| VANTUS/);
   assert.ok(!/🎧 🎧/.test(text), 'ícone do cabeçalho não duplica');
-  assert.match(text, /STATUS DA CENTRAL/, 'rótulo do bloco de status');
+  assert.ok(!text.includes('STATUS DA CENTRAL'), 'sem rótulo redundante acima da manchete');
   assert.match(text, /AGUARDANDO STAFF/, 'sem staff: aguardando alguém da equipe');
   assert.match(text, /-# NA FILA\n# 0/, 'indicador em caixa própria, número grande');
   assert.match(text, /-# STAFFS DISPONÍVEIS\n# 0/);
@@ -96,7 +96,7 @@ test('painel público moderno (Components V2) expõe indicadores e é atualizado
   assert.match(panelText(updated.payload), /-# NA FILA\n# 1/);
 });
 
-test('status muda para ATENDIMENTO DISPONÍVEL quando há staff livre', async (t) => {
+test('status muda para DISPONÍVEL quando há staff livre', async (t) => {
   const env = await createTestEnv({ staff: false });
   t.after(env.cleanup);
 
@@ -110,8 +110,8 @@ test('status muda para ATENDIMENTO DISPONÍVEL quando há staff livre', async (t
 
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
   const text = panelText(payload);
-  assert.match(text, /ATENDIMENTO DISPONÍVEL/);
-  assert.match(text, /1 staff disponível para atender/);
+  assert.match(text, /# DISPONÍVEL/);
+  assert.match(text, /1 staff pronto para atender/);
 });
 
 test('estilo clássico continua disponível em embed', async (t) => {
@@ -212,8 +212,8 @@ test('painel indica central fechada fora do horário', async (t) => {
 
   const { payload } = env.services.panels.buildPayload(env.guildId, 'public');
   const text = panelText(payload);
-  assert.match(text, /FORA DO HORÁRIO DE ATENDIMENTO/);
-  assert.match(text, /Central fechada/);
+  assert.match(text, /CENTRAL FECHADA/, 'fechada pela administração');
+  assert.match(text, /Fechada pela administração/);
   assert.match(text, /HORÁRIO DE ATENDIMENTO/);
   assert.ok(!/[🟢🟡🔴]/u.test(text), 'sem emoji de status no painel público');
 });

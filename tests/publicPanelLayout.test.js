@@ -17,6 +17,7 @@ const {
   buildPublicPanelV2,
   buildPublicPanelClassic,
   statusArt,
+  statusInfo,
   ART,
 } = require('../src/dashboard/panels/publicPanel');
 const { DEFAULT_SCHEDULE } = require('../src/config/settings');
@@ -77,6 +78,34 @@ test('central fechada: sem indicadores (só status, horário e rodapé)', () => 
   assert.ok(!containers(payload).some((box) => /NA FILA/.test(textOf(box))));
   assert.match(textOf(boxes[0]), /FORA DO HORÁRIO/);
   assert.match(textOf(boxes[1]), /HORÁRIO DE ATENDIMENTO/);
+});
+
+test('a caixa de status não repete palavras: título, manchete e nota', () => {
+  const [statusBox] = containers(build({ state: state({ staffCounts: { DISPONIVEL: 2 } }) }));
+  const section = statusBox.components.find((c) => c.type === 9);
+  const texts = section.components.map((c) => c.content);
+
+  assert.deepEqual(texts, ['# DISPONÍVEL', '-# 2 staffs prontos para atender']);
+  assert.ok(!JSON.stringify(statusBox).includes('STATUS DA CENTRAL'), 'sem rótulo redundante');
+  // "ATENDIMENTO" aparece no título da caixa, nunca na manchete.
+  const headline = texts[0];
+  assert.ok(!/ATENDIMENTO/.test(headline), 'a manchete não repete a palavra do título');
+});
+
+test('as manchetes são só o estado (sem repetir ATENDIMENTO)', () => {
+  assert.equal(statusInfo({ open: true, availableStaff: 1 }).headline, 'DISPONÍVEL');
+  assert.equal(statusInfo({ open: true, availableStaff: 0 }).headline, 'AGUARDANDO STAFF');
+  assert.equal(statusInfo({ open: false, nextOpen: null }).headline, 'FORA DO HORÁRIO');
+  assert.equal(statusInfo({ open: false, manual: true }).headline, 'CENTRAL FECHADA');
+});
+
+test('as notas não repetem o estado que já está na manchete', () => {
+  assert.equal(statusInfo({ open: false, nextOpen: 'hoje às 12:00' }).note, 'Reabre hoje às 12:00');
+  assert.ok(!/fora do hor/i.test(statusInfo({ open: false, nextOpen: 'amanhã' }).note));
+  assert.equal(statusInfo({ open: false, manual: true }).note, 'Fechada pela administração');
+  assert.ok(!/dispon[íi]vel/i.test(statusInfo({ open: true, availableStaff: 3 }).note));
+  assert.equal(statusInfo({ open: true, availableStaff: 1 }).note, '1 staff pronto para atender');
+  assert.equal(statusInfo({ open: true, availableStaff: 3 }).note, '3 staffs prontos para atender');
 });
 
 test('o status usa o relógio como imagem à direita (section + thumbnail)', () => {

@@ -108,35 +108,43 @@ function describeScheduleCompact(schedule) {
 }
 
 /**
- * Bloco de status: rótulo pequeno com indicador + manchete em destaque.
+ * Estado da central: manchete curta + nota de apoio.
+ *
+ * A manchete é **só o estado**, sem repetir "ATENDIMENTO": o título da caixa
+ * já diz `ATENDIMENTO | VANTUS`, então "ATENDIMENTO DISPONÍVEL" logo abaixo
+ * repetia a palavra duas vezes na mesma caixa. Pelo mesmo motivo a nota não
+ * repete o estado ("Central fechada" embaixo de "FORA DO HORÁRIO").
+ *
  * @returns {{indicator: string, headline: string, note: string}}
  */
-function statusInfo({ open, availableStaff, nextOpen }) {
+function statusInfo({ open, availableStaff, nextOpen, manual = false }) {
   if (!open) {
+    // Fechada pela administração não é "fora do horário": o painel precisa
+    // dizer qual dos dois é, senão o jogador espera a hora passar à toa.
     return {
       indicator: '🔴',
-      // Fechada é "fora do horário", não "indisponível": a manchete precisa
-      // dizer o motivo e não um estado genérico.
-      headline: 'FORA DO HORÁRIO DE ATENDIMENTO',
-      note: nextOpen ? `Central fechada • reabre ${nextOpen}` : 'Central fechada no momento',
+      headline: manual ? 'CENTRAL FECHADA' : 'FORA DO HORÁRIO',
+      note: manual
+        ? 'Fechada pela administração'
+        : nextOpen
+          ? `Reabre ${nextOpen}`
+          : 'Confira o horário de atendimento',
     };
   }
   if (availableStaff > 0) {
     return {
       indicator: '🟢',
-      headline: 'ATENDIMENTO DISPONÍVEL',
+      headline: 'DISPONÍVEL',
       note:
         availableStaff === 1
-          ? '1 staff disponível para atender'
-          : `${availableStaff} staffs disponíveis para atender`,
+          ? '1 staff pronto para atender'
+          : `${availableStaff} staffs prontos para atender`,
     };
   }
   return {
     indicator: '🟡',
-    // Mesma palavra do painel de referência: a fila está aberta, o que falta é
-    // alguém da equipe entrar em serviço.
     headline: 'AGUARDANDO STAFF',
-    note: 'Fila aberta • aguardando staff disponível',
+    note: 'Fila aberta • nenhum staff em serviço',
   };
 }
 
@@ -147,7 +155,12 @@ function statusInfo({ open, availableStaff, nextOpen }) {
 function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
-  const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
+  const status = statusInfo({
+    open,
+    availableStaff: available,
+    nextOpen: schedule.nextOpen,
+    manual: schedule.manual,
+  });
   // Entrar na fila só é possível com a central aberta E com staff disponível.
   const canJoin = Boolean(open) && available > 0;
   const unavailableNote = !open
@@ -182,12 +195,10 @@ function buildPublicPanelV2({ settings, state, schedule, now = new Date() }) {
     // Caixa de status: título, estado (com o relógio à direita) e a nota.
     card(open && available > 0 ? COLORS.SUCCESS : open ? COLORS.WARNING : COLORS.ACCENT, [
       text(`## ${titleWithIcon(settings.message_panel_title)}`),
+      // Título grande, estado em destaque e a nota de apoio — sem rótulo
+      // intermediário, que só repetia o que a manchete já diz.
       section(
-        [
-          text('-# STATUS DA CENTRAL'),
-          text(`# ${status.headline}`),
-          text(`-# ${status.note}`),
-        ],
+        [text(`# ${status.headline}`), text(`-# ${status.note}`)],
         thumbnail(`attachment://${art.file}`, art.description),
       ),
     ]),
@@ -255,7 +266,12 @@ function buildPublicPanelClassic({
 }) {
   const open = schedule.open;
   const available = state.staffCounts.DISPONIVEL ?? 0;
-  const status = statusInfo({ open, availableStaff: available, nextOpen: schedule.nextOpen });
+  const status = statusInfo({
+    open,
+    availableStaff: available,
+    nextOpen: schedule.nextOpen,
+    manual: schedule.manual,
+  });
 
   const fields = [
     { name: 'STATUS DA CENTRAL', value: `${status.indicator} ${status.headline}`, inline: false },
