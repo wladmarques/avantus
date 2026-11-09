@@ -112,6 +112,8 @@ waiting ──► serving ──► finished
   continuam funcionando depois de reinícios.
 - O painel é reconstruído a cada `panel_refresh_seconds`; o horário do cabeçalho é sempre o **agora**
   da última edição, não a hora em que a central abriu.
+- O `GET /api/overview` do painel web marca cada staff com `group` (`ESCALA`/`APOIO`) e `onRoster`,
+  a partir de `StaffService.rosterIds()` — o mesmo `staff_panel_role_ids` do painel do Discord.
 - O bloco **EQUIPE** depende do cache de cargos (`staff_panel_role_ids`). Esse cache só é trocado por
   uma sincronização bem-sucedida e não-vazia — falha de API nunca esconde a equipe (ver
   `docs/09-banco-de-horas.md`).

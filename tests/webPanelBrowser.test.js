@@ -312,3 +312,64 @@ test('botão "Tirar de serviço" encerra a sessão sem sair da tela', async (t) 
   assert.equal(harness.env.services.hourBank.activeSession(harness.env.guildId, STAFF_ID), null);
   assert.match(page.doc.getElementById('toast').textContent, /fora de serviço/);
 });
+
+test('tabela do painel separa "Escala fixa" (cargo) de "Apoio"', async (t) => {
+  const harness = await createHarness(t);
+  const ROLE = '1566903220968624188';
+  const COM_CARGO = '900000000000000811';
+  const SEM_CARGO = '900000000000000812';
+
+  for (const [userId, roles, name] of [
+    [COM_CARGO, [ROLE], 'com-cargo'],
+    [SEM_CARGO, ['123456789012345678'], 'apoio-aleatorio'],
+  ]) {
+    harness.env.gateway.members.set(userId, {
+      inGuild: true,
+      voiceChannelId: null,
+      displayName: name,
+      staffRoles: roles,
+    });
+    await harness.env.services.staff.setStatus({
+      guildId: harness.env.guildId,
+      userId,
+      status: 'INDISPONIVEL',
+      updatedBy: 'teste',
+      manual: true,
+    });
+  }
+  await harness.env.services.hourBank.setSchedule({
+    guildId: harness.env.guildId,
+    userId: COM_CARGO,
+    shifts: [{ weekday: 1, start: '14:00', end: '22:00' }],
+  });
+  await harness.env.services.settings.set('staff_panel_role_ids', [ROLE]);
+
+  const login = await harness.browserFetch('/api/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  const { token } = await login.json();
+  const page = harness.load({ hash: `#auth=${token}` });
+  await wait(300);
+
+  const rows = page.doc.getElementById('staff-body').children;
+  const groupTitle = (tr) => tr.children[0]?.children[0]?.children[0]?.textContent;
+  const titles = rows.filter((tr) => tr.className === 'group-row').map(groupTitle);
+
+  assert.deepEqual(titles, ['Escala fixa', 'Apoio'], 'cabeçalhos dos dois grupos, nesta ordem');
+
+  // Cada staff precisa cair no grupo certo.
+  const nomeDaLinha = (tr) => tr.children[0]?.children[0]?.children[0]?.textContent;
+  const indiceCom = rows.findIndex((tr) => nomeDaLinha(tr) === 'com-cargo');
+  const indiceApoio = rows.findIndex((tr) => nomeDaLinha(tr) === 'apoio-aleatorio');
+  const indiceApoioHeader = rows.findIndex((tr) => groupTitle(tr) === 'Apoio');
+
+  assert.ok(indiceCom > 0 && indiceCom < indiceApoioHeader, 'staff com cargo fica antes do grupo Apoio');
+  assert.ok(indiceApoio > indiceApoioHeader, 'staff sem cargo fica depois do cabeçalho Apoio');
+
+  // O cabeçalho mostra a contagem de cada grupo.
+  const contagem = (tr) => tr.children[0]?.children[0]?.children[1]?.textContent;
+  assert.equal(contagem(rows.find((tr) => groupTitle(tr) === 'Escala fixa')), '1');
+  assert.equal(contagem(rows.find((tr) => groupTitle(tr) === 'Apoio')), '1');
+});

@@ -407,6 +407,34 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
   const NAME_TTL_MS = 10 * 60 * 1000;
   const NAME_RETRY_MS = 60 * 1000;
 
+  /**
+   * Sincroniza os cargos do Discord antes de montar a lista do painel.
+   *
+   * É o que permite separar **escala fixa** (cargo `staff_panel_role_ids`, ex.
+   * `1566903220968624188`) de **apoio** (atendimentos aleatórios). Falha de API
+   * não quebra o painel: o serviço mantém o último cache válido e, sem cache,
+   * o overview cai na regra "tem turno cadastrado".
+   */
+  async function syncRosterRoles(guildId) {
+    try {
+      await services.staff?.refreshRoleCache?.(guildId);
+    } catch (error) {
+      logger.warn(`Não foi possível sincronizar os cargos do painel web: ${error.message}`);
+    }
+  }
+
+  /** Cargos que definem a escala fixa + estado do cache (para o cabeçalho da tabela). */
+  function rosterPayload(guildId) {
+    const roleIds = services.staff?.panelRoleIds?.() ?? [];
+    const info = services.staff?.roleCacheInfo?.(guildId) ?? null;
+    return {
+      roleIds,
+      // `false` = ainda sem cache: o painel cai na regra "tem turno cadastrado".
+      synced: Boolean(info?.synced),
+      error: info?.error ?? null,
+    };
+  }
+
   /** Nome exibido do staff (painel → Discord → id). Usado nos logs de auditoria. */
   function displayNameFor(guildId, userId) {
     const known = services.hourBank?.nameOf?.(guildId, userId);
@@ -523,6 +551,9 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
       if (pathname === '/api/overview' && req.method === 'GET') {
         const from = url.searchParams.get('from');
         const to = url.searchParams.get('to');
+        // Cargos do Discord decidem quem é "escala fixa" e quem é "apoio".
+        // O refresh é barato (throttle interno de 20s) e nunca derruba o painel.
+        await syncRosterRoles(currentGuildId);
         const overview = services.hourBank.overview(currentGuildId, { from, to });
         await fillStaffNames(currentGuildId, overview.staff);
         return sendJson(res, 200, {
@@ -530,6 +561,7 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           timezone: env.timezone ?? null,
           reminderMinutes: services.hourBank.reminderMinutes,
           enabled: services.hourBank.enabled,
+          roster: rosterPayload(currentGuildId),
           ...overview,
         });
       }

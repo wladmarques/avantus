@@ -616,6 +616,11 @@ class HourBankService {
       }
     }
 
+    // Quem tem o cargo da escala (`staff_panel_role_ids`, ex. 1566903220968624188)
+    // é **escala fixa**; o resto é apoio (atendimentos aleatórios).
+    // Cache de cargos indisponível → cai na regra "tem turno cadastrado?".
+    const roster = this.staff.rosterIds ? this.staff.rosterIds(guildId) : null;
+
     const staff = [...staffRows.values()].map((row) => {
       const userShifts = shiftsByUser.get(row.userId) ?? [];
       const activeShift = findActiveShift(userShifts, now, this.timeZone);
@@ -683,6 +688,18 @@ class HourBankService {
           entryLabel: stats?.entryLabel ?? '—',
           exitLabel: stats?.exitLabel ?? '—',
         },
+        // Grupo no painel web: escala fixa (cargo) ou apoio (atendimentos
+        // aleatórios). `onRoster` fica null quando não dá para saber.
+        onRoster: roster ? roster.has(row.userId) : null,
+        hasSchedule: userShifts.length > 0,
+        group:
+          roster === null
+            ? userShifts.length > 0
+              ? 'ESCALA'
+              : 'APOIO'
+            : roster.has(row.userId)
+              ? 'ESCALA'
+              : 'APOIO',
       };
     });
 
