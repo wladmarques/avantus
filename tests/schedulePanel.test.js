@@ -275,7 +275,8 @@ test('central fechada manualmente ignora o horário de funcionamento', async (t)
 
   // O painel do Discord mostra a central fechada.
   const panelPayload = JSON.stringify(env.services.panels.buildPayload(env.guildId, 'public'));
-  assert.match(panelPayload, /Central fechada/, 'painel do Discord mostra a central fechada');
+  assert.match(panelPayload, /CENTRAL FECHADA/, 'painel do Discord mostra a central fechada');
+  assert.match(panelPayload, /Fechada pela administração/, 'o motivo aparece no painel');
   assert.match(panelPayload, /"disabled":true/, 'botão de entrar na fila desabilitado');
 });
 

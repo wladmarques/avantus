@@ -28,7 +28,12 @@ const scenarios = {
   fechada: {
     label: 'Fora do horário',
     state: { waiting: [], serving: [], staffCounts: { DISPONIVEL: 0 } },
-    schedule: { open: false, nextOpen: 'hoje às 12:00', schedule: DEFAULT_SCHEDULE },
+    schedule: { open: false, manual: false, nextOpen: 'hoje às 12:00', schedule: DEFAULT_SCHEDULE },
+  },
+  fechada_admin: {
+    label: 'Fechada pela administração',
+    state: { waiting: [], serving: [], staffCounts: { DISPONIVEL: 0 } },
+    schedule: { open: false, manual: true, nextOpen: null, schedule: DEFAULT_SCHEDULE },
   },
   disponivel: {
     label: 'Aberta e disponível',
