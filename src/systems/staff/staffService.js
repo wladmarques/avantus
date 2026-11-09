@@ -239,7 +239,7 @@ class StaffService {
    * `staff_status` (ou seja, quem um dia ficou disponível). Quem recebeu o cargo
    * agora, ou nunca abriu o próprio status, não existia para o painel.
    */
-  _rosterPlaceholder(guildId, userId) {
+  rosterPlaceholder(guildId, userId) {
     return {
       userId,
       status: STAFF_STATUS.INDISPONIVEL,
@@ -253,6 +253,29 @@ class StaffService {
       // true = apareceu pelo cargo, não porque já ficou disponível alguma vez.
       registered: false,
     };
+  }
+
+  /**
+   * Membros que **têm o cargo da equipe e ainda não têm status registrado**,
+   * já no formato de linha do painel (INDISPONÍVEL, `registered: false`).
+   *
+   * É a segunda fonte da lista do painel: sem ela, quem recebeu o cargo e nunca
+   * entrou em serviço não aparece em lugar nenhum (nem na EQUIPE do Discord,
+   * nem no painel web).
+   *
+   * @returns {Array<object>} vazio quando não há filtro de cargos ou cache
+   */
+  rosterOnly(guildId, { exclude = null } = {}) {
+    const ids = this.rosterIds(guildId);
+    if (!ids) return [];
+    const known = exclude instanceof Set ? exclude : new Set(exclude ?? []);
+    const rows = [];
+    for (const userId of ids) {
+      if (known.has(userId)) continue;
+      rows.push(this.rosterPlaceholder(guildId, userId));
+    }
+    rows.sort((a, b) => String(a.userId).localeCompare(String(b.userId)));
+    return rows;
   }
 
   /**
@@ -281,15 +304,9 @@ class StaffService {
     });
 
     // Membros com o cargo que nunca tiveram status registrado.
-    const known = new Set(filtered.map((row) => row.userId));
-    const placeholders = [];
-    for (const [userId, roles] of cache) {
-      if (known.has(userId)) continue;
-      if (!Array.isArray(roles)) continue;
-      if (!roles.some((roleId) => roleIds.includes(roleId))) continue;
-      placeholders.push(this._rosterPlaceholder(guildId, userId));
-    }
-    placeholders.sort((a, b) => String(a.userId).localeCompare(String(b.userId)));
+    const placeholders = this.rosterOnly(guildId, {
+      exclude: new Set(filtered.map((row) => row.userId)),
+    });
 
     if (filtered.length === 0 && placeholders.length === 0 && rows.length > 0) {
       logger.warn(

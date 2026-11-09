@@ -114,6 +114,9 @@ waiting ──► serving ──► finished
   da última edição, não a hora em que a central abriu.
 - O `GET /api/overview` do painel web marca cada staff com `group` (`ESCALA`/`APOIO`) e `onRoster`,
   a partir de `StaffService.rosterIds()` — o mesmo `staff_panel_role_ids` do painel do Discord.
+- A lista do overview é `staff.list()` + `staff.rosterOnly()`: quem tem o cargo e nenhum status
+  registrado entra como INDISPONÍVEL (mesma regra da EQUIPE do Discord), então os dois painéis
+  mostram exatamente as mesmas pessoas. A resposta traz `roster.members` com o tamanho do cache.
 - O bloco **EQUIPE** depende do cache de cargos (`staff_panel_role_ids`). Esse cache só é trocado por
   uma sincronização bem-sucedida e não-vazia — falha de API nunca esconde a equipe (ver
   `docs/09-banco-de-horas.md`).

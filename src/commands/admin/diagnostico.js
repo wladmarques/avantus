@@ -135,7 +135,7 @@ module.exports = {
           ? 'sem filtro — todos os staff registrados aparecem'
           : roleCache.error
             ? `última sincronização falhou (${roleCache.error}); o painel segue com a lista anterior`
-            : `${roleCache.members} membro(s) com o cargo • sincronizado há ${roleCache.ageSeconds ?? 0}s`,
+            : `${roleCache.members} membro(s) com o cargo • ${services.staff.listForPanel(guildId).length} na EQUIPE • sincronizado há ${roleCache.ageSeconds ?? 0}s`,
       );
     }
 
