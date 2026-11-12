@@ -21,6 +21,10 @@
     weekParity: null,
     // Não entrada em serviço (faltas/atrasos de turno).
     absences: [],
+    // Filtro da seção Presença ('' = todos os staff).
+    absenceFilter: '',
+    // Último /api/overview recebido: o filtro redesenha a seção sem ir ao servidor.
+    overview: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -477,11 +481,212 @@
     return row;
   }
 
-  /** Preenche a seção Presença (cartões + tabela). */
-  function renderAbsences(overview) {
+  /** Nome exibido de um staff (nunca vazio). */
+  const staffNameOf = (row) => row?.staffName || row?.userName || `Usuário ${row?.userId ?? ''}`.trim();
+
+  /** Opções do filtro: quem tem registro de ausência primeiro, depois a equipe toda. */
+  function renderAbsenceStaffOptions(overview) {
+    const select = $('absence-staff');
+    if (!select) return;
+
     const absences = Array.isArray(overview.absences) ? overview.absences : [];
-    const summary = overview.absencesSummary || {};
-    state.absences = absences;
+    const counts = new Map();
+    for (const absence of absences) counts.set(absence.userId, (counts.get(absence.userId) || 0) + 1);
+
+    // Todos os staff do painel + quem só aparece nas ausências (escala sem status).
+    const people = new Map();
+    for (const row of overview.staff || []) {
+      people.set(row.userId, { userId: row.userId, name: staffNameOf(row), count: counts.get(row.userId) || 0 });
+    }
+    for (const absence of absences) {
+      if (!people.has(absence.userId)) {
+        people.set(absence.userId, {
+          userId: absence.userId,
+          name: absence.staffName || `Usuário ${absence.userId}`,
+          count: counts.get(absence.userId) || 0,
+        });
+      }
+    }
+
+    const list = [...people.values()].sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'),
+    );
+
+    const previous = state.absenceFilter;
+    select.innerHTML = '';
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = `Todos os staff (${list.length})`;
+    select.appendChild(all);
+    for (const person of list) {
+      const node = document.createElement('option');
+      node.value = person.userId;
+      node.textContent = person.count ? `${person.name} (${person.count})` : person.name;
+      select.appendChild(node);
+    }
+
+    // Mantém a seleção do usuário mesmo depois de um refresh automático.
+    select.value = previous && people.has(previous) ? previous : '';
+    state.absenceFilter = select.value;
+  }
+
+  /** Cartão de informação do resumo do staff. */
+  function summaryItem(label, value, { alert = false } = {}) {
+    const box = el('div', 'summary-item');
+    box.appendChild(el('span', 'summary-label', label));
+    box.appendChild(el('strong', alert ? 'summary-value alert' : 'summary-value', value));
+    return box;
+  }
+
+  /** Escala semanal completa do staff selecionado. */
+  function renderStaffSummarySchedule(row) {
+    const container = $('absence-staff-schedule');
+    container.textContent = '';
+    const weekly = Array.isArray(row.weekly) ? row.weekly : [];
+    const withShifts = weekly.filter((day) => day.shifts.length);
+
+    const title = el('p', 'summary-section-title', 'Escala semanal');
+    container.appendChild(title);
+
+    if (!withShifts.length) {
+      container.appendChild(el('p', 'muted small', 'Nenhum turno cadastrado para este staff.'));
+      return;
+    }
+
+    const list = el('div', 'summary-days');
+    for (const day of weekly) {
+      const line = el('div', 'summary-day');
+      line.appendChild(el('span', 'summary-day-label', day.label));
+      const shifts = day.shifts.length
+        ? day.shifts
+            .map((shift) => `${shift.start} às ${shift.end}${shift.parity ? ` (grupo ${shift.parity})` : ''}`)
+            .join(' / ')
+        : '—';
+      line.appendChild(el('span', day.shifts.length ? 'summary-day-value' : 'summary-day-value off', shifts));
+      list.appendChild(line);
+    }
+    container.appendChild(list);
+  }
+
+  /** Resumo completo (status, turno, sessão, horas, atrasos) do staff filtrado. */
+  function renderStaffSummary(row, overview) {
+    const panel = $('absence-staff-panel');
+    const summary = $('absence-staff-summary');
+    if (!panel || !summary) return;
+
+    if (!row) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+
+    const absencesOfStaff = state.absences.filter((absence) => absence.userId === row.userId);
+    const missed = absencesOfStaff.filter((absence) => absence.status === 'FALTOU').length;
+    const lateNow = absencesOfStaff.filter((absence) => absence.status === 'ATRASADO').length;
+    const showed = absencesOfStaff.filter((absence) => absence.status === 'ATRASOU').length;
+    const lateMinutes = absencesOfStaff
+      .filter((absence) => absence.status !== 'FALTOU')
+      .reduce((sum, absence) => sum + absence.lateMinutes, 0);
+
+    $('absence-staff-title').textContent = staffNameOf(row);
+    $('absence-staff-subtitle').textContent = [
+      `ID ${row.userId}`,
+      row.group ? (row.group === 'ESCALA' ? 'escala fixa' : 'apoio') : 'fora da lista da equipe',
+      row.blocked ? 'bloqueado pela administração' : null,
+      `período ${overview.period?.from ?? '—'} a ${overview.period?.to ?? '—'}`,
+    ]
+      .filter(Boolean)
+      .join(' • ');
+
+    // Quem aparece só por causa de uma falta (sem cadastro na equipe) não tem
+    // status/sessão: o resumo mostra o que existe, sem inventar números.
+    const statusText = row.session
+      ? `Em serviço desde ${row.session.entry}`
+      : row.statusLabel || row.status || 'sem status registrado';
+    const shiftText = row.currentShift
+      ? `${row.currentShift.start} às ${row.currentShift.end} (em turno)`
+      : row.nextShift
+        ? `${row.nextShift.start} às ${row.nextShift.end} (em ${fmtMinutes(row.nextShift.minutesAhead)})`
+        : shiftTextForToday(row) || 'sem escala';
+
+    summary.textContent = '';
+    summary.appendChild(summaryItem('Status', statusText, { alert: !row.session && row.status === 'AUSENTE' }));
+    summary.appendChild(summaryItem('Turno', shiftText));
+    summary.appendChild(
+      summaryItem('Sessão atual', row.session ? `${fmtMinutes(Math.floor(row.session.elapsedSeconds / 60))} em serviço` : 'fora de serviço'),
+    );
+    summary.appendChild(summaryItem('Horas no período', row.totals ? row.totals.label ?? fmtMinutes(row.totals.minutes ?? 0) : '—'));
+    summary.appendChild(
+      summaryItem(
+        'Atrasos nas sessões',
+        row.totals?.lateCount ? `${row.totals.lateCount}× (${fmtMinutes(row.totals.lateMinutes)})` : '—',
+        { alert: Boolean(row.totals?.lateCount) },
+      ),
+    );
+    summary.appendChild(
+      summaryItem('Faltas', row.totals?.earlyLeaveMinutes ? `${missed} • ${fmtMinutes(row.totals.earlyLeaveMinutes)} de saída antecipada` : String(missed), {
+        alert: missed > 0,
+      }),
+    );
+    summary.appendChild(summaryItem('Em atraso agora', String(lateNow), { alert: lateNow > 0 }));
+    summary.appendChild(summaryItem('Chegou atrasado', String(showed)));
+    summary.appendChild(summaryItem('Minutos de atraso', lateMinutes ? fmtMinutes(lateMinutes) : '—'));
+
+    renderStaffSummarySchedule(row);
+  }
+
+  /** Preenche a seção Presença (filtro + resumo + cartões + tabela). */
+  function renderAbsences(overview) {
+    const all = Array.isArray(overview.absences) ? overview.absences : [];
+    state.absences = all;
+
+    renderAbsenceStaffOptions(overview);
+    const filter = state.absenceFilter;
+    const selected = filter
+      ? (overview.staff || []).find((row) => row.userId === filter) ||
+        // Pessoa que só aparece nas ausências (escala antiga, cadastro removido):
+        // o resumo ainda mostra o que os registros dizem.
+        (all.some((absence) => absence.userId === filter)
+          ? {
+              userId: filter,
+              staffName: all.find((absence) => absence.userId === filter)?.staffName ?? null,
+              statusLabel: 'fora da lista da equipe',
+              session: null,
+              currentShift: null,
+              nextShift: null,
+              weekly: [],
+              totals: null,
+              group: null,
+              blocked: false,
+            }
+          : null)
+      : null;
+    const absences = filter ? all.filter((absence) => absence.userId === filter) : all;
+
+    const summary = filter
+      ? {
+          missed: absences.filter((absence) => absence.status === 'FALTOU').length,
+          late: absences.filter((absence) => absence.status === 'ATRASADO').length,
+          showed: absences.filter((absence) => absence.status === 'ATRASOU').length,
+          lateMinutes: absences
+            .filter((absence) => absence.status !== 'FALTOU')
+            .reduce((sum, absence) => sum + absence.lateMinutes, 0),
+        }
+      : overview.absencesSummary || {};
+    const filterName = filter
+      ? selected
+        ? staffNameOf(selected)
+        : absences[0]?.staffName || `Usuário ${filter}`
+      : null;
+
+    renderStaffSummary(selected, overview);
+
+    $('absence-filter-note').textContent = filter
+      ? `Mostrando só ${filterName} — os cartões e a tabela seguem este filtro.`
+      : '';
+    $('absence-table-note').textContent = filter
+      ? `Registros de ${filterName} no período selecionado.`
+      : 'Registrado automático a partir da escala — o aviso vai para o canal de logs de atendimento.';
 
     const alert = overview.absenceAlert || {};
     const rule = $('absence-rule');
@@ -507,7 +712,13 @@
     body.textContent = '';
     if (!absences.length) {
       const row = el('tr');
-      const cell = el('td', 'empty', 'Nenhuma falta ou atraso registrado no período.');
+      const cell = el(
+        'td',
+        'empty',
+        filter
+          ? `Nenhuma falta ou atraso de ${filterName} no período.`
+          : 'Nenhuma falta ou atraso registrado no período.',
+      );
       cell.colSpan = 5;
       row.appendChild(cell);
       body.appendChild(row);
@@ -954,6 +1165,7 @@
     try {
       const query = periodQuery();
       const overview = await api(`/api/overview${query ? `?${query}` : ''}`);
+      state.overview = overview;
       state.staff = overview.staff;
       state.period = overview.period;
       state.weekParity = overview.weekParity || null;
@@ -1573,6 +1785,7 @@
   $('reset-cancel').addEventListener('click', () => $('reset-modal').close());
   $('reset-all-hours').addEventListener('click', () => openReset(null));
   bindSectionNav();
+  bindAbsenceFilter();
   $('name-discord').addEventListener('click', () => submitName(''));
 
   /* ------------------------------------------------------------------ */
@@ -1616,12 +1829,23 @@
     window.addEventListener('scroll', onScroll, { passive: true });
   }
 
+  /** Filtro da Presença: troca sem nova requisição (os dados já estão na tela). */
+  function bindAbsenceFilter() {
+    const select = $('absence-staff');
+    if (!select) return;
+    select.addEventListener('change', () => {
+      state.absenceFilter = select.value;
+      if (state.overview) renderAbsences(state.overview);
+    });
+  }
+
   // Sessão existente? Abre direto no painel.
   (async () => {
     try {
       const overview = await api('/api/overview');
       showApp();
       setPeriod(6);
+      state.overview = overview;
       state.staff = overview.staff;
       state.weekParity = overview.weekParity || null;
       renderStats(overview);

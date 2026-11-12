@@ -359,3 +359,47 @@ dialog p { margin: 0 0 14px; }
 .absence-detail { font-size: 12px; color: var(--muted); }
 .absence-registered { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .absence-registered strong { color: var(--text); font-weight: 600; }
+
+/* ---------------- presença: filtro e resumo do staff ---------------- */
+.presence-filter {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  margin: 4px 0 14px;
+}
+.filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+.filter-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted);
+}
+.filter-field select { padding: 8px 10px; font-size: 12.5px; }
+
+.staff-summary {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.summary-item {
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.summary-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+}
+.summary-value { font-size: 14px; font-weight: 700; color: var(--text); }
+.summary-value.alert { color: #ff8f7a; }
+
+.staff-summary-schedule { margin-top: 14px; }
+.summary-section-title {
+  margin: 0 0 8px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+}
+.summary-days { display: flex; flex-direction: column; gap: 4px; }
+.summary-day {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 12px; color: var(--muted);
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px;
+}
+.summary-day-label { font-weight: 600; color: var(--text); }
+.summary-day-value { font-variant-numeric: tabular-nums; }
+.summary-day-value.off { color: var(--dim); }
