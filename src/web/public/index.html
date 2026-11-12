@@ -120,6 +120,26 @@
         <span class="muted small" id="absence-rule">Carregando…</span>
       </div>
 
+      <div class="presence-filter">
+        <label class="filter-field" for="absence-staff">
+          <span class="filter-label">Staff</span>
+          <select id="absence-staff" aria-label="Filtrar presença por staff">
+            <option value="">Todos os staff</option>
+          </select>
+        </label>
+        <span id="absence-filter-note" class="muted small"></span>
+      </div>
+
+      <!-- Resumo completo do staff selecionado (some em "Todos os staff") -->
+      <div class="panel" id="absence-staff-panel" hidden>
+        <div class="panel-head">
+          <h3 id="absence-staff-title">Staff</h3>
+          <span class="muted small" id="absence-staff-subtitle"></span>
+        </div>
+        <div id="absence-staff-summary" class="staff-summary"></div>
+        <div id="absence-staff-schedule" class="staff-summary-schedule"></div>
+      </div>
+
       <div class="cards">
         <div class="stat"><span class="stat-label">Faltas no período</span><strong id="stat-absences-missed">—</strong></div>
         <div class="stat"><span class="stat-label">Em atraso agora</span><strong id="stat-absences-late">—</strong></div>
@@ -130,7 +150,7 @@
       <div class="panel">
         <div class="panel-head">
           <h3>Não entrada em serviço</h3>
-          <span class="muted small">Registrado automático a partir da escala — o aviso vai para os cargos da administração.</span>
+          <span class="muted small" id="absence-table-note">Registrado automático a partir da escala — o aviso vai para o canal de logs de atendimento.</span>
         </div>
         <div class="table-wrap">
           <table id="absence-table">

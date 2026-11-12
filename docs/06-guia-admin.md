@@ -87,6 +87,9 @@ Admins também podem alterar o status de qualquer membro; staffs alteram apenas 
    ou `compareceu` com atraso). O registro é automático e, no Discord, os cargos da administração
    (`hour_bank_absence_role_ids`) são avisados no **canal de logs de atendimento** assim que o turno passa da
    tolerância (`hour_bank_absence_minutes`, padrão 10 min).
+   No topo da seção, o seletor **Todos os staff** filtra a tabela e os cartões por uma pessoa e abre o
+   resumo dela (status, turno, sessão atual, horas, atrasos, faltas e a escala semanal). A escolha continua
+   valendo no refresh automático; **Todos os staff** volta ao agregado.
 6. Use **CSV** para exportar o período e fechar a folha de horas.
 
 ```bash
