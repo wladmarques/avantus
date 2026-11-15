@@ -25,6 +25,25 @@ Ao fechar a central:
 - a fila é mantida ou encerrada conforme `queue_policy_on_close` (ou o parâmetro `limpar_fila`);
 - o painel público passa a mostrar **FECHADA** e o próximo horário de abertura.
 
+### A equipe abre e fecha a central
+
+A central acompanha a equipe automaticamente:
+
+1. Um staff define o status como **DISPONÍVEL** (botão do painel da equipe, `/status` ou
+   `/staff`) e a central estava seguindo o horário: ela **abre na hora**, mesmo fora do horário
+   programado. Quem estiver no canal de espera já pode entrar na fila.
+2. Quando **ninguém** mais está em serviço (nenhum staff disponível **nem** em atendimento), a
+   central **volta ao horário programado** — se a agenda diz fechada, ela fecha de novo e quem estava
+   na fila recebe o aviso no privado. Staff em atendimento conta como em serviço: a central não
+   fecha no meio de um atendimento.
+3. O que **você** fez manualmente manda: se você fechou a central pelo painel (ou por
+   `/central fechar`), nenhum staff abrindo o status derruba esse fechamento; e se você abriu
+   manualmente, ela continua aberta quando a equipe sair.
+
+No painel web, o cartão da central mostra **“Aberta porque a equipe entrou em serviço”**; use
+**Seguir o horário** para devolver ao automático. Para desligar essa automação:
+`/config definir chave:central_auto_open_on_staff valor:false`.
+
 ## Horários
 
 ```

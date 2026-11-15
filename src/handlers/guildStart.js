@@ -154,6 +154,12 @@ async function startGuild({ client, context, guildId }) {
       .catch((error) => logger.error('Falha na transição de horário', error));
   });
 
+  // A equipe manda na central: no boot, alinha o estado com quem está em
+  // serviço (evita ficar aberta sem ninguém depois de um reinício).
+  await services.central
+    .syncStaffAvailability(guildId)
+    .catch((error) => logger.warn(`Ajuste da central pela equipe falhou: ${error.message}`));
+
   logger.info(`Central pronta • ${services.schedule.statusLabel(guildId)} • ${formatTime()}`);
 
   const missingPanels = ['public', 'staff'].filter((key) => {

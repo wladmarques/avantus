@@ -25,6 +25,31 @@ class StaffService {
     this.roleCache = new Map();
     this.roleCacheAt = new Map();
     this.roleSyncError = new Map();
+    // Ligado depois (o CentralService depende do motor de atendimento): abre a
+    // central quando alguém entra em serviço e devolve ao horário quando o
+    // último staff sai. Opcional — sem ele nada muda.
+    this.central = null;
+  }
+
+  /**
+   * Reflete a nova situação da equipe na central (nunca lança erro).
+   * É o que faz a central abrir sozinha quando alguém fica DISPONÍVEL e voltar
+   * ao horário programado quando o último staff sai de serviço.
+   */
+  async _syncCentral(guildId) {
+    if (!this.central?.syncStaffAvailability) return null;
+    try {
+      const result = await this.central.syncStaffAvailability(guildId);
+      if (result?.changed) {
+        logger.info(
+          `Central ajustada pelo status da equipe (${result.reason}) em ${guildId}.`,
+        );
+      }
+      return result;
+    } catch (error) {
+      logger.warn(`Falha ao ajustar a central pelo status da equipe: ${error.message}`);
+      return null;
+    }
   }
 
   /** Mantém o banco de horas alinhado com o status (nunca lança erro). */
@@ -50,6 +75,7 @@ class StaffService {
       this.repo.upsertSync(guildId, userId, { status, manual: manual ? 1 : 0, updatedBy }),
     );
     await this._syncHourBank(guildId, userId, status);
+    await this._syncCentral(guildId);
     return row;
   }
 
@@ -62,6 +88,7 @@ class StaffService {
       }),
     );
     await this._syncHourBank(guildId, userId, STAFF_STATUS.EM_ATENDIMENTO);
+    await this._syncCentral(guildId);
     return row;
   }
 
@@ -79,6 +106,7 @@ class StaffService {
         }),
       );
       await this._syncHourBank(guildId, userId, STAFF_STATUS.INDISPONIVEL);
+      await this._syncCentral(guildId);
       return row;
     }
     // Se o staff definiu manualmente AUSENTE/INDISPONIVEL, respeitamos.
@@ -93,6 +121,7 @@ class StaffService {
       }),
     );
     await this._syncHourBank(guildId, userId, STAFF_STATUS.DISPONIVEL);
+    await this._syncCentral(guildId);
     return row;
   }
 
@@ -107,6 +136,7 @@ class StaffService {
       }),
     );
     await this._syncHourBank(guildId, userId, STAFF_STATUS.INDISPONIVEL);
+    await this._syncCentral(guildId);
     return row;
   }
 

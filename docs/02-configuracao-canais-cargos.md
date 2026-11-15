@@ -195,6 +195,15 @@ Regra fixa (não configurável): **o bot não desconecta jogadores**.
 | `stats_ranking_min_sample` | `3` | Mínimo de atendimentos para o ranking |
 | `hidden_channels` | `false` | Modo discreto (sem menções em canais) |
 
+### Funcionamento da central
+
+| Chave | Padrão | Descrição |
+| --- | --- | --- |
+| `central_manual` | `auto` | `auto` segue o horário; `open`/`closed` são aberturas e fechamentos manuais |
+| `central_auto_open_on_staff` | `true` | Abre a central sozinha quando um staff fica **DISPONÍVEL** e volta ao horário quando o último staff sai de serviço |
+| `central_auto_staff` | `false` | Controle interno: `true` = a central está aberta pela equipe (não pelo horário) |
+| `queue_policy_on_close` | `keep` | Fila ao fechar a central: `keep` mantém, `clear` encerra |
+
 ### Aviso no celular (ntfy)
 
 | Chave | Padrão | Descrição |
