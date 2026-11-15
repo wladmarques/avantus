@@ -132,6 +132,9 @@ async function createServices({ db, gateway }) {
     notifications: notificationService,
   });
 
+  // A equipe manda na central: entrar em serviço abre, sair devolve ao horário.
+  staffService.central = centralService;
+
   const queueService = new QueueService({ engine: attendanceEngine });
   const attendanceService = new AttendanceService({
     engine: attendanceEngine,

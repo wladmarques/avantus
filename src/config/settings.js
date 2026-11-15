@@ -113,6 +113,20 @@ const SETTINGS = {
     group: 'Funcionamento',
     validate: (v) => ['auto', 'open', 'closed'].includes(v),
   },
+  central_auto_open_on_staff: {
+    default: true,
+    type: 'boolean',
+    label: 'Abrir a central quando um staff ficar disponível',
+    group: 'Funcionamento',
+    validate: asBool,
+  },
+  central_auto_staff: {
+    default: false,
+    type: 'boolean',
+    label: 'Central aberta pela equipe (controle interno)',
+    group: 'Funcionamento',
+    validate: asBool,
+  },
   queue_policy_on_close: {
     default: 'keep',
     type: 'string',

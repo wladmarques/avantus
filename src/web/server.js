@@ -155,6 +155,8 @@ function schedulePayload(services, guildId) {
       windows: schedule[key],
     })),
     centralManual: manual,
+    // true = aberta automaticamente porque a equipe entrou em serviço
+    centralAutoStaff: Boolean(services.settings.get('central_auto_staff')),
     status: {
       open: status.open,
       manual: status.manual,
@@ -181,8 +183,8 @@ async function applyCentralState(services, guildId, state, { actorTag = 'painel 
   if (state === 'closed') {
     return services.central.close({ guildId, actorId: actorTag, actorTag, manual: true, reason });
   }
-  // automático: a agenda volta a mandar
-  await services.settings.set('central_manual', 'auto');
+  // automático: a agenda volta a mandar (e a marca de "aberta pela equipe" cai)
+  await services.settings.setMany({ central_manual: 'auto', central_auto_staff: false });
   await services.audit.log({
     guildId,
     type: 'CENTRAL_AUTO',

@@ -846,9 +846,11 @@
       return {
         badge: 'ABERTA',
         tone: 'open',
-        reason: scheduled
-          ? 'Aberta manualmente (o horário também permite).'
-          : 'Aberta manualmente, fora do horário de funcionamento.',
+        reason: data.centralAutoStaff
+          ? 'Aberta porque a equipe entrou em serviço. Volta ao horário quando ninguém estiver em serviço.'
+          : scheduled
+            ? 'Aberta manualmente (o horário também permite).'
+            : 'Aberta manualmente, fora do horário de funcionamento.',
         manual,
       };
     }
