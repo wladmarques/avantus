@@ -162,6 +162,30 @@ A entrada na fila exige **central aberta** e **pelo menos um staff DISPONÍVEL**
 4. O jogador sempre recebe uma DM quando a entrada automática falha — pedir o print ajuda a
    identificar a causa na hora.
 
+## Aviso no celular quando alguém entra na fila
+
+O painel web tem a seção **Notificações**: cada entrada na fila vira um push no celular do dono,
+pelo app **ntfy** (grátis, sem conta obrigatória). Nada de WhatsApp: o ntfy entrega push nativo,
+com som, mesmo com a tela apagada.
+
+Configuração (uma vez):
+
+1. Instale o app **ntfy** (Android/iOS) e assine um tópico — ele funciona como senha, então use algo
+   longo e aleatório (ex.: `vantus-fila-8j3k9m2x`).
+2. No painel: **Notificações** → ligue a chave, informe o tópico (o endereço padrão é
+   `https://ntfy.sh`) e clique em **Enviar teste**. O cartão mostra `ok 200` quando o app recebe.
+3. Opcional: crie uma conta em `ntfy.sh`, gere um **access token** e cole em **Token de acesso** para
+   proteger o tópico. O painel nunca mostra o token inteiro.
+
+Comportamento:
+
+- uma mensagem por pessoa que entra na fila (nome, posição, protocolo e horário);
+- se a pessoa entrar na call com a central fechada ou sem staff, chega um aviso de **tentativa
+  bloqueada** com o motivo (pode ser desligado no painel);
+- sair da fila, ser chamado ou finalizar o atendimento **não** gera push;
+- falha de envio nunca impede alguém de entrar na fila: aparece como aviso no log (`escopo push`) e
+  como último status no painel.
+
 ## Configurações
 
 ```

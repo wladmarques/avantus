@@ -45,6 +45,7 @@
       <a href="#central" class="nav-item" data-section="central">Central</a>
       <a href="#avaliacoes" class="nav-item" data-section="avaliacoes">Avaliações</a>
       <a href="#escala" class="nav-item" data-section="escala">Escala</a>
+      <a href="#notificacoes" class="nav-item" data-section="notificacoes">Notificações</a>
     </nav>
 
     <!-- ============================ VISÃO GERAL ============================ -->
@@ -329,6 +330,62 @@
         <p class="muted small webhook-help">
           Discord: canal → Editar canal → Integrações → Webhooks → Novo webhook → Copiar URL do webhook.
           O envio automático vale uma vez por semana; se o bot estiver desligado no horário, publica assim que voltar no mesmo dia.
+        </p>
+      </div>
+    </section>
+
+    <!-- =========================== NOTIFICAÇÕES =========================== -->
+    <section class="block" id="notificacoes">
+      <div class="block-head">
+        <h2 class="block-title">Notificações</h2>
+        <span class="muted small">Aviso no celular quando alguém entra na fila.</span>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Aviso no celular</h3>
+          <span class="muted small" id="push-status">Carregando…</span>
+        </div>
+
+        <div class="webhook-row webhook-auto">
+          <label class="switch" for="push-enabled">
+            <input id="push-enabled" type="checkbox">
+            <span>Avisar quando alguém entrar na fila</span>
+          </label>
+        </div>
+
+        <div class="webhook-row">
+          <input id="push-endpoint" type="url" placeholder="https://ntfy.sh" autocomplete="off" spellcheck="false" aria-label="Servidor de notificação">
+          <input id="push-topic" type="text" placeholder="Tópico do ntfy" autocomplete="off" spellcheck="false" aria-label="Tópico do ntfy">
+        </div>
+
+        <div class="webhook-row">
+          <input id="push-token" type="password" placeholder="Token de acesso (opcional)" autocomplete="off" spellcheck="false" aria-label="Token de acesso do ntfy">
+          <button id="push-token-clear" class="btn ghost" type="button">Remover token</button>
+        </div>
+
+        <div class="webhook-row webhook-auto">
+          <label class="switch" for="push-on-join">
+            <input id="push-on-join" type="checkbox">
+            <span>Entrada na fila</span>
+          </label>
+          <label class="switch" for="push-on-blocked">
+            <input id="push-on-blocked" type="checkbox">
+            <span>Tentativa com a central fechada</span>
+          </label>
+        </div>
+
+        <div class="webhook-row schedule-actions">
+          <button id="push-test" class="btn" type="button">Enviar teste</button>
+          <span class="spacer"></span>
+          <button id="push-save" class="btn primary" type="button">Salvar</button>
+        </div>
+
+        <p class="muted small webhook-help">
+          Instale o app <strong>ntfy</strong> no celular, toque em <strong>+</strong> e assine o tópico
+          informado acima (o tópico funciona como senha: não compartilhe). O aviso chega mesmo com a
+          tela apagada. Sem servidor próprio, o endereço é <strong>https://ntfy.sh</strong>; o token
+          só é necessário se você criar uma conta e proteger o tópico.
         </p>
       </div>
     </section>

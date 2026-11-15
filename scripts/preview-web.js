@@ -280,6 +280,14 @@ async function main() {
   }
   await services.settings.set('evaluation_channel_id', '1560793933750210582');
 
+  // Aviso no celular: já vem preenchido no preview, mas **desligado** — nada é
+  // enviado para o ntfy.sh enquanto você não ligar e clicar em Enviar teste.
+  await services.settings.setMany({
+    push_endpoint: 'https://ntfy.sh',
+    push_topic: 'vantus-fila-preview-8j3k9m2x',
+    push_enabled: false,
+  });
+
   const active = services.hourBank.activeSession(GUILD, STAFF[0].id);
   if (active) {
     db.run('UPDATE staff_sessions SET started_at = ?, late_minutes = ? WHERE id = ?', [

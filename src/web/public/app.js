@@ -1637,6 +1637,111 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Aviso no celular (ntfy)                                             */
+  /* ------------------------------------------------------------------ */
+
+  function pushStatus(message, state = '') {
+    const node = $('push-status');
+    node.className = state ? `status-line ${state}` : 'status-line';
+    node.textContent = message;
+  }
+
+  /** Texto do último envio (ou o motivo de não estar pronto). */
+  function pushSummary(data) {
+    if (!data.enabled) return 'Desligado. Ligue a chave e clique em Salvar.';
+    if (!data.ready) return data.disabledReason || 'Falta configurar o destino.';
+    const when = data.lastAt
+      ? new Date(data.lastAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : null;
+    if (!data.lastStatus) return 'Ligado. Envie um teste para confirmar no celular.';
+    if (data.lastError) return `Ligado, mas o último envio falhou (${when || 'agora'}): ${data.lastError}`;
+    return `Ligado. Último envio: ${data.lastStatus}${when ? ` às ${when}` : ''}.`;
+  }
+
+  function applyPushConfig(data) {
+    $('push-enabled').checked = Boolean(data.enabled);
+    $('push-endpoint').value = data.endpoint || 'https://ntfy.sh';
+    $('push-topic').value = data.topic || '';
+    // O token nunca volta inteiro: o campo fica vazio com o final mascarado no placeholder.
+    const tokenField = $('push-token');
+    tokenField.value = '';
+    tokenField.placeholder = data.hasToken
+      ? `Token salvo (${data.tokenMask}) — digite para trocar`
+      : 'Token de acesso (opcional)';
+    $('push-on-join').checked = data.events ? Boolean(data.events.queueJoin) : true;
+    $('push-on-blocked').checked = data.events ? Boolean(data.events.queueBlocked) : true;
+    pushStatus(pushSummary(data), data.lastError ? 'bad' : '');
+  }
+
+  async function loadPush() {
+    try {
+      const data = await api('/api/push');
+      applyPushConfig(data);
+    } catch (error) {
+      if (error.message !== 'unauthorized') pushStatus(error.message, 'bad');
+    }
+  }
+
+  async function savePush() {
+    const button = $('push-save');
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+    try {
+      const body = {
+        enabled: $('push-enabled').checked,
+        endpoint: $('push-endpoint').value.trim() || 'https://ntfy.sh',
+        topic: $('push-topic').value.trim(),
+        events: {
+          queueJoin: $('push-on-join').checked,
+          queueBlocked: $('push-on-blocked').checked,
+        },
+      };
+      const token = $('push-token').value.trim();
+      if (token) body.token = token;
+      const data = await api('/api/push', { method: 'PUT', body: JSON.stringify(body) });
+      applyPushConfig(data);
+      pushStatus(pushSummary(data), data.ready ? 'ok' : 'bad');
+      toast(data.ready ? 'Aviso no celular salvo.' : 'Salvo, mas ainda falta configurar.');
+    } catch (error) {
+      pushStatus(error.message, 'bad');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar';
+    }
+  }
+
+  async function clearPushToken() {
+    try {
+      const data = await api('/api/push', {
+        method: 'PUT',
+        body: JSON.stringify({ clearToken: true }),
+      });
+      applyPushConfig(data);
+      pushStatus('Token removido. O aviso continua só com o tópico.', 'ok');
+    } catch (error) {
+      pushStatus(error.message, 'bad');
+    }
+  }
+
+  async function sendPushTest() {
+    const button = $('push-test');
+    button.disabled = true;
+    button.textContent = 'Enviando…';
+    try {
+      const data = await api('/api/push/test', { method: 'POST' });
+      applyPushConfig(data);
+      pushStatus('Teste enviado. Confira o celular.', 'ok');
+      toast('Notificação de teste enviada.');
+    } catch (error) {
+      pushStatus(error.message, 'bad');
+      await loadPush().catch(() => null);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Enviar teste';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* CSV                                                                 */
   /* ------------------------------------------------------------------ */
 
@@ -1705,6 +1810,7 @@
       setPeriod(6);
       await refresh({ silent: true });
       await loadWebhook();
+      await loadPush();
       await loadEvaluations();
       await loadSchedule();
       clearInterval(state.timer);
@@ -1768,6 +1874,9 @@
   $('central-auto').addEventListener('click', () => setCentralState('auto'));
   $('eval-staff').addEventListener('change', () => loadEvaluations());
   $('schedule-send').addEventListener('click', sendSchedule);
+  $('push-save').addEventListener('click', savePush);
+  $('push-test').addEventListener('click', sendPushTest);
+  $('push-token-clear').addEventListener('click', clearPushToken);
   $('webhook-url').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
