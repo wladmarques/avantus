@@ -15,6 +15,9 @@
  *   GET  /api/report           → relatório agregado
  *   GET  /api/sessions         → sessões detalhadas (entrada/saída/atrasos)
  *   GET  /api/absences         → não entrada em serviço (faltas e atrasos de turno)
+ *   GET  /api/push             → configuração do aviso no celular (ntfy)
+ *   PUT  /api/push             → salva o aviso no celular
+ *   POST /api/push/test        → envia uma notificação de teste
  *   GET  /api/schedule         → horário de funcionamento + status atual
  *   PUT  /api/schedule         → salva o horário (e o estado manual) da central
  *   PUT  /api/central          → abre/fecha a central na hora ou volta ao horário
@@ -47,6 +50,7 @@ const { DAY_KEYS, DAY_LABELS, evaluateSchedule } = require('../utils/time');
 const { COLORS } = require('../config/theme');
 const { formatDateTime, startOfDay } = require('../utils/time');
 const { parseDayStart } = require('../systems/hourbank/hourBankService');
+const { normalizeEndpoint, TOPIC_PATTERN } = require('../systems/notifications/pushNotifier');
 
 const logger = createLogger('web');
 
@@ -801,6 +805,71 @@ function createWebServer({ services, env = {}, password = null, guildId = null }
           return sendJson(res, 200, { ok: true, ...config });
         } catch (error) {
           return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      if (pathname === '/api/push' && req.method === 'GET') {
+        if (!services.push) return sendJson(res, 503, { error: 'Notificações indisponíveis nesta versão.' });
+        return sendJson(res, 200, services.push.config());
+      }
+
+      if (pathname === '/api/push' && req.method === 'PUT') {
+        if (!services.push) return sendJson(res, 503, { error: 'Notificações indisponíveis nesta versão.' });
+        const body = await readBody(req);
+        try {
+          const patch = {};
+
+          if (body.endpoint !== undefined) {
+            const endpoint = normalizeEndpoint(body.endpoint);
+            if (!endpoint) throw new Error('Endereço inválido: use uma URL http(s) (ex.: https://ntfy.sh).');
+            patch.push_endpoint = endpoint;
+          }
+
+          if (body.topic !== undefined) {
+            const topic = String(body.topic ?? '').trim();
+            if (topic && !TOPIC_PATTERN.test(topic)) {
+              throw new Error('Tópico inválido: use de 3 a 64 letras, números, "-" ou "_".');
+            }
+            patch.push_topic = topic;
+          }
+
+          // O token nunca volta para o navegador: só é trocado quando vem preenchido
+          // (ou limpo explicitamente pelo botão "remover token").
+          if (body.token !== undefined && String(body.token).trim()) {
+            patch.push_token = String(body.token).trim();
+          }
+          if (body.clearToken === true) patch.push_token = '';
+
+          if (body.enabled !== undefined) patch.push_enabled = Boolean(body.enabled);
+          if (body.events && typeof body.events === 'object') {
+            if (body.events.queueJoin !== undefined) patch.push_on_queue_join = Boolean(body.events.queueJoin);
+            if (body.events.queueBlocked !== undefined) {
+              patch.push_on_queue_blocked = Boolean(body.events.queueBlocked);
+            }
+          }
+
+          if (Object.keys(patch).length) await services.settings.setMany(patch);
+          const config = services.push.config();
+          logger.info(
+            config.ready
+              ? 'Aviso no celular (ntfy) ligado pelo painel.'
+              : `Aviso no celular (ntfy) configurado, não pronto: ${config.disabledReason}`,
+          );
+          return sendJson(res, 200, { ok: true, ...config });
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+
+      if (pathname === '/api/push/test' && req.method === 'POST') {
+        if (!services.push) return sendJson(res, 503, { error: 'Notificações indisponíveis nesta versão.' });
+        try {
+          const result = await services.push.sendTest();
+          logger.info(`Notificação de teste enviada (HTTP ${result.status}).`);
+          return sendJson(res, 200, { ok: true, status: result.status, ...services.push.config() });
+        } catch (error) {
+          logger.warn(`Falha na notificação de teste: ${error.message}`);
+          return sendJson(res, 400, { error: error.message, ...services.push.config() });
         }
       }
 

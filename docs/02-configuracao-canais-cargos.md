@@ -195,6 +195,21 @@ Regra fixa (não configurável): **o bot não desconecta jogadores**.
 | `stats_ranking_min_sample` | `3` | Mínimo de atendimentos para o ranking |
 | `hidden_channels` | `false` | Modo discreto (sem menções em canais) |
 
+### Aviso no celular (ntfy)
+
+| Chave | Padrão | Descrição |
+| --- | --- | --- |
+| `push_enabled` | `false` | Liga o push no celular quando alguém entra na fila |
+| `push_endpoint` | `https://ntfy.sh` | Servidor ntfy (use o seu se hospedar por conta própria) |
+| `push_topic` | — | Tópico assinado no app; funciona como senha |
+| `push_token` | — | Access token do ntfy (opcional, enviado no header `Authorization`) |
+| `push_on_queue_join` | `true` | Avisa cada entrada na fila (uma mensagem por pessoa) |
+| `push_on_queue_blocked` | `true` | Avisa a tentativa de entrada com a central fechada/sem staff |
+| `push_last_status` | — | Resultado do último envio, mostrado no painel |
+
+Tudo é editável na seção **Notificações** do painel web — sem redeploy. Guia passo a passo:
+[06-guia-admin.md](06-guia-admin.md#aviso-no-celular-quando-alguém-entra-na-fila).
+
 ## Paleta de cores da identidade
 
 Todos os painéis e botões usam a mesma paleta (fonte única: `src/config/theme.js` → `PALETTE`):

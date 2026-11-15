@@ -15,6 +15,7 @@ const { PanelRepository } = require('../database/repositories/panelRepository');
 const { HourBankRepository } = require('../database/repositories/hourBankRepository');
 
 const { NotificationService } = require('../systems/notifications/notificationService');
+const { PushNotifier } = require('../systems/notifications/pushNotifier');
 const { AuditService } = require('../systems/logs/auditService');
 const { StaffService } = require('../systems/staff/staffService');
 const { ScheduleService } = require('../systems/schedule/scheduleService');
@@ -53,6 +54,8 @@ async function createServices({ db, gateway }) {
   if (gateway && 'settings' in gateway) gateway.settings = settings;
 
   const notificationService = new NotificationService({ gateway, settings });
+  // Push no celular do dono (ntfy) quando alguém entra na fila.
+  const pushNotifier = new PushNotifier({ settings });
   const auditService = new AuditService({
     db,
     repo: repositories.audit,
@@ -100,9 +103,11 @@ async function createServices({ db, gateway }) {
     gateway,
     staffService,
     notifications: notificationService,
+    push: pushNotifier,
     audit: auditService,
     panels: panelFacade,
     schedule: scheduleService,
+    push: pushNotifier,
   });
 
   const statisticsService = new StatisticsService({ db, repos: repositories, settings });
@@ -167,6 +172,7 @@ async function createServices({ db, gateway }) {
     queue: queueService,
     hourBank: hourBankService,
     scheduleBroadcast: scheduleBroadcastService,
+    push: pushNotifier,
     attendance: attendanceService,
     statistics: statisticsService,
     evaluations: evaluationService,

@@ -403,3 +403,11 @@ dialog p { margin: 0 0 14px; }
 .summary-day-label { font-weight: 600; color: var(--text); }
 .summary-day-value { font-variant-numeric: tabular-nums; }
 .summary-day-value.off { color: var(--dim); }
+
+/* notificações no celular (ntfy) */
+#notificacoes .webhook-row { flex-wrap: wrap; }
+#notificacoes .webhook-row input[type="url"] { flex: 1 1 220px; }
+#notificacoes .webhook-row input[type="text"] { flex: 1 1 220px; }
+#notificacoes .webhook-row input[type="password"] { flex: 1 1 260px; }
+#notificacoes .webhook-auto { gap: 18px; }
+#notificacoes .switch span { font-size: 12.5px; color: var(--text); }

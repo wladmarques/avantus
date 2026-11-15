@@ -41,6 +41,7 @@ class AttendanceEngine {
     audit,
     panels,
     schedule,
+    push = null,
   }) {
     this.db = db;
     this.repos = repositories;
@@ -51,6 +52,8 @@ class AttendanceEngine {
     this.audit = audit;
     this.panels = panels;
     this.schedule = schedule;
+    // Aviso no celular do dono (ntfy). Opcional: sem ele a fila segue igual.
+    this.push = push;
     this.timers = new Map();
     this.positionCooldowns = new Map();
     this.warnedMissingWaitChannel = false;
@@ -257,6 +260,20 @@ class AttendanceEngine {
 
     await this._notifyPositionChanges(guildId, { excludeUserId: userId });
     await this.panels.refresh(guildId);
+
+    // Aviso no celular do dono: depois de tudo que é essencial e sem poder
+    // derrubar a entrada na fila (o notificador nunca lança).
+    await this._push('aviso de entrada na fila', () =>
+      this.push.queueJoined({
+        guildId,
+        userId,
+        userName: created.attendance.username,
+        protocol: created.protocol,
+        position: created.position,
+        queueSize: created.queueSize,
+        source,
+      }),
+    );
     return created;
   }
 
@@ -1097,6 +1114,7 @@ class AttendanceEngine {
               nextOpen: this.schedule.isOpen(guildId).nextOpen,
             }),
           );
+          await this._pushBlocked(guildId, userId, displayName, 'Central fechada no momento');
           return { skipped: 'central fechada' };
         }
         // Qualquer outra falha precisa chegar ao jogador (antes: silêncio total).
@@ -1107,6 +1125,14 @@ class AttendanceEngine {
             userId,
             reason: error.userMessage || error.message,
           }),
+        );
+        await this._pushBlocked(
+          guildId,
+          userId,
+          displayName,
+          error.code === ERRORS.SEM_STAFF
+            ? 'Nenhum staff em serviço (fila fechada)'
+            : error.userMessage || error.message,
         );
         return { skipped: 'erro', code: error.code ?? null };
       }
@@ -1655,6 +1681,25 @@ class AttendanceEngine {
       logger.error(`Efeito "${label}" falhou: ${error.message}`);
       return null;
     }
+  }
+
+  /** Push para o celular do dono (nunca lança, nunca atrasa a fila além do timeout). */
+  async _push(label, fn) {
+    if (!this.push) return null;
+    try {
+      return await fn();
+    } catch (error) {
+      logger.warn(`Push "${label}" falhou: ${error.message}`);
+      return null;
+    }
+  }
+
+  /** Avisa que alguém entrou na call mas não conseguiu entrar na fila. */
+  async _pushBlocked(guildId, userId, displayName, reason) {
+    if (!this.push) return null;
+    return this._push('aviso de fila bloqueada', () =>
+      this.push.queueBlocked({ guildId, userId, userName: displayName || null, reason }),
+    );
   }
 
   _clearTimer(attendanceId) {

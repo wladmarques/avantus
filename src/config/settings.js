@@ -375,6 +375,73 @@ const SETTINGS = {
     group: 'Mensagens',
     validate: (v) => typeof v === 'string' && v.length > 0 && v.length <= 500,
   },
+  // ---------------------------------------------------------------- //
+  // Push no celular do dono quando alguém entra na fila (ntfy)        //
+  // ---------------------------------------------------------------- //
+  push_enabled: {
+    default: false,
+    type: 'boolean',
+    label: 'Avisar no celular quando alguém entrar na fila',
+    group: 'Notificações',
+    validate: asBool,
+  },
+  push_endpoint: {
+    default: 'https://ntfy.sh',
+    type: 'string',
+    label: 'Servidor de notificação',
+    group: 'Notificações',
+    validate: (v) => typeof v === 'string' && v.length <= 300,
+  },
+  push_topic: {
+    default: '',
+    type: 'string',
+    label: 'Tópico do ntfy',
+    group: 'Notificações',
+    // Letras, números, "-" e "_" — o tópico funciona como senha do aviso.
+    validate: (v) => typeof v === 'string' && (v === '' || /^[A-Za-z0-9_-]{3,64}$/.test(v)),
+  },
+  push_token: {
+    default: '',
+    type: 'string',
+    label: 'Token de acesso do ntfy',
+    group: 'Notificações',
+    validate: (v) => typeof v === 'string' && v.length <= 200,
+  },
+  push_on_queue_join: {
+    default: true,
+    type: 'boolean',
+    label: 'Avisar entrada na fila',
+    group: 'Notificações',
+    validate: asBool,
+  },
+  push_on_queue_blocked: {
+    default: true,
+    type: 'boolean',
+    label: 'Avisar tentativa de entrada com a central fechada',
+    group: 'Notificações',
+    validate: asBool,
+  },
+  push_last_status: {
+    default: '',
+    type: 'string',
+    label: 'Último envio (status)',
+    group: 'Notificações',
+    validate: (v) => typeof v === 'string' && v.length <= 300,
+  },
+  push_last_error: {
+    default: '',
+    type: 'string',
+    label: 'Último envio (erro)',
+    group: 'Notificações',
+    validate: (v) => typeof v === 'string' && v.length <= 300,
+  },
+  push_last_at: {
+    default: 0,
+    type: 'number',
+    label: 'Último envio (data)',
+    group: 'Notificações',
+    validate: (v) => Number.isFinite(Number(v)),
+  },
 };
 
 const VALID_GROUPS = [...new Set(Object.values(SETTINGS).map((def) => def.group))];
