@@ -1964,6 +1964,9 @@
       renderAbsences(overview);
       renderScheduleList(overview.staff);
       await loadWebhook();
+      // Também no reload da página (sessão já existente), senão a seção
+      // Notificações ficava em "Carregando…" e os campos vazios.
+      await loadPush();
       await loadEvaluations();
       await loadSchedule();
       state.timer = setInterval(() => refresh({ silent: true }), 30000);
