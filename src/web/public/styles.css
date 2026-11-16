@@ -273,7 +273,9 @@ tbody tr.group-row td { padding: 14px 10px 7px; border-bottom: 1px solid var(--l
 
 /* ---------------- webhook da escala ---------------- */
 .webhook-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.webhook-row input { flex: 1 1 340px; min-width: 220px; }
+/* Só os campos do próprio formulário: o checkbox do .switch é filho do label e
+   não pode esticar (antes virava um bloco gigante dentro do interruptor). */
+.webhook-row > input { flex: 1 1 340px; min-width: 220px; }
 .webhook-row .btn { flex: 0 0 auto; }
 .webhook-auto { margin-top: 12px; }
 .webhook-auto select, .webhook-auto input[type="time"] { padding: 7px 10px; font-size: 12.5px; }
@@ -406,8 +408,12 @@ dialog p { margin: 0 0 14px; }
 
 /* notificações no celular (ntfy) */
 #notificacoes .webhook-row { flex-wrap: wrap; }
-#notificacoes .webhook-row input[type="url"] { flex: 1 1 220px; }
-#notificacoes .webhook-row input[type="text"] { flex: 1 1 220px; }
-#notificacoes .webhook-row input[type="password"] { flex: 1 1 260px; }
-#notificacoes .webhook-auto { gap: 18px; }
-#notificacoes .switch span { font-size: 12.5px; color: var(--text); }
+#notificacoes .webhook-row > input[type="url"] { flex: 1 1 220px; }
+#notificacoes .webhook-row > input[type="text"] { flex: 1 1 220px; }
+#notificacoes .webhook-row > input[type="password"] { flex: 1 1 260px; }
+#notificacoes .webhook-auto { gap: 10px; align-items: center; }
+#notificacoes .switch { flex: 0 0 auto; }
+/* O checkbox herda "flex: 1 1 340px" do formulário: trava no tamanho natural. */
+#notificacoes .switch input,
+.webhook-row .switch input { flex: 0 0 auto; min-width: 0; width: 14px; height: 14px; }
+#notificacoes .switch span { font-size: 12.5px; color: var(--text); white-space: nowrap; }
