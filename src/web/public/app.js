@@ -1657,7 +1657,8 @@
       : null;
     if (!data.lastStatus) return 'Ligado. Envie um teste para confirmar no celular.';
     if (data.lastError) return `Ligado, mas o último envio falhou (${when || 'agora'}): ${data.lastError}`;
-    return `Ligado. Último envio: ${data.lastStatus}${when ? ` às ${when}` : ''}.`;
+    const took = data.lastLatencyMs ? ` · ${data.lastLatencyMs} ms no servidor` : '';
+    return `Ligado. Último envio: ${data.lastStatus}${took}${when ? ` às ${when}` : ''}.`;
   }
 
   function applyPushConfig(data) {

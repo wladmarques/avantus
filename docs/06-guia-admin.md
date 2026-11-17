@@ -205,6 +205,29 @@ Comportamento:
 - falha de envio nunca impede alguém de entrar na fila: aparece como aviso no log (`escopo push`) e
   como último status no painel.
 
+### A notificação está demorando? Onde está o atraso
+
+O painel mostra o tempo de publicação: **“Último envio: ok 200 · 132 ms às 20:14”**. Esse número é
+do **bot até o ntfy** (rede + aceite do servidor) e não inclui a entrega no aparelho.
+
+- **Número baixo (dezenas/centenas de ms)** → o bot publicou na hora; o atraso é na entrega. Causas
+  comuns, em ordem:
+  1. **App do Android vindo da Play Store** usa o Firebase (FCM) e, com o celular parado, o Google
+     pode segurar a mensagem por minutos. Solução: na tela do tópico, ative **Instant delivery**
+     (aparece uma notificação fixa do serviço) — ou instale a versão do **F-Droid**, que não usa
+     Firebase e é sempre instantânea.
+  2. **Otimização de bateria** do fabricante: Configurações → Apps → ntfy → Bateria → **Sem
+     restrições**. Vale principalmente para Xiaomi, Samsung, Motorola e Huawei.
+  3. **Não perturbe / canais de notificação**: as mensagens vão com prioridade **alta**, que é a que
+     aparece como pop-up; confira em Configurações → Apps → ntfy → Notificações.
+  4. **Navegador/PWA no computador**: só recebe com o navegador aberto e com a permissão de
+     notificação concedida para o site.
+- **Número alto ou “falhou”** → o problema está do lado do bot/servidor: veja o log com o escopo
+  `push` (timeout de 8 s, HTTP 401/403 por token errado, 429 por excesso de envios do ntfy.sh).
+- Reforço de código: o aviso é publicado **antes** das chamadas ao Discord (mover para a call, DM de
+  confirmação, log e painéis), então ele não fica na fila atrás delas; e toda entrada na fila sai com
+  prioridade **alta**, que evita o agrupamento do modo de espera do Android.
+
 ## Configurações
 
 ```

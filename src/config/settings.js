@@ -449,6 +449,13 @@ const SETTINGS = {
     group: 'Notificações',
     validate: (v) => typeof v === 'string' && v.length <= 300,
   },
+  push_last_latency_ms: {
+    default: 0,
+    type: 'number',
+    label: 'Último envio (latência em ms)',
+    group: 'Notificações',
+    validate: (v) => Number.isFinite(Number(v)),
+  },
   push_last_at: {
     default: 0,
     type: 'number',
