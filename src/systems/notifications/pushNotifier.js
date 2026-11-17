@@ -162,6 +162,9 @@ class PushNotifier {
       lastStatus: this.settings.get('push_last_status') || null,
       lastAt: this.settings.get('push_last_at') || null,
       lastError: this.settings.get('push_last_error') || null,
+      // tempo entre o bot publicar e o ntfy responder (não inclui a entrega
+      // no celular): serve para separar problema do bot de problema do app
+      lastLatencyMs: Number(this.settings.get('push_last_latency_ms')) || 0,
     };
   }
 
@@ -174,7 +177,10 @@ class PushNotifier {
     if (!this.events.queueJoin) return { skipped: 'evento desligado' };
     return this._send(buildJoinMessage(item, { timeZone: this.timeZone }), {
       kind: 'queue_join',
-      priority: Number(item.position) === 1 ? 'high' : 'default',
+      // Sempre **high**: no Android isso vira uma mensagem FCM de prioridade
+      // alta, entregue mesmo com o celular em modo de espera (doze). Com
+      // prioridade normal o Firebase pode segurar a entrega por minutos.
+      priority: 'high',
     });
   }
 
@@ -233,6 +239,7 @@ class PushNotifier {
     const headers = { 'content-type': 'application/json' };
     if (this.token) headers.authorization = `Bearer ${this.token}`;
 
+    const startedAt = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
@@ -248,17 +255,18 @@ class PushNotifier {
           response.status === 401 || response.status === 403
             ? 'O servidor recusou o acesso (401/403). Confira o token de acesso do ntfy.'
             : `O ntfy recusou o envio (HTTP ${response.status})${detail ? `: ${detail.slice(0, 140)}` : ''}.`;
-        await this._remember(false, response.status, error, kind);
+        await this._remember(false, response.status, error, kind, Date.now() - startedAt);
         return { ok: false, status: response.status, error };
       }
-      await this._remember(true, response.status, null, kind);
-      return { ok: true, status: response.status };
+      const latencyMs = Date.now() - startedAt;
+      await this._remember(true, response.status, null, kind, latencyMs);
+      return { ok: true, status: response.status, latencyMs };
     } catch (error) {
       const messageText =
         error.name === 'AbortError'
           ? 'O ntfy não respondeu a tempo (8s).'
           : `Não foi possível falar com o ntfy: ${error.message}`;
-      await this._remember(false, null, messageText, kind);
+      await this._remember(false, null, messageText, kind, Date.now() - startedAt);
       return { ok: false, error: messageText };
     } finally {
       clearTimeout(timer);
@@ -266,19 +274,21 @@ class PushNotifier {
   }
 
   /** Guarda o último resultado sem nunca derrubar quem chamou. */
-  async _remember(ok, status, error, kind) {
+  async _remember(ok, status, error, kind, latencyMs = null) {
     const stamp = Date.now();
-    const summary = ok ? `ok ${status}` : `falhou: ${error}`;
+    const took = Number.isFinite(latencyMs) ? ` em ${latencyMs} ms` : '';
+    const summary = ok ? `ok ${status}${took}` : `falhou: ${error}`;
     try {
       await this.settings.setMany({
         push_last_status: summary,
         push_last_at: stamp,
         push_last_error: error || '',
+        push_last_latency_ms: Number.isFinite(latencyMs) ? latencyMs : 0,
       });
     } catch (settingsError) {
       this.logger.debug(`[push] não foi possível gravar o último status: ${settingsError.message}`);
     }
-    if (ok) this.logger.info(`[push] aviso enviado (${kind}, HTTP ${status}).`);
+    if (ok) this.logger.info(`[push] aviso publicado (${kind}, HTTP ${status}${took}).`);
     else this.logger.warn(`[push] falha ao enviar ${kind}: ${error}`);
   }
 }

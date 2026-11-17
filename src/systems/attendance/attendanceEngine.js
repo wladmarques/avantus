@@ -223,6 +223,26 @@ class AttendanceEngine {
       return { attendance: withPosition, protocol, position, queueSize: waiting.length };
     });
 
+    // Aviso no celular do dono **antes** das chamadas ao Discord.
+    //
+    // A pessoa já está na fila (a transação acima commitou); o que vem depois
+    // — mover para o canal de espera, DM de confirmação, log no canal e
+    // atualização dos painéis — são várias idas e voltas na API do Discord e
+    // podiam segurar o push por segundos (mais ainda com a fila cheia, por
+    // causa dos avisos de posição). O notificador nunca lança, então isso não
+    // pode impedir ninguém de entrar.
+    await this._push('aviso de entrada na fila', () =>
+      this.push.queueJoined({
+        guildId,
+        userId,
+        userName: created.attendance.username,
+        protocol: created.protocol,
+        position: created.position,
+        queueSize: created.queueSize,
+        source,
+      }),
+    );
+
     await this._effect('mover para a espera', async () => {
       const moved = await this.gateway.moveToVoiceChannel(guildId, userId, settings.wait_channel_id);
       return moved;
@@ -260,20 +280,6 @@ class AttendanceEngine {
 
     await this._notifyPositionChanges(guildId, { excludeUserId: userId });
     await this.panels.refresh(guildId);
-
-    // Aviso no celular do dono: depois de tudo que é essencial e sem poder
-    // derrubar a entrada na fila (o notificador nunca lança).
-    await this._push('aviso de entrada na fila', () =>
-      this.push.queueJoined({
-        guildId,
-        userId,
-        userName: created.attendance.username,
-        protocol: created.protocol,
-        position: created.position,
-        queueSize: created.queueSize,
-        source,
-      }),
-    );
     return created;
   }
 

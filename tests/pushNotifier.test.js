@@ -111,7 +111,7 @@ test('entrada na fila publica um JSON no tópico configurado', async (t) => {
   assert.equal(call.options.method, 'POST');
   assert.equal(call.body.topic, TOPIC);
   assert.match(call.body.title, /Pedro entrou na fila/);
-  // primeira da fila tem prioridade alta (aparece com mais destaque no celular)
+  // prioridade alta: o Android entrega na hora, mesmo em modo de espera
   assert.equal(call.body.priority, 'high');
   assert.equal(call.options.headers.authorization, undefined);
 });
@@ -123,7 +123,7 @@ test('token configurado vai no header Bearer, nunca na URL', async (t) => {
   const [call] = fetchImpl.calls;
   assert.equal(call.options.headers.authorization, 'Bearer tk_segredo123');
   assert.doesNotMatch(call.url, /tk_segredo123/);
-  assert.equal(call.body.priority, 'default');
+  assert.equal(call.body.priority, 'high', 'prioridade alta em qualquer posição');
 });
 
 test('desligado ou sem tópico não envia nada', async (t) => {
@@ -363,4 +363,79 @@ test('sair da call não gera aviso de push', async (t) => {
   });
   assert.equal(calls, 1, 'saída não dispara aviso');
   assert.equal(env.services.engine.getState(env.guildId).waiting.length, 0);
+});
+
+/* ------------------------------------------------------------------ */
+/* Latência: o bot publica antes de falar com o Discord                */
+/* ------------------------------------------------------------------ */
+
+test('o aviso sai antes das chamadas ao Discord (não espera DM/painel)', async (t) => {
+  const env = await createTestEnv({ staff: true });
+  t.after(() => env.cleanup());
+  await env.services.settings.setMany({
+    push_enabled: true,
+    push_endpoint: 'https://ntfy.sh',
+    push_topic: TOPIC,
+  });
+  addMember(env.gateway, '700000000000000051', { voiceChannelId: env.waitChannelId, displayName: 'Pedro' });
+
+  const order = [];
+  env.services.push.fetchImpl = async () => {
+    order.push('push');
+    return { ok: true, status: 200, text: async () => '' };
+  };
+  const originalMove = env.gateway.moveToVoiceChannel.bind(env.gateway);
+  env.gateway.moveToVoiceChannel = async (...args) => {
+    order.push('discord:mover');
+    return originalMove(...args);
+  };
+  const originalDm = env.gateway.sendDM?.bind(env.gateway);
+  if (originalDm) {
+    env.gateway.sendDM = async (...args) => {
+      order.push('discord:dm');
+      return originalDm(...args);
+    };
+  }
+
+  await env.services.queue.join({
+    guildId: env.guildId,
+    userId: '700000000000000051',
+    displayName: 'Pedro',
+    source: 'painel',
+  });
+
+  assert.equal(order[0], 'push', `o push foi o primeiro efeito (ordem: ${order.join(' → ')})`);
+  assert.ok(order.includes('discord:mover'), 'o restante do fluxo continua igual');
+});
+
+test('a latência do envio é medida e aparece no painel', async (t) => {
+  const { push } = await makeNotifier(t, {
+    handler: () => {
+      const until = Date.now() + 25;
+      while (Date.now() < until) {
+        /* simula 25 ms de rede */
+      }
+      return { ok: true, status: 200 };
+    },
+  });
+
+  const result = await push.queueJoined({ userName: 'Pedro', position: 2, queueSize: 3 });
+  assert.equal(result.ok, true);
+  assert.ok(result.latencyMs >= 20, `latência medida (${result.latencyMs} ms)`);
+
+  const config = push.config();
+  assert.ok(config.lastLatencyMs >= 20);
+  assert.match(config.lastStatus, /ok 200 em \d+ ms/);
+});
+
+test('toda entrada na fila vai com prioridade alta (entrega sem doze)', async (t) => {
+  const { push, fetchImpl } = await makeNotifier(t);
+  await push.queueJoined({ userName: 'Pedro', position: 1, queueSize: 3 });
+  await push.queueJoined({ userName: 'Lucas', position: 2, queueSize: 3 });
+  await push.queueJoined({ userName: 'Mika', position: 3, queueSize: 3 });
+
+  assert.deepEqual(
+    fetchImpl.calls.map((call) => call.body.priority),
+    ['high', 'high', 'high'],
+  );
 });
