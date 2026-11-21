@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 117 testes (node:test), sem token e sem internet
+npm test             # 434 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -40,6 +40,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/staffPanelRosterMembers.test.js` | EQUIPE listando **todos** os membros com o cargo de atendimento: quem nunca entrou em serviço aparece em FORA DE SERVIÇO com `sem escala`, contagem do grupo, `registered: false`, saída ao perder o cargo e a fila continuando fechada |
 | `tests/centralAutoStaff.test.js` | central seguindo a equipe: staff **DISPONÍVEL** abre a central fora do horário, o último staff saindo devolve ao horário programado, staff em atendimento segura a central aberta, abertura/fechamento manual do administrador são preservados, automação desligável e aviso ao jogador que espera |
 | `tests/pushNotifier.test.js` | aviso no celular (ntfy): texto da mensagem, JSON no tópico, token no header, eventos desligados, falha de rede/401 sem derrubar a fila, token mascarado no painel, uma mensagem por pessoa e aviso de fila bloqueada ao entrar na call |
+| `tests/webPanelBrowser.test.js` | JS real do painel em DOM simulado: login sem storage/cookie e após reload, "Tirar de serviço" pelo menu ⋮, grupos **Escala fixa**/**Apoio** recolhíveis, busca e filtro de status sem ir ao servidor, visão geral da equipe e sidebar recolhível |
 | `tests/webPanelPush.test.js` | seção **Notificações** do painel: ao recarregar a página os campos vêm preenchidos (tópico, servidor, interruptores, token mascarado), estado inicial sem configuração e o ciclo salvar → recarregar |
 | `tests/pushApi.test.js` | API do painel para o aviso no celular: login obrigatório, validação de tópico/endereço, token mascarado, remoção do token, envio de teste (200 e 400) |
 | `tests/webPanelRoster.test.js` | painel web separando **escala fixa** (cargo `staff_panel_role_ids`) de **apoio** (atendimentos aleatórios): `/api/overview` com `group`/`onRoster`, cargos devolvidos na resposta, fallback por turno cadastrado, `rosterIds` do `StaffService` e a paridade de listas entre o painel web e a EQUIPE do Discord |

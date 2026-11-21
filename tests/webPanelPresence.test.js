@@ -35,6 +35,14 @@ function createElement(tag = 'div') {
     dataset: {},
     style: {},
     listeners: {},
+    attributes: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+    getAttribute(name) {
+      return this.attributes[name];
+    },
+    getBoundingClientRect: () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }),
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     addEventListener(type, fn) {
       (this.listeners[type] = this.listeners[type] || []).push(fn);
@@ -179,6 +187,8 @@ async function createHarness(t) {
         },
       },
       addEventListener() {},
+      innerWidth: 1400,
+      innerHeight: 900,
     };
     const run = new Function(
       'document',

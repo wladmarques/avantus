@@ -25,6 +25,12 @@
     absenceFilter: '',
     // Último /api/overview recebido: o filtro redesenha a seção sem ir ao servidor.
     overview: null,
+    // Tabela da equipe: grupos recolhidos, busca e filtro rápido de status.
+    collapsedGroups: {},
+    staffSearch: '',
+    staffFilter: 'all',
+    // Staff do menu de ações aberto (três pontos).
+    menuRow: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -252,83 +258,192 @@
     return row.shifts && row.shifts.length ? 'ESCALA' : 'APOIO';
   }
 
-  /** Cabeçalho de grupo dentro da tabela (Escala fixa / Apoio). */
-  function groupHeaderRow(label, count, hint) {
+  /**
+   * Status visual da linha: verde = em serviço, cinza = indisponível,
+   * vermelho = bloqueado, laranja = atenção (em atendimento/ausente).
+   * Os estados são os mesmos do sistema; só a leitura fica mais rápida.
+   */
+  function statusVisual(row) {
+    if (row.blocked) {
+      return { dot: 'dot blocked', tone: 'blocked', label: row.status === 'EM_ATENDIMENTO' ? 'EM ATENDIMENTO' : row.statusLabel };
+    }
+    if (row.status === 'DISPONIVEL') return { dot: 'dot on', tone: 'on', label: 'EM SERVIÇO' };
+    if (row.status === 'EM_ATENDIMENTO') return { dot: 'dot busy', tone: 'busy', label: 'EM ATENDIMENTO' };
+    if (row.status === 'AUSENTE') return { dot: 'dot busy', tone: 'busy', label: 'AUSENTE' };
+    return { dot: 'dot off', tone: 'off', label: row.statusLabel || 'INDISPONÍVEL' };
+  }
+
+  /** Nome para exibição (nunca vazio). */
+  function nameOf(row) {
+    return row.staffName || `Usuário ${row.userId}`;
+  }
+
+  /** Entrada mostrada: sessão aberta (com "agora") ou a última do período. */
+  function entryCell(row) {
+    const cell = el('td', 'entry-cell');
+    if (row.session) {
+      cell.appendChild(el('span', null, row.session.entry));
+      cell.appendChild(el('span', 'now', ' em aberto'));
+      return cell;
+    }
+    cell.textContent = row.totals.entryLabel;
+    return cell;
+  }
+
+  /** Ícone SVG do sprite (index.html). */
+  function icon(name, className = 'icon') {
+    const svg = document.createElementNS
+      ? document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      : null;
+    if (!svg) return el('span');
+    svg.setAttribute('class', className);
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', `#i-${name}`);
+    svg.appendChild(use);
+    return svg;
+  }
+
+  /** Cabeçalho de grupo dentro da tabela (Escala fixa / Apoio), recolhível. */
+  function groupHeaderRow(key, label, count, hint) {
     const tr = el('tr', 'group-row');
+    tr.dataset.group = key;
     const cell = el('td');
     cell.colSpan = 8;
     const box = el('div', 'group-head');
-    box.appendChild(el('span', 'group-title', label));
-    box.appendChild(el('span', 'group-count', String(count)));
+
+    const toggle = el('button', 'group-toggle');
+    toggle.type = 'button';
+    if (typeof toggle.setAttribute === 'function') {
+      toggle.setAttribute('aria-expanded', state.collapsedGroups[key] ? 'false' : 'true');
+    }
+    toggle.title = state.collapsedGroups[key] ? 'Expandir grupo' : 'Recolher grupo';
+    toggle.appendChild(icon('chevron'));
+    toggle.appendChild(el('span', 'group-title', label));
+    toggle.appendChild(el('span', 'group-count', String(count)));
+    toggle.addEventListener('click', () => {
+      state.collapsedGroups[key] = !state.collapsedGroups[key];
+      if (state.overview) renderStaff(state.overview);
+    });
+    box.appendChild(toggle);
     if (hint) box.appendChild(el('span', 'group-hint', hint));
     cell.appendChild(box);
     tr.appendChild(cell);
+    if (state.collapsedGroups[key]) tr.classList.add('is-collapsed');
     return tr;
+  }
+
+  /** A linha passa nos filtros da barra (busca + status)? */
+  function matchesStaffFilters(row) {
+    const term = state.staffSearch.trim().toLowerCase();
+    if (term) {
+      const haystack = `${nameOf(row)} ${row.userId}`.toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
+    switch (state.staffFilter) {
+      case 'on':
+        return Boolean(row.available) || row.status === 'DISPONIVEL' || row.status === 'EM_ATENDIMENTO';
+      case 'late':
+        return Number(row.totals?.lateCount) > 0 || Number(row.session?.lateMinutes) > 0;
+      case 'blocked':
+        return Boolean(row.blocked);
+      default:
+        return true;
+    }
   }
 
   function renderStaff(overview) {
     const body = $('staff-body');
     body.innerHTML = '';
 
-    if (!overview.staff.length) {
+    const staff = Array.isArray(overview.staff) ? overview.staff : [];
+    if (!staff.length) {
       const row = el('tr');
-      const cell = el('td', 'empty', 'Nenhum staff cadastrado. Use o botão “Editar escala” de um staff existente ou registre o staff pelo Discord.');
+      const cell = el(
+        'td',
+        'empty',
+        'Nenhum staff cadastrado. Use o menu de ações de um staff existente ou registre o staff pelo Discord.',
+      );
       cell.colSpan = 8;
       row.appendChild(cell);
       body.appendChild(row);
+      renderOverviewTeam(overview);
       return;
     }
 
     const groups = { ESCALA: [], APOIO: [] };
-    for (const row of overview.staff) groups[staffGroup(row)].push(row);
+    for (const row of staff) groups[staffGroup(row)].push(row);
 
     const rosterRoles = (overview.roster && overview.roster.roleIds) || [];
     const roleHint = rosterRoles.length ? `Cargo ${rosterRoles.join(' / ')}` : 'Sem cargo configurado';
     const rolesPending = rosterRoles.length > 0 && overview.roster && overview.roster.synced === false;
 
-    if (groups.ESCALA.length) {
-      body.appendChild(
-        groupHeaderRow(
-          'Escala fixa',
-          groups.ESCALA.length,
-          rolesPending
-            ? `${roleHint} • cargos ainda não sincronizados, usando quem tem turno cadastrado`
-            : roleHint,
-        ),
-      );
-      for (const row of groups.ESCALA) body.appendChild(staffRow(row));
+    let visible = 0;
+    for (const [key, label, hint] of [
+      [
+        'ESCALA',
+        'Escala fixa',
+        rolesPending
+          ? `${roleHint} • cargos ainda não sincronizados, usando quem tem turno cadastrado`
+          : roleHint,
+      ],
+      ['APOIO', 'Apoio', 'Atendimentos aleatórios, sem escala fixa'],
+    ]) {
+      const all = groups[key];
+      if (!all.length) continue;
+      const rows = all.filter(matchesStaffFilters);
+      visible += rows.length;
+      // O grupo sempre aparece com o total dele; o filtro só esconde as linhas.
+      body.appendChild(groupHeaderRow(key, label, all.length, hint));
+      if (state.collapsedGroups[key]) continue;
+      for (const row of rows) body.appendChild(staffRow(row));
+      if (!rows.length) {
+        const tr = el('tr', 'group-empty');
+        const cell = el('td', 'empty', 'Nenhum staff deste grupo combina com a busca/filtro.');
+        cell.colSpan = 8;
+        tr.appendChild(cell);
+        body.appendChild(tr);
+      }
     }
 
-    if (groups.APOIO.length) {
-      body.appendChild(
-        groupHeaderRow('Apoio', groups.APOIO.length, 'Atendimentos aleatórios, sem escala fixa'),
-      );
-      for (const row of groups.APOIO) body.appendChild(staffRow(row));
+    const counter = $('staff-count');
+    if (counter) {
+      counter.textContent =
+        visible === staff.length
+          ? `${staff.length} ${staff.length === 1 ? 'funcionário' : 'funcionários'}`
+          : `${visible} de ${staff.length} funcionários`;
     }
+
+    renderOverviewTeam(overview);
   }
 
   /** Linha da tabela de um staff (usada pelos dois grupos). */
   function staffRow(row) {
     const tr = el('tr', 'clickable');
+    tr.dataset.userId = row.userId;
     tr.addEventListener('click', (event) => {
       if (event.target.closest('button')) return;
       openSessions(row);
     });
 
+    // 1) Nome e identificação
     const who = el('td');
     const whoBox = el('div', 'who');
     whoBox.appendChild(
-      row.staffName
-        ? el('strong', null, row.staffName)
-        : el('strong', 'unnamed', `Usuário ${row.userId}`),
+      row.staffName ? el('strong', null, row.staffName) : el('strong', 'unnamed', `Usuário ${row.userId}`),
     );
     whoBox.appendChild(el('span', null, row.userId));
     who.appendChild(whoBox);
 
+    // 2) Status com indicador visual
+    const visual = statusVisual(row);
     const status = el('td');
     const statusBox = el('span', 'status');
-    statusBox.appendChild(el('span', statusDotClass(row.status)));
-    statusBox.appendChild(el('span', null, row.session ? `EM SERVIÇO ${row.session.entry}` : row.statusLabel));
+    statusBox.appendChild(el('span', visual.dot));
+    statusBox.appendChild(el('span', `status-label ${visual.tone}`, visual.label));
+    if (row.session && !row.blocked) {
+      statusBox.appendChild(el('span', 'status-since', `desde ${row.session.entry}`));
+    }
     if (row.blocked) {
       const badge = el('span', 'badge blocked', 'BLOQUEADO');
       badge.title = row.blockedReason ? `Motivo: ${row.blockedReason}` : 'Bloqueado de entrar em serviço';
@@ -337,8 +452,9 @@
     status.appendChild(statusBox);
     if (row.blocked) tr.classList.add('is-blocked');
 
+    // 3) Turno de hoje · 4) entrada · 5) saída · 6) horas · 7) atrasos
     const shift = el('td', null, shiftTextForToday(row));
-    const entry = el('td', null, row.session ? row.session.entry : row.totals.entryLabel);
+    const entry = entryCell(row);
     const exit = el('td', null, row.session ? '—' : row.totals.exitLabel);
     const hours = el('td', 'num', fmtMinutes(row.totals.minutes));
     const late = el('td', 'num');
@@ -350,38 +466,165 @@
       late.textContent = '—';
     }
 
-    const actions = el('td', 'num');
-    const rename = el('button', 'btn tiny', row.staffName ? 'Nome' : 'Definir nome');
-    rename.addEventListener('click', () => openName(row));
-    const edit = el('button', 'btn tiny', 'Editar escala');
-    edit.addEventListener('click', () => openSchedule(row));
-    actions.append(rename, edit);
-    // Só faz sentido quando o staff está em serviço (sessão aberta ou disponível).
-    if (row.session || row.available) {
-      const off = el('button', 'btn tiny', 'Tirar de serviço');
-      off.addEventListener('click', () => openOffService(row));
-      actions.appendChild(off);
+    // 8) Ações: um único menu de três pontos (nada de botões na linha)
+    const actions = el('td', 'num col-actions');
+    const menuButton = el('button', 'row-actions-btn');
+    menuButton.type = 'button';
+    menuButton.title = `Ações de ${nameOf(row)}`;
+    menuButton.dataset.userId = row.userId;
+    if (typeof menuButton.setAttribute === 'function') {
+      menuButton.setAttribute('aria-label', `Ações de ${nameOf(row)}`);
+      menuButton.setAttribute('aria-haspopup', 'menu');
+      menuButton.setAttribute('aria-expanded', 'false');
     }
-    const block = el(
-      'button',
-      row.blocked ? 'btn tiny' : 'btn tiny danger',
-      row.blocked ? 'Desbloquear' : 'Bloquear',
-    );
-    block.title = row.blocked
-      ? 'Permitir que o staff volte a entrar em serviço'
-      : 'Impedir que o staff entre em serviço';
-    block.addEventListener('click', () =>
-      row.blocked ? toggleBlock(row, false) : openBlock(row),
-    );
-    const reset = el('button', 'btn tiny', 'Zerar horas');
-    reset.title = 'Apagar o histórico de horas deste staff (a contagem volta a zero)';
-    reset.addEventListener('click', () => openReset(row));
-    const remove = el('button', 'btn tiny danger', 'Remover');
-    remove.addEventListener('click', () => openRemove(row));
-    actions.append(reset, block, remove);
+    menuButton.appendChild(icon('dots'));
+    menuButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openRowMenu(row, menuButton);
+    });
+    actions.appendChild(menuButton);
 
     for (const cell of [who, status, shift, entry, exit, hours, late, actions]) tr.appendChild(cell);
     return tr;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Menu de ações (três pontos)                                         */
+  /* ------------------------------------------------------------------ */
+
+  let rowMenuAnchor = null;
+
+  function rowMenuAction(action, row) {
+    if (action === 'name') return openName(row);
+    if (action === 'schedule') return openSchedule(row);
+    if (action === 'off') return openOffService(row);
+    if (action === 'reset') return openReset(row);
+    if (action === 'block') return row.blocked ? toggleBlock(row, false) : openBlock(row);
+    if (action === 'remove') return openRemove(row);
+    return null;
+  }
+
+  function closeRowMenu() {
+    const menu = $('row-menu');
+    if (menu) menu.hidden = true;
+    if (rowMenuAnchor && typeof rowMenuAnchor.setAttribute === 'function') {
+      rowMenuAnchor.setAttribute('aria-expanded', 'false');
+    }
+    rowMenuAnchor = null;
+    state.menuRow = null;
+  }
+
+  /** Abre o menu único, posicionado ao lado do botão (com ajuste de viewport). */
+  function openRowMenu(row, anchor) {
+    const menu = $('row-menu');
+    if (!menu) return;
+    const alreadyOpen = !menu.hidden && state.menuRow === row;
+    closeRowMenu();
+    if (alreadyOpen) return;
+
+    state.menuRow = row;
+    rowMenuAnchor = anchor;
+    menu.hidden = false;
+    if (anchor && typeof anchor.setAttribute === 'function') {
+      anchor.setAttribute('aria-expanded', 'true');
+    }
+
+    // Opções que dependem da linha.
+    const off = menu.querySelector('[data-action="off"]');
+    if (off) {
+      off.hidden = !(row.session || row.available);
+    }
+    const block = menu.querySelector('[data-action="block"]');
+    if (block) {
+      block.textContent = row.blocked ? 'Desbloquear' : 'Bloquear';
+      block.classList.toggle('danger', !row.blocked);
+    }
+
+    // Reaplica os handlers (um por ação) para a linha atual.
+    if (!menu._bound) {
+      menu._bound = true;
+      menu.addEventListener('click', (event) => {
+        const item = event.target.closest('[data-action]');
+        if (!item) return;
+        const target = state.menuRow;
+        closeRowMenu();
+        if (target) rowMenuAction(item.dataset.action, target);
+      });
+      if (typeof document.addEventListener === 'function') document.addEventListener('click', (event) => {
+        if ($('row-menu').hidden) return;
+        if (event.target.closest('#row-menu') || event.target.closest('.row-actions-btn')) return;
+        closeRowMenu();
+      });
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeRowMenu();
+        });
+      }
+      if (typeof window.addEventListener === 'function') {
+        window.addEventListener('resize', () => closeRowMenu());
+        window.addEventListener('scroll', () => closeRowMenu(), { passive: true });
+      }
+    }
+
+    // Posiciona depois de medir (fica dentro da viewport).
+    if (typeof anchor.getBoundingClientRect !== 'function') return;
+    const rect = anchor.getBoundingClientRect();
+    const box = menu.getBoundingClientRect();
+    const left = Math.min(Math.max(8, rect.right - box.width), window.innerWidth - box.width - 8);
+    const top = Math.min(rect.bottom + 6, window.innerHeight - box.height - 8);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${Math.max(8, top)}px`;
+  }
+
+  /** Mini lista da equipe na Visão geral (atalho de gestão). */
+  function renderOverviewTeam(overview) {
+    const container = $('overview-team');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const staff = (Array.isArray(overview.staff) ? overview.staff : []).slice();
+    if (!staff.length) {
+      container.appendChild(el('p', 'overview-empty', 'Nenhum staff cadastrado ainda.'));
+      return;
+    }
+
+    // Quem está em serviço primeiro; depois quem tem atraso no período.
+    staff.sort(
+      (a, b) =>
+        Number(Boolean(b.available)) - Number(Boolean(a.available)) ||
+        Number(b.totals.lateCount || 0) - Number(a.totals.lateCount || 0) ||
+        String(nameOf(a)).localeCompare(String(nameOf(b)), 'pt-BR'),
+    );
+
+    for (const row of staff.slice(0, 6)) {
+      const button = el('button', 'overview-person');
+      button.type = 'button';
+      button.title = `Ver sessões de ${nameOf(row)}`;
+
+      const who = el('div', 'who');
+      who.appendChild(el('strong', null, nameOf(row)));
+      who.appendChild(el('span', null, row.userId));
+      button.appendChild(who);
+
+      const visual = statusVisual(row);
+      const status = el('span', 'status');
+      status.appendChild(el('span', visual.dot));
+      status.appendChild(el('span', `status-label ${visual.tone}`, visual.label));
+      button.appendChild(status);
+
+      button.appendChild(el('span', 'op-shift', shiftTextForToday(row)));
+      const hours = el(
+        'span',
+        row.totals.lateCount > 0 ? 'op-hours warn' : 'op-hours',
+        row.totals.lateCount > 0
+          ? `${fmtMinutes(row.totals.minutes)} · ${row.totals.lateCount} atraso${row.totals.lateCount > 1 ? 's' : ''}`
+          : fmtMinutes(row.totals.minutes),
+      );
+      button.appendChild(hours);
+
+      button.addEventListener('click', () => openSessions(row));
+      container.appendChild(button);
+    }
   }
 
   // Resumo de uma escala: dias úteis (mesmo horário) + fim de semana e grupo.
@@ -1898,6 +2141,8 @@
   $('reset-all-hours').addEventListener('click', () => openReset(null));
   bindSectionNav();
   bindAbsenceFilter();
+  bindSidebar();
+  bindStaffToolbar();
   $('name-discord').addEventListener('click', () => submitName(''));
 
   /* ------------------------------------------------------------------ */
@@ -1939,6 +2184,81 @@
       });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Sidebar recolhível                                                  */
+  /* ------------------------------------------------------------------ */
+
+  const SIDEBAR_KEY = 'vantus_sidebar';
+
+  function setSidebarCollapsed(collapsed, { persist = true } = {}) {
+    const app = $('app');
+    const toggle = $('sidebar-toggle');
+    if (!app) return;
+    app.classList.toggle('sidebar-collapsed', collapsed);
+    if (toggle && typeof toggle.setAttribute === 'function') {
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggle.setAttribute('aria-label', collapsed ? 'Expandir menu' : 'Recolher menu');
+      toggle.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+    }
+    if (!persist) return;
+    try {
+      localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
+    } catch {
+      /* sem armazenamento: vale só nesta sessão */
+    }
+  }
+
+  function bindSidebar() {
+    let collapsed = false;
+    try {
+      collapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
+    } catch {
+      collapsed = false;
+    }
+    setSidebarCollapsed(collapsed, { persist: false });
+
+    const toggle = $('sidebar-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        setSidebarCollapsed(!$('app').classList.contains('sidebar-collapsed'));
+      });
+    }
+
+    // Em telas estreitas o menu já é compacto: recolher não faz sentido.
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('resize', () => {
+        if (window.innerWidth <= 900) setSidebarCollapsed(true, { persist: false });
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Barra da tabela da equipe (busca + filtro de status)                */
+  /* ------------------------------------------------------------------ */
+
+  function bindStaffToolbar() {
+    const search = $('staff-search');
+    if (search) {
+      search.addEventListener('input', () => {
+        state.staffSearch = search.value;
+        if (state.overview) renderStaff(state.overview);
+      });
+    }
+
+    const filters = $('staff-filter');
+    if (filters) {
+      filters.addEventListener('click', (event) => {
+        const button = event.target.closest('.seg-item');
+        if (!button) return;
+        state.staffFilter = button.dataset.filter || 'all';
+        for (const item of filters.querySelectorAll('.seg-item')) {
+          item.classList.toggle('active', item === button);
+        }
+        if (state.overview) renderStaff(state.overview);
+      });
+    }
   }
 
   /** Filtro da Presença: troca sem nova requisição (os dados já estão na tela). */

@@ -45,12 +45,21 @@ WEB_PANEL_HOST=0.0.0.0
 
 ### O que aparece
 
+O painel abre em **Visão geral** e o menu lateral (recolhível) leva às seções: Visão geral,
+Equipe, Presença, Central, Avaliações, Escala e Notificações.
+
 - **Cartões**: staff cadastrados, quem está em serviço agora, horas no período e atrasos.
+- **Gestão da equipe** (na Visão geral): quem está em serviço aparece primeiro, com status,
+  turno de hoje e horas do período; um clique abre as sessões da pessoa.
 - **Presença** (seção própria): cartões de *faltas no período*, *em atraso agora*, *chegaram
   atrasados* e *minutos de atraso*, mais a tabela **Não entrada em serviço** com dia, staff,
   turno, situação (`faltou` / `em atraso` / `compareceu`) e a hora em que o bot registrou.
-- **Tabela da equipe**: nome, status atual (ou *EM SERVIÇO desde HH:MM*), turno de hoje,
-  entrada, saída, horas do período e atrasos acumulados.
+- **Tabela da equipe** (elemento principal da gestão): nome e ID, status com indicador colorido
+  — **verde** em serviço, **cinza** indisponível, **vermelho** bloqueado, **laranja** atenção —,
+  turno de hoje, entrada, saída, horas do período, atrasos acumulados e o **menu de ações**.
+  Acima da tabela há **busca por nome/ID** e o filtro **Todos / Em serviço / Com atraso /
+  Bloqueados**, com a contagem de funcionários à direita. A tabela separa **Escala fixa**
+  (cargo `1566903220968624188`) de **Apoio**, e cada grupo pode ser recolhido pelo cabeçalho.
 - **Avaliações**: média das notas (0–4), total no período, % de notas boas, distribuição em
   barras, tabela com data/jogador/atendente/nota/protocolo e a média por atendente. Há um campo
   para definir o **canal do Discord** que recebe cada avaliação (ou use `EVALUATION_CHANNEL_ID`
@@ -64,17 +73,29 @@ WEB_PANEL_HOST=0.0.0.0
   *EM SERVIÇO*, *ATRASO n min* ou *NO HORÁRIO*.
 - **Período**: hoje, 7 dias, 30 dias ou intervalo personalizado.
 - **CSV**: exporta o relatório do período (horas, sessões, entrada, saída, atrasos).
-- **Tirar de serviço** (coluna *Ações*, aparece só para quem está em serviço): encerra a
-  sessão do banco de horas agora, marca o staff como **INDISPONÍVEL** e, se estiver no canal
-  de voz de trabalho, desconecta da call — útil quando alguém esquece de sair e as horas
-  continuam contando. O staff recebe uma DM explicando como voltar (`/status`).
-  Se ele estiver atendendo um jogador, a ação é **recusada** (o atendimento precisa ser
-  encerrado/transferido no Discord antes, para o jogador não ficar órfão).
+### Ações administrativas
+
+Cada linha tem um único botão **⋮** (menu de três pontos) — nada de vários botões na linha.
+O menu reúne, sem mudar o comportamento de antes:
+
+- **Alterar nome**: define o nome exibido nos painéis (o nome do Discord continua como
+  sugestão em *Usar nome do Discord*).
+- **Editar escala**: dias úteis (mesmo horário), fim de semana e revezamento A/B.
+- **Tirar de serviço**: aparece só para quem está em serviço.
+- **Zerar horas**: apaga o histórico de horas daquele staff.
+- **Bloquear / Desbloquear**: impede (ou libera) a entrada em serviço.
+- **Remover**: tira o staff da equipe do banco de horas.
+
+O **Tirar de serviço** encerra a sessão do banco de horas agora, marca o staff como
+**INDISPONÍVEL** e, se estiver no canal de voz de trabalho, desconecta da call — útil quando
+alguém esquece de sair e as horas continuam contando. O staff recebe uma DM explicando como
+voltar (`/status`). Se ele estiver atendendo um jogador, a ação é **recusada** (o atendimento
+precisa ser encerrado/transferido no Discord antes, para o jogador não ficar órfão).
 
 ### Zerar horas
 
-Cada linha da tabela **Equipe** tem o botão **Zerar horas**, e o cabeçalho do painel tem
-**Zerar horas de todos**. Pede confirmação num modal e:
+Cada linha da tabela **Equipe** tem a ação **Zerar horas** no menu ⋮, e o cabeçalho da seção
+**Equipe** tem **Zerar horas de todos**. Pede confirmação num modal e:
 
 - apaga as **sessões encerradas** do staff (ou de todos) — o total do banco de horas volta a zero;
 - **não** apaga a sessão aberta de quem está em serviço agora: ela recomeça a contar a partir do
