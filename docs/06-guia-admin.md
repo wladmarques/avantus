@@ -98,7 +98,9 @@ Admins também podem alterar o status de qualquer membro; staffs alteram apenas 
 ## Banco de horas
 
 1. Abra o **painel web** (endereço do app + senha `WEB_PANEL_PASSWORD`).
-2. Em **Equipe**, clique em **Editar escala** na linha do staff e cadastre os turnos da semana.
+2. Em **Equipe**, abra o menu **⋮** da linha do staff → **Editar escala** e cadastre os turnos da
+   semana. O mesmo menu tem **Alterar nome**, **Zerar horas**, **Bloquear**, **Tirar de serviço**
+   e **Remover**.
    Turnos que cruzam a meia-noite são aceitos (`22:00` → `02:00`).
 3. As horas passam a contar sozinhas quando o staff fica **Disponível**.
 4. Em **Sessões** (clique na linha) você vê entrada, saída, duração e atrasos de cada dia.

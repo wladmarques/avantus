@@ -25,13 +25,40 @@ const APP_PATH = path.join(__dirname, '..', 'src', 'web', 'public', 'app.js');
 /* ------------------------------------------------------------------ */
 
 function createElement(tag = 'div') {
+  // classList de verdade: o painel alterna classes (grupo recolhido, sidebar).
+  const classes = new Set();
   return {
     tagName: tag,
     children: [],
     dataset: {},
     style: {},
     listeners: {},
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    attributes: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+    getAttribute(name) {
+      return this.attributes[name];
+    },
+    getBoundingClientRect: () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }),
+    get className() {
+      return [...classes].join(' ');
+    },
+    set className(value) {
+      classes.clear();
+      for (const item of String(value || '').split(/\s+/).filter(Boolean)) classes.add(item);
+    },
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+      contains: (name) => classes.has(name),
+      toggle(name, force) {
+        const on = force === undefined ? !classes.has(name) : Boolean(force);
+        if (on) classes.add(name);
+        else classes.delete(name);
+        return on;
+      },
+    },
     addEventListener(type, fn) {
       (this.listeners[type] = this.listeners[type] || []).push(fn);
     },
@@ -140,6 +167,8 @@ async function createHarness(t) {
         },
       },
       addEventListener() {},
+      innerWidth: 1400,
+      innerHeight: 900,
     };
     const run = new Function(
       'document',
@@ -295,11 +324,22 @@ test('botão "Tirar de serviço" encerra a sessão sem sair da tela', async (t) 
     `staff aparece na tabela (linhas: ${rows.map((tr) => nameOf(tr)).join(', ') || 'nenhuma'})`,
   );
 
+  // Uma única ação por linha: o menu de três pontos.
   const actions = row.children[row.children.length - 1];
-  const button = actions.children.find((node) => node.textContent === 'Tirar de serviço');
-  assert.ok(button, 'botão "Tirar de serviço" disponível para quem está em serviço');
+  assert.equal(actions.children.length, 1, 'a linha tem um único botão de ações');
+  const menuButton = actions.children[0];
+  assert.ok(menuButton.classList, 'botão do menu de três pontos');
+  assert.equal(menuButton.textContent, '', 'o botão não expõe vários rótulos na linha');
+  assert.ok(menuButton.listeners.click, 'botão do menu tem handler');
 
-  button.listeners.click[0]();
+  const menu = page.doc.getElementById('row-menu');
+  menuButton.listeners.click[0]({ stopPropagation() {}, target: menuButton });
+  assert.equal(menu.hidden, false, 'menu de ações aberto');
+
+  // "Tirar de serviço" está no menu e age na linha aberta.
+  const menuClick = menu.listeners.click[0];
+  assert.ok(menuClick, 'menu tem handler de ação');
+  menuClick({ target: { closest: () => ({ dataset: { action: 'off' } }) } });
   const modal = page.doc.getElementById('off-modal');
   assert.equal(modal.open, true, 'modal de confirmação aberto');
   assert.match(page.doc.getElementById('off-text').textContent, /Sessão aberta desde/);
@@ -354,7 +394,10 @@ test('tabela do painel separa "Escala fixa" (cargo) de "Apoio"', async (t) => {
   await wait(300);
 
   const rows = page.doc.getElementById('staff-body').children;
-  const groupTitle = (tr) => tr.children[0]?.children[0]?.children[0]?.textContent;
+  // Estrutura: tr.group-row > td > div.group-head > button.group-toggle > [ícone, título, contagem]
+  const groupHead = (tr) =>
+    tr.children[0]?.children[0]?.children.find((node) => node.className === 'group-toggle');
+  const groupTitle = (tr) => groupHead(tr)?.children[1]?.textContent;
   const titles = rows.filter((tr) => tr.className === 'group-row').map(groupTitle);
 
   assert.deepEqual(titles, ['Escala fixa', 'Apoio'], 'cabeçalhos dos dois grupos, nesta ordem');
@@ -369,7 +412,144 @@ test('tabela do painel separa "Escala fixa" (cargo) de "Apoio"', async (t) => {
   assert.ok(indiceApoio > indiceApoioHeader, 'staff sem cargo fica depois do cabeçalho Apoio');
 
   // O cabeçalho mostra a contagem de cada grupo.
-  const contagem = (tr) => tr.children[0]?.children[0]?.children[1]?.textContent;
+  const contagem = (tr) => groupHead(tr)?.children[2]?.textContent;
   assert.equal(contagem(rows.find((tr) => groupTitle(tr) === 'Escala fixa')), '1');
   assert.equal(contagem(rows.find((tr) => groupTitle(tr) === 'Apoio')), '1');
+});
+
+/* ------------------------------------------------------------------ */
+/* Redesign: gestão da equipe                                          */
+/* ------------------------------------------------------------------ */
+
+/** Abre o painel logado (com dois staff de exemplo) e devolve a página. */
+async function openPanel(t) {
+  const harness = await createHarness(t);
+  for (const [userId, name, status] of [
+    ['900000000000000901', 'ana-souza', 'DISPONIVEL'],
+    ['900000000000000902', 'bruno-lima', 'INDISPONIVEL'],
+  ]) {
+    await harness.env.services.staff.setStatus({
+      guildId: harness.env.guildId,
+      userId,
+      status,
+      updatedBy: 'teste',
+      manual: false,
+    });
+    await harness.env.services.hourBank.setDisplayName({
+      guildId: harness.env.guildId,
+      userId,
+      staffName: name,
+    });
+  }
+  const login = await harness.browserFetch('/api/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  const { token } = await login.json();
+  const page = harness.load({ hash: `#auth=${token}` });
+  await wait(300);
+  return { harness, page };
+}
+
+test('cada linha tem um único menu de ações, com as ações de antes', async (t) => {
+  const { page } = await openPanel(t);
+
+  const rows = page.doc.getElementById('staff-body').children.filter(
+    (tr) => tr.className !== 'group-row',
+  );
+
+  assert.ok(rows.length > 0, 'tabela com staff');
+  for (const tr of rows) {
+    const actions = tr.children[tr.children.length - 1];
+    assert.equal(actions.children.length, 1, 'um único botão de ações por linha');
+  }
+
+  // O menu vive no HTML: um único elemento para todas as linhas.
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'index.html'), 'utf8');
+  assert.match(html, /id="row-menu"/, 'existe um menu único compartilhado');
+  const actions = [...html.matchAll(/data-action="([a-z]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(actions, ['name', 'schedule', 'off', 'reset', 'block', 'remove']);
+});
+
+test('grupo recolhido esconde as linhas e o cabeçalho continua na tabela', async (t) => {
+  const { page } = await openPanel(t);
+  const body = page.doc.getElementById('staff-body');
+
+  const before = body.children.length;
+  const header = body.children.find((tr) => tr.className === 'group-row');
+  assert.ok(header, 'cabeçalho de grupo');
+  const toggle = header.children[0].children[0].children[0];
+  toggle.listeners.click[0]();
+
+  assert.ok(body.children.length < before, 'linhas do grupo recolhido somem');
+  const stillThere = body.children.find((tr) => tr.className.split(' ').includes('group-row'));
+  assert.ok(stillThere, 'o cabeçalho permanece na tabela');
+  const stillToggle = stillThere.children[0].children[0].children[0];
+  assert.equal(stillToggle.title, 'Expandir grupo', 'cabeçalho marcado como recolhido');
+
+  // Expande de novo.
+  stillToggle.listeners.click[0]();
+  assert.equal(body.children.length, before, 'volta ao estado anterior');
+});
+
+test('busca e filtro de status reduzem a tabela sem ir ao servidor', async (t) => {
+  const { page } = await openPanel(t);
+  const body = page.doc.getElementById('staff-body');
+  const total = body.children.length;
+
+  const search = page.doc.getElementById('staff-search');
+  search.value = 'zzz-nao-existe';
+  search.listeners.input[0]();
+  assert.ok(body.children.length < total, 'busca sem resultado encolhe a tabela');
+  assert.match(
+    body.children.map((tr) => tr.children[0]?.textContent || '').join(' '),
+    /Nenhum staff deste grupo combina/,
+  );
+
+  search.value = '';
+  search.listeners.input[0]();
+  assert.equal(body.children.length, total, 'limpar a busca restaura tudo');
+
+  const filters = page.doc.getElementById('staff-filter');
+  const blocked = { closest: () => ({ dataset: { filter: 'blocked' } }) };
+  filters.listeners.click[0]({ target: blocked });
+  const nomes = body.children
+    .filter((tr) => !tr.className.includes('group-row'))
+    .map((tr) => tr.children[0]?.children[0]?.children[0]?.textContent)
+    .filter(Boolean);
+  // Nenhum staff bloqueado nos dados de exemplo: a tabela não inventa linhas.
+  assert.deepEqual(nomes, [], 'filtro de bloqueados esconde todo mundo');
+  assert.match(
+    body.children.map((tr) => tr.children[0]?.textContent || '').join(' '),
+    /Nenhum staff deste grupo combina/,
+  );
+
+  const all = { closest: () => ({ dataset: { filter: 'all' } }) };
+  filters.listeners.click[0]({ target: all });
+  assert.equal(body.children.length, total, 'voltar para Todos restaura a tabela');
+});
+
+test('visão geral lista a equipe com atalho para as sessões', async (t) => {
+  const { page } = await openPanel(t);
+  const team = page.doc.getElementById('overview-team');
+  assert.ok(team.children.length > 0, 'mini lista da equipe preenchida');
+  const person = team.children[0];
+  assert.equal(person.className, 'overview-person');
+  assert.ok(person.listeners.click, 'clicar abre as sessões do staff');
+
+  person.listeners.click[0]();
+  assert.equal(page.doc.getElementById('sessions-modal').open, true, 'modal de sessões aberto');
+});
+
+test('sidebar recolhível troca o rótulo do botão', async (t) => {
+  const { page } = await openPanel(t);
+  const toggle = page.doc.getElementById('sidebar-toggle');
+  assert.equal(toggle.title, 'Recolher menu');
+
+  toggle.listeners.click[0]();
+  assert.equal(toggle.title, 'Expandir menu', 'recolhida');
+
+  toggle.listeners.click[0]();
+  assert.equal(toggle.title, 'Recolher menu', 'expandida de novo');
 });

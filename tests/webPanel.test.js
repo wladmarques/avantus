@@ -228,7 +228,8 @@ test('interface e assets são servidos para usuários autenticados', async (t) =
 
   const page = await panel.call('/');
   assert.equal(page.status, 200);
-  assert.match(page.text, /Banco de horas/);
+  // Redesign de gestão da equipe: título novo, mesmo servidor e mesmos assets.
+  assert.match(page.text, /Gestão da equipe/);
 
   const css = await panel.call('/styles.css');
   assert.equal(css.status, 200);
@@ -840,7 +841,8 @@ test('o painel expõe o botão "Tirar de serviço" só para quem está em servi�
   const app = fs.readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8');
   const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
 
-  assert.match(app, /if \(row\.session \|\| row\.available\) \{/);
+  // A ação mora no menu de três pontos, mas continua condicionada ao serviço.
+  assert.match(app, /off\.hidden = !\(row\.session \|\| row\.available\)/);
   assert.match(app, /\/off-service/);
   assert.match(app, /Tirar de serviço/);
   assert.match(html, /id="off-modal"/);
