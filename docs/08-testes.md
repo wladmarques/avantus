@@ -3,7 +3,7 @@
 ## Como rodar
 
 ```bash
-npm test             # 434 testes (node:test), sem token e sem internet
+npm test             # 437 testes (node:test), sem token e sem internet
 npm run lint         # valida a sintaxe de todos os arquivos
 npm run check:tracked # garante que todo arquivo-fonte está versionado
 ```
@@ -18,7 +18,7 @@ Os testes usam banco SQLite real em arquivo temporário e um `MemoryGateway` que
 | `tests/queue.test.js` | entrada, protocolo/posição, duplicidade, central fechada, desistência, saída do servidor, chamada sem voz, **duas chamadas simultâneas**, staff ocupado, fila vazia |
 | `tests/attendance.test.js` | chamada + movimentação, presença, finalização + avaliação, avaliação única, devolução à fila, políticas de pulo, motivo obrigatório, não compareceu, staff saiu, limpeza de fila |
 | `tests/voice.test.js` | presença por evento de voz, desconexão com tolerância, staff conectado/desconectado, staff que não retorna, jogador sai da espera |
-| `tests/shiftAbsence.test.js` | não entrada em serviço: registro após a tolerância, aviso aos cargos com `allowed_mentions`, sem repetição por verificação nem após reinício, "atrasou" ao entrar depois, "faltou" ao terminar o turno, tolerância 0, canal/cargos configuráveis e payload no `/api/overview` |
+| `tests/shiftAbsence.test.js` | não entrada em serviço: registro após a tolerância, aviso aos cargos com `allowed_mentions`, sem repetição por verificação nem após reinício, "atrasou" ao entrar depois, "faltou" ao terminar o turno, tolerância 0, canal/cargos configuráveis, payload no `/api/overview` e quem foi removido da equipe saindo da Presença (tabela, cartões, filtro e `/api/absences`) sem apagar o registro do banco |
 | `tests/hourBank.test.js` | escala (substituição, turno noturno, validação), sessão aberta/fechada pelo status, atendimento mantendo a contagem, atraso, relatório, resumo, aviso de 5 min sem duplicar, fechamento de sessão esquecida e desligamento do módulo |
 | `tests/webPanel.test.js` | autenticação do painel (401, senha errada, sessão, logout), painel desligado sem senha, salvar/remover escala pela API, relatório e sessões, assets estáticos |
 | `tests/availability.test.js` | entrada na fila só com staff disponível e central aberta: botão desabilitado (V2 e clássico), recusa com `SEM_STAFF`, staff ocupado, liberação imediata, entrada por voz bloqueada |

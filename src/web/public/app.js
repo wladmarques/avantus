@@ -736,19 +736,11 @@
     const counts = new Map();
     for (const absence of absences) counts.set(absence.userId, (counts.get(absence.userId) || 0) + 1);
 
-    // Todos os staff do painel + quem só aparece nas ausências (escala sem status).
+    // A lista do filtro é exatamente a equipe atual (mesma lista da tabela):
+    // registros de quem foi removido do quadro não aparecem aqui.
     const people = new Map();
     for (const row of overview.staff || []) {
       people.set(row.userId, { userId: row.userId, name: staffNameOf(row), count: counts.get(row.userId) || 0 });
-    }
-    for (const absence of absences) {
-      if (!people.has(absence.userId)) {
-        people.set(absence.userId, {
-          userId: absence.userId,
-          name: absence.staffName || `Usuário ${absence.userId}`,
-          count: counts.get(absence.userId) || 0,
-        });
-      }
     }
 
     const list = [...people.values()].sort(
@@ -885,28 +877,22 @@
 
     renderAbsenceStaffOptions(overview);
     const filter = state.absenceFilter;
+    // Só a equipe atual: um filtro apontando para quem saiu do quadro volta a
+    // "Todos" em vez de abrir o resumo de um staff que não existe mais.
     const selected = filter
-      ? (overview.staff || []).find((row) => row.userId === filter) ||
-        // Pessoa que só aparece nas ausências (escala antiga, cadastro removido):
-        // o resumo ainda mostra o que os registros dizem.
-        (all.some((absence) => absence.userId === filter)
-          ? {
-              userId: filter,
-              staffName: all.find((absence) => absence.userId === filter)?.staffName ?? null,
-              statusLabel: 'fora da lista da equipe',
-              session: null,
-              currentShift: null,
-              nextShift: null,
-              weekly: [],
-              totals: null,
-              group: null,
-              blocked: false,
-            }
-          : null)
+      ? (overview.staff || []).find((row) => row.userId === filter) || null
       : null;
-    const absences = filter ? all.filter((absence) => absence.userId === filter) : all;
+    if (filter && !selected) {
+      state.absenceFilter = '';
+      const select = $('absence-staff');
+      if (select) select.value = '';
+    }
+    const activeFilter = selected ? filter : '';
+    const absences = activeFilter
+      ? all.filter((absence) => absence.userId === activeFilter)
+      : all;
 
-    const summary = filter
+    const summary = activeFilter
       ? {
           missed: absences.filter((absence) => absence.status === 'FALTOU').length,
           late: absences.filter((absence) => absence.status === 'ATRASADO').length,
@@ -916,18 +902,14 @@
             .reduce((sum, absence) => sum + absence.lateMinutes, 0),
         }
       : overview.absencesSummary || {};
-    const filterName = filter
-      ? selected
-        ? staffNameOf(selected)
-        : absences[0]?.staffName || `Usuário ${filter}`
-      : null;
+    const filterName = selected ? staffNameOf(selected) : null;
 
     renderStaffSummary(selected, overview);
 
-    $('absence-filter-note').textContent = filter
+    $('absence-filter-note').textContent = activeFilter
       ? `Mostrando só ${filterName} — os cartões e a tabela seguem este filtro.`
       : '';
-    $('absence-table-note').textContent = filter
+    $('absence-table-note').textContent = activeFilter
       ? `Registros de ${filterName} no período selecionado.`
       : 'Registrado automático a partir da escala — o aviso vai para o canal de logs de atendimento.';
 
@@ -958,7 +940,7 @@
       const cell = el(
         'td',
         'empty',
-        filter
+        activeFilter
           ? `Nenhuma falta ou atraso de ${filterName} no período.`
           : 'Nenhuma falta ou atraso registrado no período.',
       );
