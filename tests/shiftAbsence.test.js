@@ -284,3 +284,89 @@ test('a hora do turno vai no aviso e no painel', async (t) => {
   const [alert] = alertMessages(env);
   assert.match(alert.payload.embeds[0].description, new RegExp(shift.start));
 });
+
+test('quem foi removido da equipe sai do histórico da Presença (o registro continua no banco)', async (t) => {
+  const env = await withSchedule(t, shiftStartedAgo(90, 60));
+  await env.services.hourBank.checkAbsences(env.guildId);
+
+  const before = env.services.hourBank.overview(env.guildId);
+  assert.equal(before.absences.length, 1, 'a falta aparece antes da remoção');
+  assert.equal(before.absencesSummary.missed, 1);
+
+  // Remoção pelo painel administrativo (mesma função da rota DELETE).
+  const { removeStaff } = require('../src/systems/staff/staffAdmin');
+  await removeStaff({ services: env.services, guildId: env.guildId, userId: STAFF, source: 'teste' });
+
+  // O registro de auditoria continua no banco...
+  const rows = env.services.db.all(
+    'SELECT * FROM staff_absences WHERE guild_id = ? AND user_id = ?',
+    [env.guildId, STAFF],
+  );
+  assert.equal(rows.length, 1, 'histórico preservado no banco');
+
+  // ...mas não aparece mais no painel.
+  const after = env.services.hourBank.overview(env.guildId);
+  assert.equal(after.absences.length, 0, 'fora da seção Presença');
+  assert.equal(after.absencesSummary.missed, 0, 'cartões sem o staff removido');
+  assert.equal(after.absencesSummary.lateMinutes, 0);
+  assert.equal(
+    after.staff.some((item) => item.userId === STAFF),
+    false,
+    'e fora da tabela da equipe',
+  );
+});
+
+test('/api/absences também ignora quem saiu da equipe', async (t) => {
+  const env = await withSchedule(t, shiftStartedAgo(90, 60));
+  await env.services.hourBank.checkAbsences(env.guildId);
+
+  const { createWebServer } = require('../src/web/server');
+  const { server } = createWebServer({
+    services: env.services,
+    env: { timezone: 'America/Sao_Paulo', guildId: env.guildId },
+    password: 'senha-de-teste',
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const login = await fetch(`${base}/api/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password: 'senha-de-teste' }),
+  });
+  const cookie = String(login.headers.get('set-cookie') || '').split(';')[0];
+
+  const { removeStaff } = require('../src/systems/staff/staffAdmin');
+  await removeStaff({ services: env.services, guildId: env.guildId, userId: STAFF, source: 'teste' });
+
+  const response = await fetch(`${base}/api/absences`, { headers: { cookie } });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.absences, [], 'rota devolve só a equipe atual');
+});
+
+test('staff removido que ainda tem o cargo no Discord não volta para a Presença', async (t) => {
+  const env = await withSchedule(t, shiftStartedAgo(90, 60));
+  await env.services.hourBank.checkAbsences(env.guildId);
+
+  const ROLE = '1566903220968624188';
+  // O membro continua no servidor e com o cargo da equipe (o cargo o traz de
+  // volta para a EQUIPE do painel, mas não para faltas/atrasos antigos).
+  env.gateway.members.set(STAFF, {
+    inGuild: true,
+    voiceChannelId: null,
+    displayName: 'pedrosa17',
+    staffRoles: [ROLE],
+  });
+  await env.services.settings.set('staff_panel_role_ids', [ROLE]);
+  await env.services.staff.refreshRoleCache(env.guildId, { force: true });
+
+  const { removeStaff } = require('../src/systems/staff/staffAdmin');
+  await removeStaff({ services: env.services, guildId: env.guildId, userId: STAFF, source: 'teste' });
+
+  const after = env.services.hourBank.overview(env.guildId);
+  assert.equal(after.absences.length, 0, 'sem o histórico de quem saiu da equipe');
+  assert.equal(after.absencesSummary.missed, 0);
+  assert.equal(after.absencesSummary.lateMinutes, 0);
+});

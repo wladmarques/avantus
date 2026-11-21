@@ -554,17 +554,44 @@ class HourBankService {
   }
 
   /**
+   * IDs de quem tem cadastro na equipe (status, nome ou escala).
+   *
+   * Serve para o histórico da seção Presença não mostrar quem foi removido do
+   * quadro: `removeStaff` apaga esses três registros, então a pessoa sai da
+   * lista mesmo continuando com o cargo no Discord (o cargo a traz de volta
+   * para a EQUIPE, mas não para faltas/atrasos antigos).
+   */
+  teamIds(guildId) {
+    const ids = new Set();
+    try {
+      if (this.staff) {
+        for (const row of this.staff.list(guildId)) ids.add(row.userId);
+      }
+      for (const userId of this.names(guildId).keys()) ids.add(userId);
+      for (const shift of this.listShifts(guildId)) ids.add(shift.userId);
+    } catch {
+      return null;
+    }
+    return ids;
+  }
+
+  /**
    * Lista as ausências do período com o estado já resolvido.
    *
    * - `ATRASOU`  → entrou em serviço depois do horário (compareceu)
    * - `ATRASADO` → o turno está correndo e a pessoa ainda não apareceu
    * - `FALTOU`   → o turno terminou sem ela
    */
-  absences(guildId, { from = null, to = null, now = Date.now() } = {}) {
-    const rows = this.repo.listAbsencesSync(guildId, {
-      from: from ?? now - 30 * 24 * 3600000,
-      to: to ?? now,
-    });
+  absences(guildId, { from = null, to = null, now = Date.now(), teamOnly = true } = {}) {
+    // `teamOnly` (padrão): só quem está na equipe agora. Os registros de quem
+    // foi removido do quadro continuam no banco, mas fora dos painéis.
+    const team = teamOnly ? this.teamIds(guildId) : null;
+    const rows = this.repo
+      .listAbsencesSync(guildId, {
+        from: from ?? now - 30 * 24 * 3600000,
+        to: to ?? now,
+      })
+      .filter((row) => !team || team.has(row.user_id));
 
     return rows.map((row) => {
       const returned = row.returned_at !== null && row.returned_at !== undefined;
@@ -1000,11 +1027,16 @@ class HourBankService {
 
     // Quem estava escalado e não entrou em serviço no período (o painel web
     // mostra a lista e o resumo dos cartões).
+    //
+    // Só entra aqui quem **está na equipe agora**: os registros de quem foi
+    // removido do quadro continuam no banco (auditoria/histórico), mas não
+    // podem reaparecer na seção Presença nem nos cartões.
+    const teamIds = new Set(staff.map((row) => row.userId));
     const absences = this.absences(guildId, {
       from: report.period.fromTs,
       to: now,
       now,
-    });
+    }).filter((item) => teamIds.has(item.userId));
     const absencesSummary = {
       total: absences.length,
       missed: absences.filter((item) => item.status === 'FALTOU').length,

@@ -54,6 +54,8 @@ Equipe, Presença, Central, Avaliações, Escala e Notificações.
 - **Presença** (seção própria): cartões de *faltas no período*, *em atraso agora*, *chegaram
   atrasados* e *minutos de atraso*, mais a tabela **Não entrada em serviço** com dia, staff,
   turno, situação (`faltou` / `em atraso` / `compareceu`) e a hora em que o bot registrou.
+  A seção mostra **só a equipe atual**: os registros de quem foi removido do quadro continuam
+  no banco (auditoria e histórico), mas não aparecem na tabela, nos cartões nem no filtro.
 - **Tabela da equipe** (elemento principal da gestão): nome e ID, status com indicador colorido
   — **verde** em serviço, **cinza** indisponível, **vermelho** bloqueado, **laranja** atenção —,
   turno de hoje, entrada, saída, horas do período, atrasos acumulados e o **menu de ações**.
@@ -294,7 +296,7 @@ Na tabela **Equipe**, cada staff tem dois botões administrativos:
 | Ação | O que acontece |
 | --- | --- |
 | **Bloquear** | o staff sai de serviço agora (sessão encerrada, desconectado do canal de trabalho) e **não consegue mais ficar disponível**: `/status disponível`, o menu do painel da equipe e a entrada no canal de atendimento são recusados até o desbloqueio. Continua na equipe, aparece como **BLOQUEADO** no painel do Discord e recebe uma DM com o motivo |
-| **Remover** | apaga o cadastro do staff (status, nome e escala). Ele sai do painel da equipe e do banco de horas. O **histórico** de horas e atendimentos já registrados continua nos relatórios |
+| **Remover** | apaga o cadastro do staff (status, nome e escala). Ele sai do painel da equipe e do banco de horas — inclusive da seção **Presença** (faltas/atrasos antigos). O **histórico** de horas e atendimentos continua nos relatórios e no banco |
 
 Ambas as ações são recusadas com erro **409** quando o staff está atendendo alguém — finalize ou
 transfira o atendimento antes. Tudo fica registrado no canal de log (`STAFF_BLOCK`, `STAFF_UNBLOCK`,
